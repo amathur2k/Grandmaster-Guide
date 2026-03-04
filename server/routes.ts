@@ -43,7 +43,10 @@ It is ${turnLabel}'s turn to move.`;
         contents: [
           { role: "user", parts: [{ text: SYSTEM_PROMPT + "\n\n" + userPrompt }] },
         ],
-        config: { maxOutputTokens: 2048 },
+        config: {
+          maxOutputTokens: 8192,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       });
 
       const explanation = response.text || "I couldn't analyze this position. Try making a few more moves!";
