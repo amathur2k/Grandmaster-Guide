@@ -106,6 +106,7 @@ export function useStockfish() {
 
       worker.onerror = (e) => {
         e.preventDefault();
+        setIsReady(false);
         setHasError(true);
       };
 
@@ -133,6 +134,7 @@ export function useStockfish() {
         workerRef.current.postMessage("position fen " + fen);
         workerRef.current.postMessage("go depth " + depth);
       } catch {
+        setIsReady(false);
         setHasError(true);
       }
     }
