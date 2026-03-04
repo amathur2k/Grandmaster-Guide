@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import type { ChatMessage } from "@shared/schema";
 import {
   RotateCcw,
   ChevronFirst,
@@ -26,13 +27,41 @@ export default function ChessCoach() {
   const [playerColor, setPlayerColor] = useState<"white" | "black">("white");
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
   const [pgnInput, setPgnInput] = useState("");
-  const [explanation, setExplanation] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isChatLoading, setIsChatLoading] = useState(false);
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardSize, setBoardSize] = useState(400);
 
   const { evaluation, isReady, hasError, evaluate } = useStockfish();
   const { toast } = useToast();
+
+  const getCurrentPgn = useCallback(() => {
+    const pgnGame = new Chess();
+    const movesUpToCurrent = allMoves.slice(0, currentMoveIndex + 1);
+    for (const move of movesUpToCurrent) {
+      pgnGame.move(move);
+    }
+    return pgnGame.pgn();
+  }, [allMoves, currentMoveIndex]);
+
+  const getPositionContext = useCallback(() => {
+    const evalDisplay =
+      evaluation.mate !== null
+        ? `Mate in ${Math.abs(evaluation.mate)}`
+        : evaluation.score >= 0
+          ? `+${evaluation.score.toFixed(1)}`
+          : evaluation.score.toFixed(1);
+
+    return {
+      fen: game.fen(),
+      pgn: getCurrentPgn(),
+      evaluation: evalDisplay,
+      topMoves: evaluation.topMoves,
+      turn: game.turn() as "w" | "b",
+      playerColor,
+    };
+  }, [game, getCurrentPgn, evaluation, playerColor]);
 
   useEffect(() => {
     const updateBoardSize = () => {
@@ -78,7 +107,7 @@ export default function ChessCoach() {
         setAllMoves(newMoves);
         setCurrentMoveIndex(newMoves.length - 1);
         setGame(gameCopy);
-        setExplanation("");
+        setChatMessages([]);
         return true;
       } catch {
         return false;
@@ -95,7 +124,7 @@ export default function ChessCoach() {
       }
       setCurrentMoveIndex(index);
       setGame(gameCopy);
-      setExplanation("");
+      setChatMessages([]);
     },
     [allMoves]
   );
@@ -103,7 +132,7 @@ export default function ChessCoach() {
   const goToStart = useCallback(() => {
     setCurrentMoveIndex(-1);
     setGame(new Chess());
-    setExplanation("");
+    setChatMessages([]);
   }, []);
 
   const goToEnd = useCallback(() => {
@@ -132,7 +161,7 @@ export default function ChessCoach() {
     setGame(new Chess());
     setAllMoves([]);
     setCurrentMoveIndex(-1);
-    setExplanation("");
+    setChatMessages([]);
     setPgnInput("");
   }, []);
 
@@ -163,7 +192,7 @@ export default function ChessCoach() {
       setAllMoves(history);
       setCurrentMoveIndex(history.length - 1);
       setGame(gameCopy);
-      setExplanation("");
+      setChatMessages([]);
       toast({
         title: "PGN Loaded",
         description: `Loaded ${history.length} moves successfully.`,
@@ -179,35 +208,17 @@ export default function ChessCoach() {
 
   const explainPosition = useCallback(async () => {
     setIsAnalyzing(true);
+    setChatMessages([]);
     try {
-      const fen = game.fen();
-
-      const pgnGame = new Chess();
-      const movesUpToCurrent = allMoves.slice(0, currentMoveIndex + 1);
-      for (const move of movesUpToCurrent) {
-        pgnGame.move(move);
-      }
-      const pgn = pgnGame.pgn();
-
-      const evalDisplay =
-        evaluation.mate !== null
-          ? `Mate in ${Math.abs(evaluation.mate)}`
-          : evaluation.score >= 0
-            ? `+${evaluation.score.toFixed(1)}`
-            : evaluation.score.toFixed(1);
-
-      const response = await apiRequest("POST", "/api/analyze", {
-        fen,
-        pgn,
-        evaluation: evalDisplay,
-        topMoves: evaluation.topMoves,
-        turn: game.turn(),
-        playerColor,
-      });
-
+      const context = getPositionContext();
+      const response = await apiRequest("POST", "/api/analyze", context);
       const data = await response.json();
-      setExplanation(data.explanation);
-    } catch (error) {
+
+      setChatMessages([
+        { role: "user", text: "Explain this position" },
+        { role: "model", text: data.explanation },
+      ]);
+    } catch {
       toast({
         title: "Analysis Failed",
         description: "Could not get AI explanation. Please try again.",
@@ -216,7 +227,37 @@ export default function ChessCoach() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [game, allMoves, currentMoveIndex, evaluation, playerColor, toast]);
+  }, [getPositionContext, toast]);
+
+  const sendChatMessage = useCallback(async (text: string) => {
+    const userMessage: ChatMessage = { role: "user", text };
+    setChatMessages(prev => [...prev, userMessage]);
+    setIsChatLoading(true);
+
+    try {
+      const context = getPositionContext();
+      const currentMessages = [...chatMessages, userMessage];
+      const response = await apiRequest("POST", "/api/chat", {
+        ...context,
+        messages: currentMessages,
+      });
+      const data = await response.json();
+
+      setChatMessages(prev => [...prev, { role: "model", text: data.reply }]);
+    } catch {
+      toast({
+        title: "Chat Error",
+        description: "Could not get a response. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsChatLoading(false);
+    }
+  }, [chatMessages, getPositionContext, toast]);
+
+  const clearChat = useCallback(() => {
+    setChatMessages([]);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -305,7 +346,7 @@ export default function ChessCoach() {
       </header>
 
       <div className="flex-1 flex min-h-0 overflow-hidden">
-        <div className="flex flex-1 min-h-0">
+        <div className="flex flex-1 min-h-0 min-w-0">
           <div className="flex items-stretch py-4 pl-4">
             <EvalBar evaluation={evaluation} isReady={isReady} />
           </div>
@@ -410,24 +451,25 @@ export default function ChessCoach() {
           </div>
         </div>
 
-        <div className="w-72 xl:w-80 border-l border-border flex flex-col min-h-0 shrink-0">
-          <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-            <div className="h-[45%] border-b border-border overflow-hidden">
-              <MoveHistory
-                moves={allMoves}
-                currentMoveIndex={currentMoveIndex}
-                onMoveClick={goToMove}
-              />
-            </div>
-            <div className="flex-1 min-h-0 p-3 overflow-auto">
-              <CoachConsole
-                evaluation={evaluation}
-                explanation={explanation}
-                isAnalyzing={isAnalyzing}
-                isEngineReady={isReady}
-                onExplain={explainPosition}
-              />
-            </div>
+        <div className="flex-1 min-w-[320px] max-w-[480px] border-l border-border flex flex-col min-h-0">
+          <div className="h-[200px] border-b border-border overflow-hidden shrink-0">
+            <MoveHistory
+              moves={allMoves}
+              currentMoveIndex={currentMoveIndex}
+              onMoveClick={goToMove}
+            />
+          </div>
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <CoachConsole
+              evaluation={evaluation}
+              isAnalyzing={isAnalyzing}
+              isEngineReady={isReady}
+              onExplain={explainPosition}
+              messages={chatMessages}
+              onSendMessage={sendChatMessage}
+              isChatLoading={isChatLoading}
+              onClearChat={clearChat}
+            />
           </div>
         </div>
       </div>
