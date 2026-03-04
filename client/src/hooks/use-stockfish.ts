@@ -17,6 +17,20 @@ export function useStockfish() {
   });
 
   useEffect(() => {
+    const handleGlobalError = (e: ErrorEvent) => {
+      if (e.filename?.includes("stockfish") || e.message?.includes("stockfish")) {
+        e.preventDefault();
+      }
+    };
+    const handleUnhandledRejection = (e: PromiseRejectionEvent) => {
+      const reason = String(e.reason || "");
+      if (reason.includes("stockfish") || reason.includes("Worker")) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("error", handleGlobalError);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+
     try {
       const worker = new Worker("/stockfish.js");
       workerRef.current = worker;
@@ -90,7 +104,8 @@ export function useStockfish() {
         }
       };
 
-      worker.onerror = () => {
+      worker.onerror = (e) => {
+        e.preventDefault();
         setHasError(true);
       };
 
@@ -103,22 +118,31 @@ export function useStockfish() {
 
     return () => {
       workerRef.current?.terminate();
+      window.removeEventListener("error", handleGlobalError);
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
     };
   }, []);
 
   const evaluate = useCallback((fen: string, turn: "w" | "b", depth = 18) => {
     if (workerRef.current && isReady) {
-      const id = ++requestIdRef.current;
-      currentRequestIdRef.current = id;
-      turnRef.current = turn;
-      workerRef.current.postMessage("stop");
-      workerRef.current.postMessage("position fen " + fen);
-      workerRef.current.postMessage("go depth " + depth);
+      try {
+        const id = ++requestIdRef.current;
+        currentRequestIdRef.current = id;
+        turnRef.current = turn;
+        workerRef.current.postMessage("stop");
+        workerRef.current.postMessage("position fen " + fen);
+        workerRef.current.postMessage("go depth " + depth);
+      } catch {
+        setHasError(true);
+      }
     }
   }, [isReady]);
 
   const stop = useCallback(() => {
-    workerRef.current?.postMessage("stop");
+    try {
+      workerRef.current?.postMessage("stop");
+    } catch {
+    }
   }, []);
 
   return { evaluation, isReady, hasError, evaluate, stop };
