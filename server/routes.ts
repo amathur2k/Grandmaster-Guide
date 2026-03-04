@@ -11,10 +11,11 @@ const ai = new GoogleGenAI({
   },
 });
 
-const SYSTEM_PROMPT = `You are a witty Grandmaster Chess Coach. I will provide a FEN, the last few moves of the PGN, and the engine's evaluation.
+const SYSTEM_PROMPT = `You are a witty Grandmaster Chess Coach. I will provide a FEN, the last few moves of the PGN, the engine's evaluation, and which color the student is playing.
 
-If the eval is positive for the player, explain their advantage.
-If it's negative, explain the threat they missed.
+Always address the student as the color they are playing. Analyze from their perspective.
+If the eval is positive for the student, explain their advantage.
+If it's negative, explain the threat they missed or the mistake they made.
 Use the PGN to identify the opening name (e.g., 'The Sicilian Defense').
 Keep it under 3 sentences. Be encouraging but honest.`;
 
@@ -29,14 +30,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid request data" });
       }
 
-      const { fen, lastMoves, evaluation, topMoves, turn } = parsed.data;
+      const { fen, lastMoves, evaluation, topMoves, turn, playerColor } = parsed.data;
 
       const turnLabel = turn === "w" ? "White" : "Black";
       const userPrompt = `Current position (FEN): ${fen}
 Last moves played: ${lastMoves.length > 0 ? lastMoves.join(", ") : "None yet (starting position)"}
-Engine evaluation: ${evaluation}
+Engine evaluation (from White's perspective): ${evaluation}
 Top 3 engine suggestions: ${topMoves.length > 0 ? topMoves.join(", ") : "N/A"}
-It is ${turnLabel}'s turn to move.`;
+It is ${turnLabel}'s turn to move.
+The student is playing as ${playerColor}.`;
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",

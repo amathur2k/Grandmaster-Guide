@@ -23,6 +23,7 @@ export default function ChessCoach() {
   const [game, setGame] = useState(new Chess());
   const [allMoves, setAllMoves] = useState<string[]>([]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
+  const [playerColor, setPlayerColor] = useState<"white" | "black">("white");
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
   const [pgnInput, setPgnInput] = useState("");
   const [explanation, setExplanation] = useState("");
@@ -198,6 +199,7 @@ export default function ChessCoach() {
         evaluation: evalDisplay,
         topMoves: evaluation.topMoves,
         turn: game.turn(),
+        playerColor,
       });
 
       const data = await response.json();
@@ -211,7 +213,7 @@ export default function ChessCoach() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [game, allMoves, currentMoveIndex, evaluation, toast]);
+  }, [game, allMoves, currentMoveIndex, evaluation, playerColor, toast]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -253,7 +255,31 @@ export default function ChessCoach() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 border border-border rounded-md p-0.5" data-testid="player-color-selector">
+            <button
+              onClick={() => { setPlayerColor("white"); setBoardOrientation("white"); }}
+              className={`text-xs font-medium px-2.5 py-1 rounded-sm transition-colors ${
+                playerColor === "white"
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground"
+              }`}
+              data-testid="button-play-white"
+            >
+              White
+            </button>
+            <button
+              onClick={() => { setPlayerColor("black"); setBoardOrientation("black"); }}
+              className={`text-xs font-medium px-2.5 py-1 rounded-sm transition-colors ${
+                playerColor === "black"
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground"
+              }`}
+              data-testid="button-play-black"
+            >
+              Black
+            </button>
+          </div>
           <span
             className={`text-xs font-medium px-2 py-1 rounded-md ${
               hasError

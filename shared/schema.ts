@@ -6,6 +6,7 @@ export const analyzePositionSchema = z.object({
   evaluation: z.string(),
   topMoves: z.array(z.string()),
   turn: z.enum(["w", "b"]),
+  playerColor: z.enum(["white", "black"]),
 });
 
 export type AnalyzePositionRequest = z.infer<typeof analyzePositionSchema>;
