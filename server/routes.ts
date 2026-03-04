@@ -18,7 +18,7 @@ If the eval is positive for the student, explain their advantage and what they'r
 If it's negative, explain the threat they missed or the mistake they made, and suggest what they should have done.
 Identify the opening name precisely (e.g., 'The Sicilian Defense, Najdorf Variation'). Use web search to look up the opening if needed.
 If the position is in the middlegame or endgame, identify key strategic themes (pawn structure, piece activity, king safety, etc.).
-Keep it under 5 sentences. Be encouraging but honest.`;
+Be succinct and to the point. Be encouraging but honest.`;
 
 export async function registerRoutes(
   httpServer: Server,
