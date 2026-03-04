@@ -40,6 +40,11 @@ Top 3 engine suggestions: ${topMoves.length > 0 ? topMoves.join(", ") : "N/A"}
 It is ${turnLabel}'s turn to move.
 The student is playing as ${playerColor}.`;
 
+      const fullPrompt = SYSTEM_PROMPT + "\n\n" + userPrompt;
+      console.log("--- GEMINI PROMPT ---");
+      console.log(fullPrompt);
+      console.log("--- END PROMPT ---");
+
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: [
