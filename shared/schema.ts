@@ -1,18 +1,23 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+export const analyzePositionSchema = z.object({
+  fen: z.string(),
+  lastMoves: z.array(z.string()),
+  evaluation: z.string(),
+  topMoves: z.array(z.string()),
+  turn: z.enum(["w", "b"]),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-});
+export type AnalyzePositionRequest = z.infer<typeof analyzePositionSchema>;
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export interface AnalyzePositionResponse {
+  explanation: string;
+}
+
+export interface StockfishEvaluation {
+  score: number;
+  bestMove: string;
+  topMoves: string[];
+  depth: number;
+  mate: number | null;
+}
