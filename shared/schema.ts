@@ -33,10 +33,18 @@ export interface AnalyzePositionResponse {
   explanation: string;
 }
 
+export interface EngineLine {
+  move: string;
+  score: number;
+  mate: number | null;
+  pv: string[];
+}
+
 export interface StockfishEvaluation {
   score: number;
   bestMove: string;
   topMoves: string[];
+  lines: EngineLine[];
   depth: number;
   mate: number | null;
 }

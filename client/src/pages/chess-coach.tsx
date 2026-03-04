@@ -4,6 +4,7 @@ import { Chessboard } from "react-chessboard";
 import { useStockfish } from "@/hooks/use-stockfish";
 import { EvalBar } from "@/components/eval-bar";
 import { MoveHistory } from "@/components/move-history";
+import { EngineLines } from "@/components/engine-lines";
 import { CoachConsole } from "@/components/coach-console";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -255,6 +256,12 @@ export default function ChessCoach() {
     }
   }, [chatMessages, getPositionContext, toast]);
 
+  const explainMove = useCallback((moveUci: string, moveSan: string, score: string, pvSan: string) => {
+    const turnLabel = game.turn() === "w" ? "White" : "Black";
+    const question = `Why is ${moveSan} (${score}) the engine's recommended move for ${turnLabel}? The continuation is: ${pvSan}. Explain the idea behind this move.`;
+    sendChatMessage(question);
+  }, [game, sendChatMessage]);
+
   const clearChat = useCallback(() => {
     setChatMessages([]);
   }, []);
@@ -452,11 +459,30 @@ export default function ChessCoach() {
         </div>
 
         <div className="flex-1 min-w-[320px] max-w-[480px] border-l border-border flex flex-col min-h-0">
-          <div className="h-[200px] border-b border-border overflow-hidden shrink-0">
+          <div className="h-[160px] border-b border-border overflow-hidden shrink-0">
             <MoveHistory
               moves={allMoves}
               currentMoveIndex={currentMoveIndex}
               onMoveClick={goToMove}
+            />
+          </div>
+          <div className="border-b border-border shrink-0">
+            <div className="flex items-center px-4 pt-2 pb-1">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Engine Lines
+              </h3>
+              {evaluation.depth > 0 && (
+                <span className="text-[10px] text-muted-foreground ml-auto font-mono">
+                  depth {evaluation.depth}
+                </span>
+              )}
+            </div>
+            <EngineLines
+              lines={evaluation.lines}
+              fen={game.fen()}
+              turn={game.turn() as "w" | "b"}
+              isReady={isReady}
+              onExplainMove={explainMove}
             />
           </div>
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">

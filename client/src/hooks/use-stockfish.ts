@@ -12,6 +12,7 @@ export function useStockfish() {
     score: 0,
     bestMove: "",
     topMoves: [],
+    lines: [],
     depth: 0,
     mate: null,
   });
@@ -36,10 +37,12 @@ export function useStockfish() {
       workerRef.current = worker;
 
       let topMovesCollected: string[] = [];
+      let linesCollected: { move: string; score: number; mate: number | null; pv: string[] }[] = [];
       let currentEval: StockfishEvaluation = {
         score: 0,
         bestMove: "",
         topMoves: [],
+        lines: [],
         depth: 0,
         mate: null,
       };
@@ -73,17 +76,22 @@ export function useStockfish() {
             const mate = rawMate !== null ? (turnRef.current === "b" ? -rawMate : rawMate) : null;
             const pv = pvMatch ? pvMatch[1].split(" ") : [];
 
+            const lineData = { move: pv[0] || "", score, mate, pv };
+
             if (multipv === 1) {
               currentEval.score = score;
               currentEval.depth = depth;
               currentEval.mate = mate;
               currentEval.bestMove = pv[0] || "";
               topMovesCollected = [pv[0] || ""];
+              linesCollected = [lineData];
             } else if (multipv <= 3) {
               topMovesCollected[multipv - 1] = pv[0] || "";
+              linesCollected[multipv - 1] = lineData;
             }
 
             currentEval.topMoves = [...topMovesCollected];
+            currentEval.lines = [...linesCollected];
 
             const reqId = currentRequestIdRef.current;
             if (reqId === requestIdRef.current) {
