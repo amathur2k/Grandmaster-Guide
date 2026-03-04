@@ -75,14 +75,14 @@ export function CoachConsole({
         )}
       </Button>
 
-      <div className="flex-1 min-h-0">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5">
+      <div className="flex-1 min-h-0 flex flex-col">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5 shrink-0">
           <Brain className="w-3.5 h-3.5" />
           Coach Says
         </h3>
-        <Card className="p-4 h-[calc(100%-2rem)] overflow-auto bg-card">
+        <Card className="p-4 flex-1 min-h-0 overflow-auto bg-card">
           {explanation ? (
-            <p className="text-sm leading-relaxed" data-testid="text-explanation">
+            <p className="text-sm leading-relaxed whitespace-pre-wrap" data-testid="text-explanation">
               {explanation}
             </p>
           ) : (
