@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const analyzePositionSchema = z.object({
   fen: z.string(),
-  lastMoves: z.array(z.string()),
+  pgn: z.string(),
   evaluation: z.string(),
   topMoves: z.array(z.string()),
   turn: z.enum(["w", "b"]),

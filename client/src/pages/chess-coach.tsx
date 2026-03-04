@@ -181,10 +181,13 @@ export default function ChessCoach() {
     setIsAnalyzing(true);
     try {
       const fen = game.fen();
-      const lastMoves = allMoves.slice(
-        Math.max(0, currentMoveIndex - 3),
-        currentMoveIndex + 1
-      );
+
+      const pgnGame = new Chess();
+      const movesUpToCurrent = allMoves.slice(0, currentMoveIndex + 1);
+      for (const move of movesUpToCurrent) {
+        pgnGame.move(move);
+      }
+      const pgn = pgnGame.pgn();
 
       const evalDisplay =
         evaluation.mate !== null
@@ -195,7 +198,7 @@ export default function ChessCoach() {
 
       const response = await apiRequest("POST", "/api/analyze", {
         fen,
-        lastMoves,
+        pgn,
         evaluation: evalDisplay,
         topMoves: evaluation.topMoves,
         turn: game.turn(),

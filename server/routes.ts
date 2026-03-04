@@ -11,13 +11,14 @@ const ai = new GoogleGenAI({
   },
 });
 
-const SYSTEM_PROMPT = `You are a witty Grandmaster Chess Coach. I will provide a FEN, the last few moves of the PGN, the engine's evaluation, and which color the student is playing.
+const SYSTEM_PROMPT = `You are a witty Grandmaster Chess Coach. I will provide the full PGN of the game so far, the current FEN, the engine's evaluation, and which color the student is playing.
 
 Always address the student as the color they are playing. Analyze from their perspective.
-If the eval is positive for the student, explain their advantage.
-If it's negative, explain the threat they missed or the mistake they made.
-Use the PGN to identify the opening name (e.g., 'The Sicilian Defense').
-Keep it under 3 sentences. Be encouraging but honest.`;
+If the eval is positive for the student, explain their advantage and what they're doing right.
+If it's negative, explain the threat they missed or the mistake they made, and suggest what they should have done.
+Identify the opening name precisely (e.g., 'The Sicilian Defense, Najdorf Variation'). Use web search to look up the opening if needed.
+If the position is in the middlegame or endgame, identify key strategic themes (pawn structure, piece activity, king safety, etc.).
+Keep it under 5 sentences. Be encouraging but honest.`;
 
 export async function registerRoutes(
   httpServer: Server,
@@ -30,11 +31,11 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid request data" });
       }
 
-      const { fen, lastMoves, evaluation, topMoves, turn, playerColor } = parsed.data;
+      const { fen, pgn, evaluation, topMoves, turn, playerColor } = parsed.data;
 
       const turnLabel = turn === "w" ? "White" : "Black";
-      const userPrompt = `Current position (FEN): ${fen}
-Last moves played: ${lastMoves.length > 0 ? lastMoves.join(", ") : "None yet (starting position)"}
+      const userPrompt = `Full PGN of the game: ${pgn || "No moves yet (starting position)"}
+Current position (FEN): ${fen}
 Engine evaluation (from White's perspective): ${evaluation}
 Top 3 engine suggestions: ${topMoves.length > 0 ? topMoves.join(", ") : "N/A"}
 It is ${turnLabel}'s turn to move.
@@ -46,13 +47,13 @@ The student is playing as ${playerColor}.`;
       console.log("--- END PROMPT ---");
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-pro",
         contents: [
-          { role: "user", parts: [{ text: SYSTEM_PROMPT + "\n\n" + userPrompt }] },
+          { role: "user", parts: [{ text: fullPrompt }] },
         ],
         config: {
           maxOutputTokens: 8192,
-          thinkingConfig: { thinkingBudget: 0 },
+          tools: [{ googleSearch: {} }],
         },
       });
 
