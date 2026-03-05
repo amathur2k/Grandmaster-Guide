@@ -139,21 +139,26 @@ export default function ChessCoach() {
     (index: number) => {
       isNavigatingRef.current = true;
       const gameCopy = new Chess();
-      for (let i = 0; i <= index; i++) {
-        gameCopy.move(allMoves[i]);
+      const truncatedMoves = allMoves.slice(0, index + 1);
+      for (const move of truncatedMoves) {
+        gameCopy.move(move);
       }
+      setAllMoves(truncatedMoves);
       setCurrentMoveIndex(index);
       setGame(gameCopy);
       setChatMessages([]);
+      setScoreHistory(prev => prev.slice(0, index + 1));
     },
     [allMoves]
   );
 
   const goToStart = useCallback(() => {
     isNavigatingRef.current = true;
+    setAllMoves([]);
     setCurrentMoveIndex(-1);
     setGame(new Chess());
     setChatMessages([]);
+    setScoreHistory([]);
   }, []);
 
   const goToEnd = useCallback(() => {
