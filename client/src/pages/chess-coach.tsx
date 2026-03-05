@@ -97,6 +97,7 @@ export default function ChessCoach() {
   useEffect(() => {
     if (currentMoveIndex >= 0 && evaluation.depth >= 10 && !isComputingScores) {
       setScoreHistory(prev => {
+        if (prev[currentMoveIndex]) return prev;
         const updated = [...prev];
         updated[currentMoveIndex] = { score: evaluation.score, mate: evaluation.mate };
         return updated;
@@ -124,6 +125,7 @@ export default function ChessCoach() {
         setCurrentMoveIndex(newMoves.length - 1);
         setGame(gameCopy);
         setChatMessages([]);
+        setScoreHistory(prev => prev.slice(0, currentMoveIndex + 1));
         return true;
       } catch {
         return false;

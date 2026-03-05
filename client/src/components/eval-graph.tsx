@@ -12,9 +12,11 @@ interface EvalGraphProps {
 }
 
 const CLAMP = 5;
-const HEIGHT = 64;
-const PADDING_X = 4;
-const PADDING_Y = 2;
+const HEIGHT = 80;
+const PADDING_LEFT = 28;
+const PADDING_RIGHT = 4;
+const PADDING_Y = 4;
+const VIEW_WIDTH = 620;
 
 function clampScore(score: number, mate: number | null): number {
   if (mate !== null) {
@@ -22,6 +24,8 @@ function clampScore(score: number, mate: number | null): number {
   }
   return Math.max(-CLAMP, Math.min(CLAMP, score));
 }
+
+const AXIS_TICKS = [5, 2.5, 0, -2.5, -5];
 
 export function EvalGraph({ scores, currentMoveIndex, onMoveClick }: EvalGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -33,7 +37,10 @@ export function EvalGraph({ scores, currentMoveIndex, onMoveClick }: EvalGraphPr
       if (!svg) return;
       const rect = svg.getBoundingClientRect();
       const x = e.clientX - rect.left;
-      const ratio = x / rect.width;
+      const pxLeft = (PADDING_LEFT / VIEW_WIDTH) * rect.width;
+      const pxRight = (PADDING_RIGHT / VIEW_WIDTH) * rect.width;
+      const usableWidth = rect.width - pxLeft - pxRight;
+      const ratio = (x - pxLeft) / usableWidth;
       const index = Math.round(ratio * (scores.length - 1));
       const clamped = Math.max(0, Math.min(scores.length - 1, index));
       onMoveClick(clamped);
@@ -41,27 +48,30 @@ export function EvalGraph({ scores, currentMoveIndex, onMoveClick }: EvalGraphPr
     [scores, onMoveClick]
   );
 
-  const { areaPath, linePath, dots, currentX, midY, width } = useMemo(() => {
-    const w = 600;
-    const usableW = w - PADDING_X * 2;
+  const { areaPath, linePath, dots, currentX, midY } = useMemo(() => {
+    const usableW = VIEW_WIDTH - PADDING_LEFT - PADDING_RIGHT;
     const usableH = HEIGHT - PADDING_Y * 2;
     const mid = PADDING_Y + usableH / 2;
 
-    if (scores.length === 0) {
-      return { areaPath: "", linePath: "", dots: [], currentX: 0, midY: mid, width: w };
+    let firstGap = scores.findIndex(s => !s);
+    if (firstGap === -1) firstGap = scores.length;
+    const denseScores = scores.slice(0, firstGap);
+
+    if (denseScores.length === 0) {
+      return { areaPath: "", linePath: "", dots: [], currentX: 0, midY: mid };
     }
 
-    const points = scores.map((s, i) => {
-      const x = scores.length === 1
-        ? PADDING_X + usableW / 2
-        : PADDING_X + (i / (scores.length - 1)) * usableW;
+    const points = denseScores.map((s, i) => {
+      const x = denseScores.length === 1
+        ? PADDING_LEFT + usableW / 2
+        : PADDING_LEFT + (i / (denseScores.length - 1)) * usableW;
       const entry = s || { score: 0, mate: null };
       const normalized = clampScore(entry.score, entry.mate);
       const y = mid - (normalized / CLAMP) * (usableH / 2);
       return { x, y };
     });
 
-    let area = `M ${PADDING_X},${mid}`;
+    let area = `M ${PADDING_LEFT},${mid}`;
     for (const p of points) {
       area += ` L ${p.x},${p.y}`;
     }
@@ -72,9 +82,9 @@ export function EvalGraph({ scores, currentMoveIndex, onMoveClick }: EvalGraphPr
       line += ` L ${points[i].x},${points[i].y}`;
     }
 
-    const dotData = scores.map((s, i) => {
+    const dotData = denseScores.map((s, i) => {
       const entry = s || { score: 0, mate: null };
-      const prevEntry = i > 0 ? (scores[i - 1] || { score: 0, mate: null }) : { score: 0, mate: null };
+      const prevEntry = i > 0 ? (denseScores[i - 1] || { score: 0, mate: null }) : { score: 0, mate: null };
       const prevScore = clampScore(prevEntry.score, prevEntry.mate);
       const curScore = clampScore(entry.score, entry.mate);
       const swing = Math.abs(curScore - prevScore);
@@ -95,13 +105,15 @@ export function EvalGraph({ scores, currentMoveIndex, onMoveClick }: EvalGraphPr
       };
     });
 
-    const curIdx = Math.max(0, Math.min(currentMoveIndex, scores.length - 1));
-    const cx = points[curIdx]?.x ?? PADDING_X;
+    const curIdx = Math.max(0, Math.min(currentMoveIndex, denseScores.length - 1));
+    const cx = points[curIdx]?.x ?? PADDING_LEFT;
 
-    return { areaPath: area, linePath: line, dots: dotData, currentX: cx, midY: mid, width: w };
+    return { areaPath: area, linePath: line, dots: dotData, currentX: cx, midY: mid };
   }, [scores, currentMoveIndex]);
 
-  if (scores.length === 0) {
+  const hasDenseScores = scores.some(s => !!s);
+
+  if (!hasDenseScores) {
     return (
       <div
         className="w-full bg-muted/30 border border-border rounded-md flex items-center justify-center"
@@ -113,30 +125,58 @@ export function EvalGraph({ scores, currentMoveIndex, onMoveClick }: EvalGraphPr
     );
   }
 
+  const usableH = HEIGHT - PADDING_Y * 2;
+
   return (
     <svg
       ref={svgRef}
-      viewBox={`0 0 ${width} ${HEIGHT}`}
+      viewBox={`0 0 ${VIEW_WIDTH} ${HEIGHT}`}
       className="w-full border border-border rounded-md cursor-pointer bg-white dark:bg-zinc-900"
       style={{ height: HEIGHT }}
       onClick={handleClick}
       preserveAspectRatio="none"
       data-testid="eval-graph"
     >
-      <rect x="0" y="0" width={width} height={midY} fill="#f8fafc" className="dark:fill-zinc-800" />
-      <rect x="0" y={midY} width={width} height={HEIGHT - midY} fill="#e2e8f0" className="dark:fill-zinc-950" />
+      <rect x={PADDING_LEFT} y="0" width={VIEW_WIDTH - PADDING_LEFT} height={midY} fill="#f8fafc" className="dark:fill-zinc-800" />
+      <rect x={PADDING_LEFT} y={midY} width={VIEW_WIDTH - PADDING_LEFT} height={HEIGHT - midY} fill="#e2e8f0" className="dark:fill-zinc-950" />
+      <rect x="0" y="0" width={PADDING_LEFT} height={HEIGHT} fill="#ffffff" className="dark:fill-zinc-900" />
 
-      <line
-        x1={PADDING_X} y1={midY} x2={width - PADDING_X} y2={midY}
-        stroke="#94a3b8" strokeWidth="0.5" strokeDasharray="4,3"
-      />
+      {AXIS_TICKS.map(tick => {
+        const y = PADDING_Y + usableH / 2 - (tick / CLAMP) * (usableH / 2);
+        const label = tick === 0 ? "0" : tick > 0 ? `+${tick}` : `${tick}`;
+        return (
+          <g key={tick}>
+            <line
+              x1={PADDING_LEFT}
+              y1={y}
+              x2={VIEW_WIDTH - PADDING_RIGHT}
+              y2={y}
+              stroke={tick === 0 ? "#94a3b8" : "#cbd5e1"}
+              strokeWidth={tick === 0 ? "0.6" : "0.3"}
+              strokeDasharray={tick === 0 ? "4,3" : "2,3"}
+              className={tick === 0 ? "" : "dark:stroke-zinc-700"}
+            />
+            <text
+              x={PADDING_LEFT - 3}
+              y={y}
+              textAnchor="end"
+              dominantBaseline="central"
+              fontSize="7"
+              fill="#94a3b8"
+              className="dark:fill-zinc-500"
+            >
+              {label}
+            </text>
+          </g>
+        );
+      })}
 
       <defs>
         <clipPath id="white-area">
-          <rect x="0" y="0" width={width} height={midY} />
+          <rect x={PADDING_LEFT} y="0" width={VIEW_WIDTH - PADDING_LEFT} height={midY} />
         </clipPath>
         <clipPath id="black-area">
-          <rect x="0" y={midY} width={width} height={HEIGHT - midY} />
+          <rect x={PADDING_LEFT} y={midY} width={VIEW_WIDTH - PADDING_LEFT} height={HEIGHT - midY} />
         </clipPath>
       </defs>
 
