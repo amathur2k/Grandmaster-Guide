@@ -5,6 +5,7 @@ import { useStockfish } from "@/hooks/use-stockfish";
 import { EvalBar } from "@/components/eval-bar";
 import { MoveHistory } from "@/components/move-history";
 import { EngineLines } from "@/components/engine-lines";
+import { EvalGraph } from "@/components/eval-graph";
 import { CoachConsole } from "@/components/coach-console";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +20,7 @@ import {
   ChevronRight,
   Upload,
   FlipVertical2,
+  Loader2,
 } from "lucide-react";
 
 export default function ChessCoach() {
@@ -31,10 +33,13 @@ export default function ChessCoach() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [scoreHistory, setScoreHistory] = useState<{ score: number; mate: number | null }[]>([]);
+  const [isComputingScores, setIsComputingScores] = useState(false);
+  const [computeProgress, setComputeProgress] = useState({ current: 0, total: 0 });
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardSize, setBoardSize] = useState(400);
 
-  const { evaluation, isReady, hasError, evaluate } = useStockfish();
+  const { evaluation, isReady, hasError, evaluate, evaluateAsync, endBatch } = useStockfish();
   const { toast } = useToast();
 
   const getCurrentPgn = useCallback(() => {
@@ -84,10 +89,20 @@ export default function ChessCoach() {
   }, []);
 
   useEffect(() => {
-    if (isReady) {
+    if (isReady && !isComputingScores) {
       evaluate(game.fen(), game.turn());
     }
-  }, [game, isReady, evaluate]);
+  }, [game, isReady, evaluate, isComputingScores]);
+
+  useEffect(() => {
+    if (currentMoveIndex >= 0 && evaluation.depth >= 10 && !isComputingScores) {
+      setScoreHistory(prev => {
+        const updated = [...prev];
+        updated[currentMoveIndex] = { score: evaluation.score, mate: evaluation.mate };
+        return updated;
+      });
+    }
+  }, [currentMoveIndex, evaluation.score, evaluation.mate, evaluation.depth, isComputingScores]);
 
   const makeMove = useCallback(
     (sourceSquare: string, targetSquare: string, piece: string) => {
@@ -164,9 +179,10 @@ export default function ChessCoach() {
     setCurrentMoveIndex(-1);
     setChatMessages([]);
     setPgnInput("");
+    setScoreHistory([]);
   }, []);
 
-  const loadPgn = useCallback(() => {
+  const loadPgn = useCallback(async () => {
     if (!pgnInput.trim()) {
       toast({
         title: "Empty PGN",
@@ -194,18 +210,41 @@ export default function ChessCoach() {
       setCurrentMoveIndex(history.length - 1);
       setGame(gameCopy);
       setChatMessages([]);
+      setScoreHistory([]);
+
+      if (isReady) {
+        setIsComputingScores(true);
+        setComputeProgress({ current: 0, total: history.length });
+        const scores: { score: number; mate: number | null }[] = [];
+        const tempGame = new Chess();
+
+        for (let i = 0; i < history.length; i++) {
+          tempGame.move(history[i]);
+          setComputeProgress({ current: i + 1, total: history.length });
+          const result = await evaluateAsync(tempGame.fen(), tempGame.turn(), 12);
+          scores.push(result);
+        }
+
+        setScoreHistory(scores);
+        setIsComputingScores(false);
+        endBatch();
+        evaluate(gameCopy.fen(), gameCopy.turn());
+      }
+
       toast({
         title: "PGN Loaded",
         description: `Loaded ${history.length} moves successfully.`,
       });
     } catch {
+      setIsComputingScores(false);
+      endBatch();
       toast({
         title: "Invalid PGN",
         description: "The PGN format is invalid. Please check and try again.",
         variant: "destructive",
       });
     }
-  }, [pgnInput, toast]);
+  }, [pgnInput, toast, isReady, evaluateAsync, evaluate, endBatch]);
 
   const explainPosition = useCallback(async () => {
     setIsAnalyzing(true);
@@ -437,21 +476,44 @@ export default function ChessCoach() {
               </Button>
             </div>
 
-            <div className="flex gap-2 shrink-0">
+            <div className="shrink-0 relative">
+              <EvalGraph
+                scores={scoreHistory}
+                currentMoveIndex={currentMoveIndex}
+                onMoveClick={goToMove}
+              />
+              {isComputingScores && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-md flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span className="text-xs font-medium text-muted-foreground" data-testid="text-computing-scores">
+                    Computing evaluations... {computeProgress.current}/{computeProgress.total}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 shrink-0 items-end">
               <Textarea
                 value={pgnInput}
                 onChange={(e) => setPgnInput(e.target.value)}
-                placeholder="Paste PGN here... e.g. 1. e4 e5 2. Nf3 Nc6 3. Bb5"
-                className="resize-none text-xs font-mono h-16"
+                placeholder="Paste PGN..."
+                className="resize-none text-xs font-mono h-9 max-w-[180px]"
+                rows={1}
                 data-testid="input-pgn"
               />
               <Button
                 variant="secondary"
+                size="sm"
                 onClick={loadPgn}
-                className="shrink-0 gap-1.5 self-end"
+                disabled={isComputingScores}
+                className="shrink-0 gap-1.5"
                 data-testid="button-load-pgn"
               >
-                <Upload className="w-3.5 h-3.5" />
+                {isComputingScores ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5" />
+                )}
                 Load
               </Button>
             </div>

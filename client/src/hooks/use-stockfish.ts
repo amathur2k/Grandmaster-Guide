@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { StockfishEvaluation } from "@shared/schema";
 
+interface EvalResult {
+  score: number;
+  mate: number | null;
+}
+
 export function useStockfish() {
   const workerRef = useRef<Worker | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -8,6 +13,8 @@ export function useStockfish() {
   const requestIdRef = useRef(0);
   const currentRequestIdRef = useRef(0);
   const turnRef = useRef<"w" | "b">("w");
+  const evalResolveRef = useRef<((result: EvalResult) => void) | null>(null);
+  const batchModeRef = useRef(false);
   const [evaluation, setEvaluation] = useState<StockfishEvaluation>({
     score: 0,
     bestMove: "",
@@ -93,9 +100,11 @@ export function useStockfish() {
             currentEval.topMoves = [...topMovesCollected];
             currentEval.lines = [...linesCollected];
 
-            const reqId = currentRequestIdRef.current;
-            if (reqId === requestIdRef.current) {
-              setEvaluation({ ...currentEval });
+            if (!batchModeRef.current) {
+              const reqId = currentRequestIdRef.current;
+              if (reqId === requestIdRef.current) {
+                setEvaluation({ ...currentEval });
+              }
             }
           }
         }
@@ -105,9 +114,15 @@ export function useStockfish() {
           if (bestMoveMatch) {
             currentEval.bestMove = bestMoveMatch[1];
           }
-          const reqId = currentRequestIdRef.current;
-          if (reqId === requestIdRef.current) {
-            setEvaluation({ ...currentEval });
+          if (!batchModeRef.current) {
+            const reqId = currentRequestIdRef.current;
+            if (reqId === requestIdRef.current) {
+              setEvaluation({ ...currentEval });
+            }
+          }
+          if (evalResolveRef.current) {
+            evalResolveRef.current({ score: currentEval.score, mate: currentEval.mate });
+            evalResolveRef.current = null;
           }
         }
       };
@@ -116,6 +131,10 @@ export function useStockfish() {
         e.preventDefault();
         setIsReady(false);
         setHasError(true);
+        if (evalResolveRef.current) {
+          evalResolveRef.current({ score: 0, mate: null });
+          evalResolveRef.current = null;
+        }
       };
 
       worker.postMessage("uci");
@@ -148,6 +167,35 @@ export function useStockfish() {
     }
   }, [isReady]);
 
+  const evaluateAsync = useCallback((fen: string, turn: "w" | "b", depth = 12): Promise<EvalResult> => {
+    return new Promise((resolve) => {
+      if (!workerRef.current || !isReady) {
+        resolve({ score: 0, mate: null });
+        return;
+      }
+      try {
+        if (evalResolveRef.current) {
+          evalResolveRef.current({ score: 0, mate: null });
+        }
+        batchModeRef.current = true;
+        evalResolveRef.current = resolve;
+        const id = ++requestIdRef.current;
+        currentRequestIdRef.current = id;
+        turnRef.current = turn;
+        workerRef.current.postMessage("stop");
+        workerRef.current.postMessage("position fen " + fen);
+        workerRef.current.postMessage("go depth " + depth);
+      } catch {
+        batchModeRef.current = false;
+        resolve({ score: 0, mate: null });
+      }
+    });
+  }, [isReady]);
+
+  const endBatch = useCallback(() => {
+    batchModeRef.current = false;
+  }, []);
+
   const stop = useCallback(() => {
     try {
       workerRef.current?.postMessage("stop");
@@ -155,5 +203,5 @@ export function useStockfish() {
     }
   }, []);
 
-  return { evaluation, isReady, hasError, evaluate, stop };
+  return { evaluation, isReady, hasError, evaluate, evaluateAsync, endBatch, stop };
 }
