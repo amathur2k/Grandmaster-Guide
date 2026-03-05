@@ -120,13 +120,21 @@ export default function ChessCoach() {
 
         if (!move) return false;
 
-        const newMoves = [...allMoves.slice(0, currentMoveIndex + 1), move.san];
-        setAllMoves(newMoves);
-        setCurrentMoveIndex(newMoves.length - 1);
-        setGame(gameCopy);
-        setChatMessages([]);
-        setScoreHistory(prev => prev.slice(0, currentMoveIndex + 1));
-        isNavigatingRef.current = false;
+        const nextStoredMove = allMoves[currentMoveIndex + 1];
+        if (nextStoredMove && nextStoredMove === move.san) {
+          setCurrentMoveIndex(currentMoveIndex + 1);
+          setGame(gameCopy);
+          setChatMessages([]);
+          isNavigatingRef.current = true;
+        } else {
+          const newMoves = [...allMoves.slice(0, currentMoveIndex + 1), move.san];
+          setAllMoves(newMoves);
+          setCurrentMoveIndex(newMoves.length - 1);
+          setGame(gameCopy);
+          setChatMessages([]);
+          setScoreHistory(prev => prev.slice(0, currentMoveIndex + 1));
+          isNavigatingRef.current = false;
+        }
         return true;
       } catch {
         return false;
@@ -139,26 +147,21 @@ export default function ChessCoach() {
     (index: number) => {
       isNavigatingRef.current = true;
       const gameCopy = new Chess();
-      const truncatedMoves = allMoves.slice(0, index + 1);
-      for (const move of truncatedMoves) {
-        gameCopy.move(move);
+      for (let i = 0; i <= index; i++) {
+        gameCopy.move(allMoves[i]);
       }
-      setAllMoves(truncatedMoves);
       setCurrentMoveIndex(index);
       setGame(gameCopy);
       setChatMessages([]);
-      setScoreHistory(prev => prev.slice(0, index + 1));
     },
     [allMoves]
   );
 
   const goToStart = useCallback(() => {
     isNavigatingRef.current = true;
-    setAllMoves([]);
     setCurrentMoveIndex(-1);
     setGame(new Chess());
     setChatMessages([]);
-    setScoreHistory([]);
   }, []);
 
   const goToEnd = useCallback(() => {
