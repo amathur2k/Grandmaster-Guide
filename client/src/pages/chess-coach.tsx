@@ -38,6 +38,7 @@ export default function ChessCoach() {
   const [computeProgress, setComputeProgress] = useState({ current: 0, total: 0 });
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardSize, setBoardSize] = useState(400);
+  const isNavigatingRef = useRef(false);
 
   const { evaluation, isReady, hasError, evaluate, evaluateAsync, endBatch } = useStockfish();
   const { toast } = useToast();
@@ -95,9 +96,8 @@ export default function ChessCoach() {
   }, [game, isReady, evaluate, isComputingScores]);
 
   useEffect(() => {
-    if (currentMoveIndex >= 0 && evaluation.depth >= 10 && !isComputingScores) {
+    if (currentMoveIndex >= 0 && evaluation.depth >= 10 && !isComputingScores && !isNavigatingRef.current) {
       setScoreHistory(prev => {
-        if (prev[currentMoveIndex]) return prev;
         const updated = [...prev];
         updated[currentMoveIndex] = { score: evaluation.score, mate: evaluation.mate };
         return updated;
@@ -126,6 +126,7 @@ export default function ChessCoach() {
         setGame(gameCopy);
         setChatMessages([]);
         setScoreHistory(prev => prev.slice(0, currentMoveIndex + 1));
+        isNavigatingRef.current = false;
         return true;
       } catch {
         return false;
@@ -136,6 +137,7 @@ export default function ChessCoach() {
 
   const goToMove = useCallback(
     (index: number) => {
+      isNavigatingRef.current = true;
       const gameCopy = new Chess();
       for (let i = 0; i <= index; i++) {
         gameCopy.move(allMoves[i]);
@@ -148,6 +150,7 @@ export default function ChessCoach() {
   );
 
   const goToStart = useCallback(() => {
+    isNavigatingRef.current = true;
     setCurrentMoveIndex(-1);
     setGame(new Chess());
     setChatMessages([]);

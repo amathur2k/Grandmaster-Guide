@@ -154,6 +154,7 @@ export function useStockfish() {
   const evaluate = useCallback((fen: string, turn: "w" | "b", depth = 18) => {
     if (workerRef.current && isReady) {
       try {
+        setEvaluation(prev => ({ ...prev, depth: 0 }));
         const id = ++requestIdRef.current;
         currentRequestIdRef.current = id;
         turnRef.current = turn;
