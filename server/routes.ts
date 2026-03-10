@@ -160,7 +160,7 @@ async function chatWithTools(
 
   for (let round = 0; round < maxToolRounds; round++) {
     const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
-      model: "gpt-5.2",
+      model: "gpt-5-mini",
       messages: currentMessages,
       max_completion_tokens: 8192,
     };
@@ -188,7 +188,7 @@ async function chatWithTools(
   }
 
   const finalResponse = await callOpenAIWithRetry({
-    model: "gpt-5.2",
+    model: "gpt-5-mini",
     messages: currentMessages,
     max_completion_tokens: 8192,
   });
