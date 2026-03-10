@@ -43,11 +43,11 @@ Game state uses a tree structure instead of flat arrays:
 5. On PGN load: a linear chain of nodes is built and all positions evaluated sequentially with progress
 6. Making a different move at any point creates a branch; both lines are preserved
 7. The variation tree component renders below the eval graph when branches exist
-8. Engine lines section shows top 3 moves with scores; each has an "explain" button
-9. "Explain This Position" sends FEN, full PGN, eval, and top moves to `/api/analyze`
-10. Backend calls OpenAI GPT-5.2 with chess coach system prompt
-11. AI explanation displayed as first message in interactive coach chat
-12. User can ask follow-up questions via `/api/chat` which maintains full conversation history
+8. Engine lines section shows top 3 moves with scores; each has an "explain" button (sparkles icon)
+9. AI Coach is always-on chat — input always visible, no "Explain This Position" gate
+10. Chat messages persist across moves, navigation, and position changes (only cleared via explicit clear button)
+11. All chat goes through `/api/chat` which maintains full conversation history
+12. "Verify ON/OFF" toggle controls whether GPT-5.2 calls Stockfish tool to fact-check analysis
 
 ## Server-Side Stockfish Tool Calling
 - `server/stockfish-service.ts` spawns the `stockfish` npm package binary (`node_modules/stockfish/bin/stockfish.js`) as a child process using `spawn(process.execPath, [enginePath])`
@@ -59,7 +59,7 @@ Game state uses a tree structure instead of flat arrays:
 ## Important Notes
 - `evaluateAsync` returns a promise that resolves when `bestmove` is received — used for batch PGN evaluation
 - Eval scores from Stockfish are side-to-move relative; normalized to White POV by negating when `turn === 'b'`
-- Chat messages are cleared when navigating to a different position
+- Chat messages persist across moves and navigation; only cleared via the trash button
 - react-chessboard must stay at @4.7.2 (v5+ requires React 19)
 - "uncaught exception" from Stockfish WASM on HMR/page reconnect is transient — fresh page load clears it
 - Eval graph scores are clamped to -5 to +5 range; dots colored by score swing (green/yellow/orange/red)

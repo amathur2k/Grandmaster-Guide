@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Loader2, Brain, Send, Trash2, Wrench } from "lucide-react";
+import { Loader2, Brain, Send, Trash2, Wrench, Sparkles } from "lucide-react";
 import type { StockfishEvaluation, ChatMessage } from "@shared/schema";
 import {
   Tooltip,
@@ -12,9 +12,6 @@ import {
 
 interface CoachConsoleProps {
   evaluation: StockfishEvaluation;
-  isAnalyzing: boolean;
-  isEngineReady: boolean;
-  onExplain: () => void;
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
   isChatLoading: boolean;
@@ -25,9 +22,6 @@ interface CoachConsoleProps {
 
 export function CoachConsole({
   evaluation,
-  isAnalyzing,
-  isEngineReady,
-  onExplain,
   messages,
   onSendMessage,
   isChatLoading,
@@ -83,66 +77,18 @@ export function CoachConsole({
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
         {!hasMessages ? (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-4 px-2">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-primary" />
+          <div className="flex flex-col items-center justify-center h-full text-center gap-3 px-2">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-primary" />
             </div>
             <div>
               <p className="text-sm font-medium text-foreground mb-1">
                 Your AI Chess Coach
               </p>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Click below to get a position analysis, then ask follow-up questions about strategy, tactics, or plans.
+                Ask about the current position, strategy, tactics, or any chess question.
               </p>
             </div>
-            <Button
-              onClick={onExplain}
-              disabled={isAnalyzing || !isEngineReady}
-              className="gap-2"
-              size="lg"
-              data-testid="button-explain"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  Explain This Position
-                </>
-              )}
-            </Button>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onToggleToolCalling(!useToolCalling)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      useToolCalling
-                        ? "bg-primary/10 text-primary border border-primary/30"
-                        : "bg-muted text-muted-foreground border border-border"
-                    }`}
-                    data-testid="toggle-tool-calling"
-                  >
-                    <Wrench className="w-3 h-3" />
-                    Stockfish verify {useToolCalling ? "ON" : "OFF"}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[220px]">
-                  <p className="text-xs">
-                    {useToolCalling
-                      ? "AI will call Stockfish to verify its analysis. Slower but more accurate."
-                      : "AI responds without engine verification. Faster but may be less accurate."}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            {!isEngineReady && (
-              <p className="text-xs text-muted-foreground">Engine loading...</p>
-            )}
           </div>
         ) : (
           <div className="space-y-3">
@@ -178,71 +124,58 @@ export function CoachConsole({
         )}
       </div>
 
-      {hasMessages && (
-        <div className="px-3 pb-3 pt-1 border-t border-border shrink-0">
-          <div className="flex gap-2 items-end">
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask a follow-up question..."
-              className="resize-none text-sm min-h-[40px] max-h-[100px]"
-              rows={1}
-              disabled={isChatLoading}
-              data-testid="input-chat"
-            />
-            <Button
-              size="icon"
-              onClick={handleSend}
-              disabled={!input.trim() || isChatLoading}
-              className="shrink-0 h-10 w-10"
-              data-testid="button-send-chat"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-          <div className="flex items-center justify-between mt-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onExplain}
-              disabled={isAnalyzing || !isEngineReady}
-              className="gap-1.5 text-xs h-7"
-              data-testid="button-re-explain"
-            >
-              <Sparkles className="w-3 h-3" />
-              Re-analyze position
-            </Button>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onToggleToolCalling(!useToolCalling)}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-                      useToolCalling
-                        ? "bg-primary/10 text-primary border border-primary/30"
-                        : "bg-muted text-muted-foreground border border-border"
-                    }`}
-                    data-testid="toggle-tool-calling-chat"
-                  >
-                    <Wrench className="w-3 h-3" />
-                    {useToolCalling ? "Verify ON" : "Verify OFF"}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[220px]">
-                  <p className="text-xs">
-                    {useToolCalling
-                      ? "AI calls Stockfish to verify analysis. Slower but accurate."
-                      : "AI responds without engine verification. Faster."}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+      <div className="px-3 pb-3 pt-1 border-t border-border shrink-0">
+        <div className="flex gap-2 items-end">
+          <Textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about this position..."
+            className="resize-none text-sm min-h-[40px] max-h-[100px]"
+            rows={1}
+            disabled={isChatLoading}
+            data-testid="input-chat"
+          />
+          <Button
+            size="icon"
+            onClick={handleSend}
+            disabled={!input.trim() || isChatLoading}
+            className="shrink-0 h-10 w-10"
+            data-testid="button-send-chat"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
         </div>
-      )}
+        <div className="flex items-center justify-end mt-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => onToggleToolCalling(!useToolCalling)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                    useToolCalling
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : "bg-muted text-muted-foreground border border-border"
+                  }`}
+                  data-testid="toggle-tool-calling"
+                >
+                  <Wrench className="w-3 h-3" />
+                  {useToolCalling ? "Verify ON" : "Verify OFF"}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[220px]">
+                <p className="text-xs">
+                  {useToolCalling
+                    ? "AI calls Stockfish to verify analysis. Slower but accurate."
+                    : "AI responds without engine verification. Faster."}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </div>
     </div>
   );
 }

@@ -120,7 +120,6 @@ export default function ChessCoach() {
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
   const [pgnInput, setPgnInput] = useState("");
   const [showPgnModal, setShowPgnModal] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [useToolCalling, setUseToolCalling] = useState(true);
@@ -233,7 +232,6 @@ export default function ChessCoach() {
         if (existingChild) {
           setCurrentPath(prev => [...prev, existingChild.id]);
           setGame(gameCopy);
-          setChatMessages([]);
           isNavigatingRef.current = true;
         } else {
           const newNode: VariationNode = {
@@ -255,7 +253,6 @@ export default function ChessCoach() {
 
           setCurrentPath(prev => [...prev, newNode.id]);
           setGame(gameCopy);
-          setChatMessages([]);
           isNavigatingRef.current = false;
         }
         return true;
@@ -282,7 +279,6 @@ export default function ChessCoach() {
       }
       setCurrentPath(newPath);
       setGame(gameCopy);
-      setChatMessages([]);
     },
     [activeLine, currentPath]
   );
@@ -291,7 +287,6 @@ export default function ChessCoach() {
     isNavigatingRef.current = true;
     setCurrentPath(prev => [prev[0]]);
     setGame(new Chess());
-    setChatMessages([]);
   }, []);
 
   const goToEnd = useCallback(() => {
@@ -321,7 +316,6 @@ export default function ChessCoach() {
     setTree(newRoot);
     setCurrentPath([newRoot.id]);
     setGame(new Chess());
-    setChatMessages([]);
     setPgnInput("");
   }, []);
 
@@ -340,7 +334,6 @@ export default function ChessCoach() {
 
     setCurrentPath(path);
     setGame(gameCopy);
-    setChatMessages([]);
   }, [tree]);
 
   const loadPgn = useCallback(async () => {
@@ -389,7 +382,6 @@ export default function ChessCoach() {
       setTree(newRoot);
       setCurrentPath(newPath);
       setGame(gameCopy);
-      setChatMessages([]);
 
       if (isReady) {
         setIsComputingScores(true);
@@ -424,36 +416,6 @@ export default function ChessCoach() {
       });
     }
   }, [pgnInput, toast, isReady, evaluateAsync, evaluate, endBatch]);
-
-  const explainPosition = useCallback(async () => {
-    setIsAnalyzing(true);
-    setChatMessages([]);
-    try {
-      const context = getPositionContext();
-      const response = await apiRequest("POST", "/api/analyze", { ...context, useToolCalling });
-      const data = await response.json();
-
-      setChatMessages([
-        { role: "user", text: "Explain this position" },
-        { role: "model", text: data.explanation },
-      ]);
-    } catch (err: unknown) {
-      let description = "Could not get AI explanation. Please try again.";
-      if (err && typeof err === "object" && "message" in err) {
-        const msg = (err as { message: string }).message;
-        if (msg.includes("busy") || msg.includes("429")) {
-          description = "AI service is busy. Please wait a moment and try again.";
-        }
-      }
-      toast({
-        title: "Analysis Failed",
-        description,
-        variant: "destructive",
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }, [getPositionContext, toast, useToolCalling]);
 
   const sendChatMessage = useCallback(async (text: string) => {
     const userMessage: ChatMessage = { role: "user", text };
@@ -544,7 +506,6 @@ export default function ChessCoach() {
     const newPath = [...branchPath, ...newNodes.map(n => n.id)];
     setCurrentPath(newPath);
     setGame(new Chess(pvGame.fen()));
-    setChatMessages([]);
 
     toast({
       title: "Engine Line Loaded",
@@ -864,9 +825,6 @@ export default function ChessCoach() {
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             <CoachConsole
               evaluation={evaluation}
-              isAnalyzing={isAnalyzing}
-              isEngineReady={isReady}
-              onExplain={explainPosition}
               messages={chatMessages}
               onSendMessage={sendChatMessage}
               isChatLoading={isChatLoading}
