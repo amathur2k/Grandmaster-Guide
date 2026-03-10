@@ -7,110 +7,234 @@ interface VariationTreeProps {
   onNodeClick: (nodeId: string) => void;
 }
 
-interface LayoutNode {
+interface DisplayNode {
+  type: "node";
   id: string;
   move: string;
+  label: string;
   x: number;
   y: number;
-  parentX: number;
-  parentY: number;
   isOnCurrentPath: boolean;
-  isBranchPoint: boolean;
   isCurrentNode: boolean;
-  moveNumber: string;
-  depth: number;
-  hasParent: boolean;
 }
 
-const NODE_WIDTH = 52;
+interface DisplayEllipsis {
+  type: "ellipsis";
+  x: number;
+  y: number;
+  isOnCurrentPath: boolean;
+  key: string;
+}
+
+interface DisplayLine {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  isActive: boolean;
+  key: string;
+}
+
+type DisplayItem = DisplayNode | DisplayEllipsis;
+
+const NODE_WIDTH = 56;
 const NODE_HEIGHT = 24;
-const H_GAP = 8;
+const ELLIPSIS_WIDTH = 24;
+const H_GAP = 6;
 const V_GAP = 6;
-const STEP_X = NODE_WIDTH + H_GAP;
 const STEP_Y = NODE_HEIGHT + V_GAP;
 
-function getMoveLabel(depth: number, move: string): string {
+function getMoveLabel(node: VariationNode, root: VariationNode): string {
+  const depth = getDepth(node, root);
+  if (depth < 0) return node.move;
   const moveNum = Math.floor(depth / 2) + 1;
   const isWhite = depth % 2 === 0;
-  if (isWhite) {
-    return `${moveNum}.${move}`;
-  }
-  return `${moveNum}...${move}`;
+  return isWhite ? `${moveNum}.${node.move}` : `${moveNum}…${node.move}`;
 }
 
-function layoutTree(
+function getDepth(target: VariationNode, root: VariationNode, d: number = -1): number {
+  if (root.id === target.id) return d;
+  for (const child of root.children) {
+    const found = getDepth(target, child, d + 1);
+    if (found >= 0) return found;
+  }
+  return -1;
+}
+
+function isBranchPoint(node: VariationNode): boolean {
+  return node.children.length > 1;
+}
+
+function isLeaf(node: VariationNode): boolean {
+  return node.children.length === 0;
+}
+
+function collectKeyNodes(
   node: VariationNode,
   currentPath: string[],
   currentNodeId: string,
-  depth: number,
-  yOffset: { value: number },
-  parentX: number,
-  parentY: number,
-  results: LayoutNode[]
-): void {
-  if (node.children.length === 0) return;
+  root: VariationNode
+): {
+  items: DisplayItem[];
+  lines: DisplayLine[];
+  maxX: number;
+  maxY: number;
+} {
+  const items: DisplayItem[] = [];
+  const lines: DisplayLine[] = [];
+  const yOffset = { value: 0 };
 
-  const isNodeOnPath = currentPath.includes(node.id);
+  function walkBranch(
+    startNode: VariationNode,
+    xOffset: number,
+    baseY: number,
+    fromX: number,
+    fromY: number,
+    isFirst: boolean
+  ): void {
+    let node = startNode;
+    let currentX = xOffset;
+    let currentY = baseY;
+    let prevEndX = fromX;
+    let prevEndY = fromY;
+    let firstInBranch = true;
 
-  for (let ci = 0; ci < node.children.length; ci++) {
-    const child = node.children[ci];
-    const isChildOnPath = currentPath.includes(child.id);
-    const isBranch = node.children.length > 1;
+    while (node) {
+      const isKey = isBranchPoint(node) || isLeaf(node) || node.id === currentNodeId;
+      const onPath = currentPath.includes(node.id);
 
-    let x: number;
-    let y: number;
+      if (isKey || firstInBranch) {
+        if (!firstInBranch && !isKey) {
+        } else {
+          const skippedMoves = !firstInBranch;
+          let gapBetween = false;
 
-    if (ci === 0) {
-      x = depth * STEP_X;
-      y = parentY;
-    } else {
-      yOffset.value += STEP_Y;
-      x = depth * STEP_X;
-      y = yOffset.value;
+          if (firstInBranch && !isFirst) {
+            gapBetween = false;
+          } else if (!firstInBranch) {
+            gapBetween = true;
+          }
+
+          if (gapBetween) {
+            const ellX = prevEndX + H_GAP;
+            items.push({
+              type: "ellipsis",
+              x: ellX,
+              y: currentY,
+              isOnCurrentPath: onPath,
+              key: `ell-${node.id}`,
+            });
+
+            lines.push({
+              x1: prevEndX + NODE_WIDTH / 2,
+              y1: prevEndY + NODE_HEIGHT / 2,
+              x2: ellX,
+              y2: currentY + NODE_HEIGHT / 2,
+              isActive: onPath,
+              key: `line-ell-${node.id}`,
+            });
+
+            prevEndX = ellX + ELLIPSIS_WIDTH;
+            prevEndY = currentY;
+            currentX = prevEndX + H_GAP;
+          }
+
+          const nodeX = currentX;
+          const nodeY = currentY;
+
+          if (prevEndX >= 0 && !(firstInBranch && isFirst)) {
+            const lx1 = firstInBranch ? fromX + NODE_WIDTH / 2 : prevEndX;
+            const ly1 = firstInBranch ? fromY + NODE_HEIGHT / 2 : prevEndY + NODE_HEIGHT / 2;
+            lines.push({
+              x1: lx1,
+              y1: ly1,
+              x2: nodeX,
+              y2: nodeY + NODE_HEIGHT / 2,
+              isActive: onPath,
+              key: `line-${node.id}`,
+            });
+          }
+
+          items.push({
+            type: "node",
+            id: node.id,
+            move: node.move,
+            label: getMoveLabel(node, root),
+            x: nodeX,
+            y: nodeY,
+            isOnCurrentPath: onPath,
+            isCurrentNode: node.id === currentNodeId,
+          });
+
+          prevEndX = nodeX;
+          prevEndY = nodeY;
+          currentX = nodeX + NODE_WIDTH + H_GAP;
+          firstInBranch = false;
+        }
+      }
+
+      if (isBranchPoint(node)) {
+        for (let ci = 0; ci < node.children.length; ci++) {
+          const child = node.children[ci];
+          if (ci === 0) {
+            walkBranch(child, currentX, currentY, prevEndX, prevEndY, false);
+          } else {
+            yOffset.value += STEP_Y;
+            walkBranch(child, currentX, yOffset.value, prevEndX, prevEndY, false);
+          }
+        }
+        return;
+      }
+
+      if (node.children.length === 1) {
+        node = node.children[0];
+      } else {
+        return;
+      }
     }
-
-    results.push({
-      id: child.id,
-      move: child.move,
-      x,
-      y,
-      parentX,
-      parentY,
-      isOnCurrentPath: isChildOnPath,
-      isBranchPoint: isBranch && ci > 0,
-      isCurrentNode: child.id === currentNodeId,
-      moveNumber: getMoveLabel(depth, child.move),
-      depth,
-      hasParent: true,
-    });
-
-    layoutTree(child, currentPath, currentNodeId, depth + 1, yOffset, x, y, results);
   }
+
+  if (tree_hasContent(root)) {
+    for (let ci = 0; ci < root.children.length; ci++) {
+      const child = root.children[ci];
+      if (ci === 0) {
+        walkBranch(child, 0, 0, -NODE_WIDTH / 2, 0, true);
+      } else {
+        yOffset.value += STEP_Y;
+        walkBranch(child, 0, yOffset.value, -NODE_WIDTH / 2, 0, true);
+      }
+    }
+  }
+
+  let maxX = 0;
+  let maxY = 0;
+  for (const item of items) {
+    const w = item.type === "node" ? NODE_WIDTH : ELLIPSIS_WIDTH;
+    if (item.x + w > maxX) maxX = item.x + w;
+    if (item.y + NODE_HEIGHT > maxY) maxY = item.y + NODE_HEIGHT;
+  }
+
+  return { items, lines, maxX, maxY };
+}
+
+function tree_hasContent(root: VariationNode): boolean {
+  return root.children.length > 0;
 }
 
 export function VariationTree({ tree, currentPath, onNodeClick }: VariationTreeProps) {
   const currentNodeId = currentPath[currentPath.length - 1];
 
-  const { nodes, totalWidth, totalHeight } = useMemo(() => {
-    const results: LayoutNode[] = [];
-    const yOffset = { value: 0 };
-    layoutTree(tree, currentPath, currentNodeId, 0, yOffset, -STEP_X / 2, 0, results);
-
-    let maxX = 0;
-    let maxY = 0;
-    for (const n of results) {
-      if (n.x + NODE_WIDTH > maxX) maxX = n.x + NODE_WIDTH;
-      if (n.y + NODE_HEIGHT > maxY) maxY = n.y + NODE_HEIGHT;
-    }
-
+  const { items, lines, totalWidth, totalHeight } = useMemo(() => {
+    const { items, lines, maxX, maxY } = collectKeyNodes(tree, currentPath, currentNodeId, tree);
     return {
-      nodes: results,
+      items,
+      lines,
       totalWidth: maxX + 16,
       totalHeight: maxY + 16,
     };
   }, [tree, currentPath, currentNodeId]);
 
-  if (nodes.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="p-3 text-xs text-muted-foreground italic text-center" data-testid="variation-tree-empty">
         Make different moves to create variations
@@ -128,65 +252,79 @@ export function VariationTree({ tree, currentPath, onNodeClick }: VariationTreeP
         className="absolute inset-0 pointer-events-none"
         style={{ width: totalWidth, height: totalHeight }}
       >
-        {nodes.map(node => {
-          if (!node.hasParent) return null;
-          const startX = node.parentX + NODE_WIDTH / 2;
-          const startY = node.parentY + NODE_HEIGHT / 2;
-          const endX = node.x + NODE_WIDTH / 2;
-          const endY = node.y + NODE_HEIGHT / 2;
-
-          const isActive = node.isOnCurrentPath;
-
-          if (startY === endY) {
+        {lines.map(line => {
+          if (line.y1 === line.y2) {
             return (
               <line
-                key={`line-${node.id}`}
-                x1={startX + NODE_WIDTH / 2}
-                y1={startY}
-                x2={endX - NODE_WIDTH / 2}
-                y2={endY}
-                stroke={isActive ? "#3b82f6" : "#cbd5e1"}
-                strokeWidth={isActive ? 2 : 1}
+                key={line.key}
+                x1={line.x1}
+                y1={line.y1}
+                x2={line.x2}
+                y2={line.y2}
+                stroke={line.isActive ? "#3b82f6" : "#cbd5e1"}
+                strokeWidth={line.isActive ? 2 : 1}
               />
             );
           }
-
-          const midX = startX + NODE_WIDTH / 2;
+          const midX = line.x1 + (line.x2 - line.x1) * 0.3;
           return (
             <path
-              key={`line-${node.id}`}
-              d={`M ${startX + NODE_WIDTH / 2} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX - NODE_WIDTH / 2} ${endY}`}
+              key={line.key}
+              d={`M ${line.x1} ${line.y1} C ${midX} ${line.y1}, ${midX} ${line.y2}, ${line.x2} ${line.y2}`}
               fill="none"
-              stroke={isActive ? "#3b82f6" : "#cbd5e1"}
-              strokeWidth={isActive ? 2 : 1}
+              stroke={line.isActive ? "#3b82f6" : "#cbd5e1"}
+              strokeWidth={line.isActive ? 2 : 1}
             />
           );
         })}
       </svg>
 
-      {nodes.map(node => (
-        <button
-          key={node.id}
-          className={`absolute text-[10px] font-mono leading-none rounded px-1.5 py-1 border transition-colors truncate ${
-            node.isCurrentNode
-              ? "bg-primary text-primary-foreground border-primary font-bold shadow-sm"
-              : node.isOnCurrentPath
-                ? "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700"
-                : "bg-muted/60 text-muted-foreground border-border hover:bg-muted"
-          }`}
-          style={{
-            left: node.x,
-            top: node.y,
-            width: NODE_WIDTH,
-            height: NODE_HEIGHT,
-          }}
-          onClick={() => onNodeClick(node.id)}
-          title={node.moveNumber}
-          data-testid={`tree-node-${node.id}`}
-        >
-          {node.moveNumber}
-        </button>
-      ))}
+      {items.map(item => {
+        if (item.type === "ellipsis") {
+          return (
+            <span
+              key={item.key}
+              className={`absolute text-[10px] font-mono leading-none flex items-center justify-center ${
+                item.isOnCurrentPath
+                  ? "text-blue-500 dark:text-blue-400"
+                  : "text-muted-foreground/50"
+              }`}
+              style={{
+                left: item.x,
+                top: item.y,
+                width: ELLIPSIS_WIDTH,
+                height: NODE_HEIGHT,
+              }}
+            >
+              ···
+            </span>
+          );
+        }
+
+        return (
+          <button
+            key={item.id}
+            className={`absolute text-[10px] font-mono leading-none rounded px-1.5 py-1 border transition-colors truncate ${
+              item.isCurrentNode
+                ? "bg-primary text-primary-foreground border-primary font-bold shadow-sm"
+                : item.isOnCurrentPath
+                  ? "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700"
+                  : "bg-muted/60 text-muted-foreground border-border hover:bg-muted"
+            }`}
+            style={{
+              left: item.x,
+              top: item.y,
+              width: NODE_WIDTH,
+              height: NODE_HEIGHT,
+            }}
+            onClick={() => onNodeClick(item.id)}
+            title={item.label}
+            data-testid={`tree-node-${item.id}`}
+          >
+            {item.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
