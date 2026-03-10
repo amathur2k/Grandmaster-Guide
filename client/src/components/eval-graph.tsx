@@ -6,7 +6,7 @@ interface EvalScore {
 }
 
 interface EvalGraphProps {
-  scores: EvalScore[];
+  scores: (EvalScore | null)[];
   currentMoveIndex: number;
   onMoveClick: (index: number) => void;
 }

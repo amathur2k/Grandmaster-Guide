@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import { useStockfish } from "@/hooks/use-stockfish";
@@ -6,6 +6,7 @@ import { EvalBar } from "@/components/eval-bar";
 import { MoveHistory } from "@/components/move-history";
 import { EngineLines } from "@/components/engine-lines";
 import { EvalGraph } from "@/components/eval-graph";
+import { VariationTree } from "@/components/variation-tree";
 import { CoachConsole } from "@/components/coach-console";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,17 +24,102 @@ import {
   Loader2,
 } from "lucide-react";
 
+export interface VariationNode {
+  id: string;
+  move: string;
+  fen: string;
+  score: { score: number; mate: number | null } | null;
+  children: VariationNode[];
+}
+
+let _nodeId = 0;
+function nextNodeId(): string {
+  return `n${++_nodeId}`;
+}
+
+function createRootNode(): VariationNode {
+  return {
+    id: nextNodeId(),
+    move: "",
+    fen: new Chess().fen(),
+    score: null,
+    children: [],
+  };
+}
+
+function cloneTree(node: VariationNode): VariationNode {
+  return {
+    ...node,
+    children: node.children.map(cloneTree),
+  };
+}
+
+function findNodeById(node: VariationNode, id: string): VariationNode | null {
+  if (node.id === id) return node;
+  for (const child of node.children) {
+    const found = findNodeById(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+function getPathToNode(root: VariationNode, targetId: string): string[] | null {
+  if (root.id === targetId) return [root.id];
+  for (const child of root.children) {
+    const subPath = getPathToNode(child, targetId);
+    if (subPath) return [root.id, ...subPath];
+  }
+  return null;
+}
+
+function getActiveLine(root: VariationNode, currentPath: string[]): VariationNode[] {
+  const line: VariationNode[] = [];
+  let current: VariationNode | null = root;
+
+  for (let i = 1; i < currentPath.length; i++) {
+    const child = current.children.find(c => c.id === currentPath[i]);
+    if (!child) break;
+    line.push(child);
+    current = child;
+  }
+
+  if (current) {
+    let node = current;
+    while (node.children.length > 0) {
+      const firstChild = node.children[0];
+      if (line.includes(firstChild)) break;
+      line.push(firstChild);
+      node = firstChild;
+    }
+  }
+
+  return line;
+}
+
+function setNodeScore(
+  root: VariationNode,
+  nodeId: string,
+  score: { score: number; mate: number | null }
+): VariationNode {
+  if (root.id === nodeId) {
+    return { ...root, score };
+  }
+  return {
+    ...root,
+    children: root.children.map(child => setNodeScore(child, nodeId, score)),
+  };
+}
+
 export default function ChessCoach() {
   const [game, setGame] = useState(new Chess());
-  const [allMoves, setAllMoves] = useState<string[]>([]);
-  const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
+  const [tree, setTree] = useState<VariationNode>(createRootNode);
+  const [currentPath, setCurrentPath] = useState<string[]>(() => [tree.id]);
   const [playerColor, setPlayerColor] = useState<"white" | "black">("white");
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
   const [pgnInput, setPgnInput] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [scoreHistory, setScoreHistory] = useState<{ score: number; mate: number | null }[]>([]);
   const [isComputingScores, setIsComputingScores] = useState(false);
   const [computeProgress, setComputeProgress] = useState({ current: 0, total: 0 });
   const boardContainerRef = useRef<HTMLDivElement>(null);
@@ -42,6 +128,21 @@ export default function ChessCoach() {
 
   const { evaluation, isReady, hasError, evaluate, evaluateAsync, endBatch } = useStockfish();
   const { toast } = useToast();
+
+  const activeLine = useMemo(() => getActiveLine(tree, currentPath), [tree, currentPath]);
+
+  const currentMoveIndex = currentPath.length - 2;
+
+  const allMoves = useMemo(() => activeLine.map(n => n.move), [activeLine]);
+
+  const scoreHistory = useMemo(
+    () => activeLine.map(n => n.score),
+    [activeLine]
+  );
+
+  const hasScores = useMemo(() => activeLine.some(n => n.score !== null), [activeLine]);
+
+  const currentNodeId = currentPath[currentPath.length - 1];
 
   const getCurrentPgn = useCallback(() => {
     const pgnGame = new Chess();
@@ -76,7 +177,7 @@ export default function ChessCoach() {
         const container = boardContainerRef.current;
         const width = container.clientWidth;
         const height = container.clientHeight;
-        const size = Math.min(width, height, 640);
+        const size = Math.min(width, height, 480);
         setBoardSize(size);
       }
     };
@@ -91,24 +192,24 @@ export default function ChessCoach() {
 
   useEffect(() => {
     if (isReady && !isComputingScores) {
+      isNavigatingRef.current = false;
       evaluate(game.fen(), game.turn());
     }
   }, [game, isReady, evaluate, isComputingScores]);
 
   useEffect(() => {
     if (currentMoveIndex >= 0 && evaluation.depth >= 10 && !isComputingScores && !isNavigatingRef.current) {
-      setScoreHistory(prev => {
-        const updated = [...prev];
-        updated[currentMoveIndex] = { score: evaluation.score, mate: evaluation.mate };
-        return updated;
-      });
+      const nodeToUpdate = currentNodeId;
+      const currentNode = findNodeById(tree, nodeToUpdate);
+      if (currentNode && !currentNode.score) {
+        setTree(prev => setNodeScore(prev, nodeToUpdate, { score: evaluation.score, mate: evaluation.mate }));
+      }
     }
-  }, [currentMoveIndex, evaluation.score, evaluation.mate, evaluation.depth, isComputingScores]);
+  }, [currentMoveIndex, evaluation.score, evaluation.mate, evaluation.depth, isComputingScores, currentNodeId, tree]);
 
   const makeMove = useCallback(
     (sourceSquare: string, targetSquare: string, piece: string) => {
       const gameCopy = new Chess(game.fen());
-
       const isPromotion = piece[1] === "P" && (targetSquare[1] === "8" || targetSquare[1] === "1");
 
       try {
@@ -120,19 +221,37 @@ export default function ChessCoach() {
 
         if (!move) return false;
 
-        const nextStoredMove = allMoves[currentMoveIndex + 1];
-        if (nextStoredMove && nextStoredMove === move.san) {
-          setCurrentMoveIndex(currentMoveIndex + 1);
+        const currentNode = findNodeById(tree, currentNodeId);
+        if (!currentNode) return false;
+
+        const existingChild = currentNode.children.find(c => c.move === move.san);
+
+        if (existingChild) {
+          setCurrentPath(prev => [...prev, existingChild.id]);
           setGame(gameCopy);
           setChatMessages([]);
           isNavigatingRef.current = true;
         } else {
-          const newMoves = [...allMoves.slice(0, currentMoveIndex + 1), move.san];
-          setAllMoves(newMoves);
-          setCurrentMoveIndex(newMoves.length - 1);
+          const newNode: VariationNode = {
+            id: nextNodeId(),
+            move: move.san,
+            fen: gameCopy.fen(),
+            score: null,
+            children: [],
+          };
+
+          setTree(prev => {
+            const clone = cloneTree(prev);
+            const parent = findNodeById(clone, currentNodeId);
+            if (parent) {
+              parent.children.push(newNode);
+            }
+            return clone;
+          });
+
+          setCurrentPath(prev => [...prev, newNode.id]);
           setGame(gameCopy);
           setChatMessages([]);
-          setScoreHistory(prev => prev.slice(0, currentMoveIndex + 1));
           isNavigatingRef.current = false;
         }
         return true;
@@ -140,35 +259,42 @@ export default function ChessCoach() {
         return false;
       }
     },
-    [game, allMoves, currentMoveIndex]
+    [game, tree, currentNodeId]
   );
 
   const goToMove = useCallback(
     (index: number) => {
       isNavigatingRef.current = true;
+      const targetDepth = index + 2;
+      const line = activeLine;
+      const newPath = [currentPath[0]];
       const gameCopy = new Chess();
-      for (let i = 0; i <= index; i++) {
-        gameCopy.move(allMoves[i]);
+      for (let i = 0; i < Math.min(index + 1, line.length); i++) {
+        newPath.push(line[i].id);
+        gameCopy.move(line[i].move);
       }
-      setCurrentMoveIndex(index);
+      if (newPath.length > targetDepth) {
+        newPath.splice(targetDepth);
+      }
+      setCurrentPath(newPath);
       setGame(gameCopy);
       setChatMessages([]);
     },
-    [allMoves]
+    [activeLine, currentPath]
   );
 
   const goToStart = useCallback(() => {
     isNavigatingRef.current = true;
-    setCurrentMoveIndex(-1);
+    setCurrentPath(prev => [prev[0]]);
     setGame(new Chess());
     setChatMessages([]);
   }, []);
 
   const goToEnd = useCallback(() => {
-    if (allMoves.length > 0) {
-      goToMove(allMoves.length - 1);
+    if (activeLine.length > 0) {
+      goToMove(activeLine.length - 1);
     }
-  }, [allMoves, goToMove]);
+  }, [activeLine, goToMove]);
 
   const goBack = useCallback(() => {
     if (currentMoveIndex >= 0) {
@@ -181,19 +307,37 @@ export default function ChessCoach() {
   }, [currentMoveIndex, goToMove, goToStart]);
 
   const goForward = useCallback(() => {
-    if (currentMoveIndex < allMoves.length - 1) {
+    if (currentMoveIndex < activeLine.length - 1) {
       goToMove(currentMoveIndex + 1);
     }
-  }, [currentMoveIndex, allMoves, goToMove]);
+  }, [currentMoveIndex, activeLine, goToMove]);
 
   const resetBoard = useCallback(() => {
+    const newRoot = createRootNode();
+    setTree(newRoot);
+    setCurrentPath([newRoot.id]);
     setGame(new Chess());
-    setAllMoves([]);
-    setCurrentMoveIndex(-1);
     setChatMessages([]);
     setPgnInput("");
-    setScoreHistory([]);
   }, []);
+
+  const navigateToNode = useCallback((nodeId: string) => {
+    isNavigatingRef.current = true;
+    const path = getPathToNode(tree, nodeId);
+    if (!path) return;
+
+    const gameCopy = new Chess();
+    for (let i = 1; i < path.length; i++) {
+      const node = findNodeById(tree, path[i]);
+      if (node) {
+        gameCopy.move(node.move);
+      }
+    }
+
+    setCurrentPath(path);
+    setGame(gameCopy);
+    setChatMessages([]);
+  }, [tree]);
 
   const loadPgn = useCallback(async () => {
     if (!pgnInput.trim()) {
@@ -219,26 +363,44 @@ export default function ChessCoach() {
         return;
       }
 
-      setAllMoves(history);
-      setCurrentMoveIndex(history.length - 1);
+      const newRoot = createRootNode();
+      let currentNode = newRoot;
+      const newPath = [newRoot.id];
+      const tempGame = new Chess();
+
+      for (const moveSan of history) {
+        tempGame.move(moveSan);
+        const child: VariationNode = {
+          id: nextNodeId(),
+          move: moveSan,
+          fen: tempGame.fen(),
+          score: null,
+          children: [],
+        };
+        currentNode.children.push(child);
+        newPath.push(child.id);
+        currentNode = child;
+      }
+
+      setTree(newRoot);
+      setCurrentPath(newPath);
       setGame(gameCopy);
       setChatMessages([]);
-      setScoreHistory([]);
 
       if (isReady) {
         setIsComputingScores(true);
         setComputeProgress({ current: 0, total: history.length });
-        const scores: { score: number; mate: number | null }[] = [];
-        const tempGame = new Chess();
+        const tempGame2 = new Chess();
+        let updatedTree = cloneTree(newRoot);
 
         for (let i = 0; i < history.length; i++) {
-          tempGame.move(history[i]);
+          tempGame2.move(history[i]);
           setComputeProgress({ current: i + 1, total: history.length });
-          const result = await evaluateAsync(tempGame.fen(), tempGame.turn(), 12);
-          scores.push(result);
+          const result = await evaluateAsync(tempGame2.fen(), tempGame2.turn(), 12);
+          updatedTree = setNodeScore(updatedTree, newPath[i + 1], result);
         }
 
-        setScoreHistory(scores);
+        setTree(updatedTree);
         setIsComputingScores(false);
         endBatch();
         evaluate(gameCopy.fen(), gameCopy.turn());
@@ -342,6 +504,14 @@ export default function ChessCoach() {
             ? "White to move"
             : "Black to move";
 
+  const hasBranches = useMemo(() => {
+    function check(node: VariationNode): boolean {
+      if (node.children.length > 1) return true;
+      return node.children.some(check);
+    }
+    return check(tree);
+  }, [tree]);
+
   return (
     <div className="flex flex-col h-screen bg-background">
       <header className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border shrink-0">
@@ -410,10 +580,11 @@ export default function ChessCoach() {
             <EvalBar evaluation={evaluation} isReady={isReady} />
           </div>
 
-          <div className="flex flex-col flex-1 min-w-0 p-4 gap-3">
+          <div className="flex flex-col flex-1 min-w-0 p-4 gap-2">
             <div
               ref={boardContainerRef}
-              className="flex-1 flex items-center justify-center min-h-0"
+              className="flex items-center justify-center min-h-0"
+              style={{ flex: hasBranches ? "0 0 auto" : "1 1 0" }}
             >
               <div style={{ width: boardSize, height: boardSize }}>
                 <Chessboard
@@ -456,7 +627,7 @@ export default function ChessCoach() {
                 size="icon"
                 variant="ghost"
                 onClick={goForward}
-                disabled={currentMoveIndex >= allMoves.length - 1}
+                disabled={currentMoveIndex >= activeLine.length - 1}
                 data-testid="button-next-move"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -465,7 +636,7 @@ export default function ChessCoach() {
                 size="icon"
                 variant="ghost"
                 onClick={goToEnd}
-                disabled={currentMoveIndex >= allMoves.length - 1}
+                disabled={currentMoveIndex >= activeLine.length - 1}
                 data-testid="button-last-move"
               >
                 <ChevronLast className="w-4 h-4" />
@@ -491,7 +662,7 @@ export default function ChessCoach() {
 
             <div className="shrink-0 relative">
               <EvalGraph
-                scores={scoreHistory}
+                scores={hasScores ? scoreHistory : []}
                 currentMoveIndex={currentMoveIndex}
                 onMoveClick={goToMove}
               />
@@ -505,31 +676,43 @@ export default function ChessCoach() {
               )}
             </div>
 
-            <div className="flex gap-2 shrink-0 items-end">
-              <Textarea
-                value={pgnInput}
-                onChange={(e) => setPgnInput(e.target.value)}
-                placeholder="Paste PGN..."
-                className="resize-none text-xs font-mono h-9 max-w-[180px]"
-                rows={1}
-                data-testid="input-pgn"
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={loadPgn}
-                disabled={isComputingScores}
-                className="shrink-0 gap-1.5"
-                data-testid="button-load-pgn"
-              >
-                {isComputingScores ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Upload className="w-3.5 h-3.5" />
-                )}
-                Load
-              </Button>
+            <div className="flex gap-2 shrink-0 items-start">
+              <div className="flex gap-2 items-end shrink-0">
+                <Textarea
+                  value={pgnInput}
+                  onChange={(e) => setPgnInput(e.target.value)}
+                  placeholder="Paste PGN..."
+                  className="resize-none text-xs font-mono h-9 max-w-[180px]"
+                  rows={1}
+                  data-testid="input-pgn"
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={loadPgn}
+                  disabled={isComputingScores}
+                  className="shrink-0 gap-1.5"
+                  data-testid="button-load-pgn"
+                >
+                  {isComputingScores ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="w-3.5 h-3.5" />
+                  )}
+                  Load
+                </Button>
+              </div>
             </div>
+
+            {hasBranches && (
+              <div className="flex-1 min-h-[120px] border border-border rounded-md overflow-auto bg-muted/20">
+                <VariationTree
+                  tree={tree}
+                  currentPath={currentPath}
+                  onNodeClick={navigateToNode}
+                />
+              </div>
+            )}
           </div>
         </div>
 
