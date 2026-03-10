@@ -1,7 +1,7 @@
 # Chess Analyzer
 
 ## Overview
-An interactive Chess Analyzer that lets users play chess on an interactive board, get real-time Stockfish engine evaluation, and receive grandmaster-style explanations and interactive coaching powered by OpenAI GPT-5.2. Features a variation tree that preserves all explored move lines. Tagline: "LLMs fact checked by Stockfish".
+An interactive Chess Analyzer that lets users play chess on an interactive board, get real-time Stockfish engine evaluation, and receive grandmaster-style explanations and interactive coaching powered by OpenAI GPT-5-nano. Features a variation tree that preserves all explored move lines. Tagline: "LLMs fact checked by Stockfish".
 
 ## Architecture
 - **Frontend**: React + Tailwind CSS + shadcn/ui components
@@ -9,7 +9,7 @@ An interactive Chess Analyzer that lets users play chess on an interactive board
 - **Chess Logic**: chess.js for rules/FEN/PGN, react-chessboard@4.7.2 for the interactive board (React 18 compatible)
 - **Client Engine**: Stockfish 18 lite-single WASM (`client/public/stockfish.js` + `client/public/stockfish.wasm`) loaded as a Web Worker with MultiPV 3
 - **Server Engine**: Server-side Stockfish via `stockfish` npm package (`server/stockfish-service.ts`), spawned as a child process for LLM tool calling
-- **AI**: OpenAI GPT-5.2 via Replit AI Integrations (no API key needed, billed to Replit credits) with Stockfish tool calling
+- **AI**: OpenAI GPT-5-nano via Replit AI Integrations (no API key needed, billed to Replit credits) with Stockfish tool calling
 
 ## Key Files
 - `client/src/pages/chess-coach.tsx` - Main chess page with board, controls, variation tree state, PGN input, chat state management
@@ -21,7 +21,7 @@ An interactive Chess Analyzer that lets users play chess on an interactive board
 - `client/src/components/coach-console.tsx` - Interactive AI coach chat panel with follow-up questions
 - `client/src/hooks/use-stockfish.ts` - Stockfish Web Worker integration hook with `evaluate` and `evaluateAsync` methods
 - `client/public/stockfish.js` - Stockfish 18 lite-single WASM engine
-- `server/routes.ts` - Backend routes for OpenAI GPT-5.2 analysis and chat with tool-calling loop
+- `server/routes.ts` - Backend routes for OpenAI GPT-5-nano analysis and chat with tool-calling loop
 - `server/stockfish-service.ts` - Server-side Stockfish engine service (spawns child process, queued evaluation)
 - `shared/schema.ts` - Shared types and Zod validation schemas (includes EngineLine, ChatMessage types)
 
@@ -47,7 +47,7 @@ Game state uses a tree structure instead of flat arrays:
 9. AI Coach is always-on chat — input always visible, no "Explain This Position" gate
 10. Chat messages persist across moves, navigation, and position changes (only cleared via explicit clear button)
 11. All chat goes through `/api/chat` which maintains full conversation history
-12. "Verify ON/OFF" toggle controls whether GPT-5.2 calls Stockfish tool to fact-check analysis
+12. "Verify ON/OFF" toggle controls whether GPT-5-nano calls Stockfish tool to fact-check analysis
 
 ## Server-Side Stockfish Tool Calling
 - `server/stockfish-service.ts` spawns the `stockfish` npm package binary (`node_modules/stockfish/bin/stockfish.js`) as a child process using `spawn(process.execPath, [enginePath])`
@@ -68,4 +68,4 @@ Game state uses a tree structure instead of flat arrays:
 - Board max size is 480px (reduced from 640px) to allow space for variation tree
 
 ## No Database Required
-This app is stateless - all chess state is managed client-side. Only OpenAI GPT-5.2 calls (with Stockfish tool calling) go through the backend.
+This app is stateless - all chess state is managed client-side. Only OpenAI GPT-5-nano calls (with Stockfish tool calling) go through the backend.

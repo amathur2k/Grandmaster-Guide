@@ -123,6 +123,7 @@ export default function ChessCoach() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [useToolCalling, setUseToolCalling] = useState(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [isComputingScores, setIsComputingScores] = useState(false);
   const [computeProgress, setComputeProgress] = useState({ current: 0, total: 0 });
   const boardContainerRef = useRef<HTMLDivElement>(null);
@@ -417,10 +418,20 @@ export default function ChessCoach() {
     }
   }, [pgnInput, toast, isReady, evaluateAsync, evaluate, endBatch]);
 
+  const cancelChat = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
+
   const sendChatMessage = useCallback(async (text: string) => {
     const userMessage: ChatMessage = { role: "user", text };
     setChatMessages(prev => [...prev, userMessage]);
     setIsChatLoading(true);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
       const context = getPositionContext();
@@ -434,6 +445,7 @@ export default function ChessCoach() {
           messages: currentMessages,
           useToolCalling,
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -451,8 +463,8 @@ export default function ChessCoach() {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const text = decoder.decode(value, { stream: true });
-        const lines = text.split("\n");
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
 
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
@@ -498,13 +510,17 @@ export default function ChessCoach() {
       if (!modelMessageAdded) {
         setChatMessages(prev => [...prev, { role: "model", text: "I couldn't generate a response. Please try again." }]);
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
       toast({
         title: "Chat Error",
         description: "Could not get a response. Please try again.",
         variant: "destructive",
       });
     } finally {
+      abortControllerRef.current = null;
       setIsChatLoading(false);
     }
   }, [chatMessages, getPositionContext, toast, useToolCalling]);
@@ -894,6 +910,7 @@ export default function ChessCoach() {
               onSendMessage={sendChatMessage}
               isChatLoading={isChatLoading}
               onClearChat={clearChat}
+              onCancelChat={cancelChat}
               useToolCalling={useToolCalling}
               onToggleToolCalling={setUseToolCalling}
             />

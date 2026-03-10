@@ -160,7 +160,7 @@ async function chatWithTools(
 
   for (let round = 0; round < maxToolRounds; round++) {
     const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
-      model: "gpt-5-mini",
+      model: "gpt-5-nano",
       messages: currentMessages,
       max_completion_tokens: 8192,
     };
@@ -188,7 +188,7 @@ async function chatWithTools(
   }
 
   const finalResponse = await callOpenAIWithRetry({
-    model: "gpt-5-mini",
+    model: "gpt-5-nano",
     messages: currentMessages,
     max_completion_tokens: 8192,
   });
@@ -290,7 +290,7 @@ export async function registerRoutes(
       if (useToolCalling) {
         for (let round = 0; round < 5; round++) {
           const toolCheckResponse = await callOpenAIWithRetry({
-            model: "gpt-5-mini",
+            model: "gpt-5-nano",
             messages: currentMsgs,
             tools,
             max_completion_tokens: 8192,
@@ -319,7 +319,7 @@ export async function registerRoutes(
       }
 
       const stream = await openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: "gpt-5-nano",
         messages: currentMsgs,
         max_completion_tokens: 8192,
         stream: true,

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Brain, Send, Trash2, Wrench, Sparkles } from "lucide-react";
+import { Loader2, Brain, Send, Trash2, Wrench, Sparkles, Square } from "lucide-react";
 import type { StockfishEvaluation, ChatMessage } from "@shared/schema";
 import {
   Tooltip,
@@ -16,6 +16,7 @@ interface CoachConsoleProps {
   onSendMessage: (text: string) => void;
   isChatLoading: boolean;
   onClearChat: () => void;
+  onCancelChat: () => void;
   useToolCalling: boolean;
   onToggleToolCalling: (value: boolean) => void;
 }
@@ -26,6 +27,7 @@ export function CoachConsole({
   onSendMessage,
   isChatLoading,
   onClearChat,
+  onCancelChat,
   useToolCalling,
   onToggleToolCalling,
 }: CoachConsoleProps) {
@@ -109,7 +111,7 @@ export function CoachConsole({
                 </div>
               </div>
             ))}
-            {isChatLoading && (
+            {isChatLoading && !messages.some((m, i) => m.role === "model" && i === messages.length - 1) && (
               <div className="flex justify-start" data-testid="chat-loading">
                 <div className="bg-muted border border-border/50 rounded-xl rounded-bl-sm px-4 py-3">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -137,15 +139,27 @@ export function CoachConsole({
             disabled={isChatLoading}
             data-testid="input-chat"
           />
-          <Button
-            size="icon"
-            onClick={handleSend}
-            disabled={!input.trim() || isChatLoading}
-            className="shrink-0 h-10 w-10"
-            data-testid="button-send-chat"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
+          {isChatLoading ? (
+            <Button
+              size="icon"
+              variant="destructive"
+              onClick={onCancelChat}
+              className="shrink-0 h-10 w-10"
+              data-testid="button-cancel-chat"
+            >
+              <Square className="w-4 h-4" />
+            </Button>
+          ) : (
+            <Button
+              size="icon"
+              onClick={handleSend}
+              disabled={!input.trim()}
+              className="shrink-0 h-10 w-10"
+              data-testid="button-send-chat"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          )}
         </div>
         <div className="flex items-center justify-end mt-2">
           <TooltipProvider>
