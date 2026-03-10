@@ -485,40 +485,8 @@ export default function ChessCoach() {
       return;
     }
 
-    const newRoot = createRootNode();
-    let currentNode = newRoot;
-    const newPath = [newRoot.id];
-
-    const priorMoves: string[] = [];
-    const history = game.history();
-
-    const tempReplay = new Chess();
-    for (const san of history) {
-      tempReplay.move(san);
-      priorMoves.push(san);
-      if (tempReplay.fen().split(" ").slice(0, 4).join(" ") === baseFen.split(" ").slice(0, 4).join(" ")) {
-        break;
-      }
-    }
-
-    for (const san of priorMoves) {
-      const replayGame = new Chess(currentNode === newRoot ? "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" : currentNode.fen);
-      const m = replayGame.move(san);
-      if (!m) break;
-      const child: VariationNode = {
-        id: nextNodeId(),
-        move: m.san,
-        fen: replayGame.fen(),
-        score: null,
-        children: [],
-      };
-      currentNode.children.push(child);
-      newPath.push(child.id);
-      currentNode = child;
-    }
-
     const pvGame = new Chess(baseFen);
-    let pvCount = 0;
+    const newNodes: VariationNode[] = [];
     for (const uci of pvUci) {
       try {
         const from = uci.slice(0, 2);
@@ -526,7 +494,6 @@ export default function ChessCoach() {
         const promotion = uci.length > 4 ? uci[4] : undefined;
         const move = pvGame.move({ from, to, promotion });
         if (!move) break;
-        pvCount++;
 
         const child: VariationNode = {
           id: nextNodeId(),
@@ -535,49 +502,63 @@ export default function ChessCoach() {
           score: null,
           children: [],
         };
-        currentNode.children.push(child);
-        newPath.push(child.id);
-        currentNode = child;
+        newNodes.push(child);
       } catch {
         break;
       }
     }
 
-    if (pvCount === 0) {
+    if (newNodes.length === 0) {
       toast({ title: "Could not load line", description: "No valid moves in engine PV.", variant: "destructive" });
       return;
     }
 
-    setTree(newRoot);
+    for (let i = 0; i < newNodes.length - 1; i++) {
+      newNodes[i].children.push(newNodes[i + 1]);
+    }
+
+    const branchNodeId = currentNodeId;
+    const branchPath = [...currentPath];
+
+    setTree(prev => {
+      const clone = cloneTree(prev);
+      const parent = findNodeById(clone, branchNodeId);
+      if (parent) {
+        const existing = parent.children.find(c => c.move === newNodes[0].move);
+        if (!existing) {
+          parent.children.push(newNodes[0]);
+        }
+      }
+      return clone;
+    });
+
+    const newPath = [...branchPath, ...newNodes.map(n => n.id)];
     setCurrentPath(newPath);
     setGame(new Chess(pvGame.fen()));
     setChatMessages([]);
 
     toast({
       title: "Engine Line Loaded",
-      description: `Loaded ${newPath.length - 1} moves. Computing evaluations...`,
+      description: `Loaded ${newNodes.length} moves as branch. Computing evaluations...`,
     });
 
     setIsComputingScores(true);
-    setComputeProgress({ current: 0, total: newPath.length - 1 });
+    setComputeProgress({ current: 0, total: newNodes.length });
 
-    const evalGame = new Chess();
-    let updatedTree = cloneTree(newRoot);
+    const evalPositions = newNodes.map(n => ({ id: n.id, fen: n.fen }));
 
-    for (let i = 1; i < newPath.length; i++) {
-      const node = findNodeById(updatedTree, newPath[i]);
-      if (!node) break;
-      evalGame.load(node.fen);
-      setComputeProgress({ current: i, total: newPath.length - 1 });
-      const result = await evaluateAsync(node.fen, evalGame.turn(), 12);
-      updatedTree = setNodeScore(updatedTree, newPath[i], result);
+    for (let i = 0; i < evalPositions.length; i++) {
+      const pos = evalPositions[i];
+      const evalG = new Chess(pos.fen);
+      setComputeProgress({ current: i + 1, total: evalPositions.length });
+      const result = await evaluateAsync(pos.fen, evalG.turn(), 12);
+      setTree(prevTree => setNodeScore(prevTree, pos.id, result));
     }
 
-    setTree(updatedTree);
     setIsComputingScores(false);
     endBatch();
     evaluate(pvGame.fen(), pvGame.turn());
-  }, [game, toast, evaluateAsync, endBatch, evaluate]);
+  }, [currentNodeId, currentPath, toast, evaluateAsync, endBatch, evaluate]);
 
   const clearChat = useCallback(() => {
     setChatMessages([]);
