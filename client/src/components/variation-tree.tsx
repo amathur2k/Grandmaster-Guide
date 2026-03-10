@@ -39,8 +39,8 @@ type DisplayItem = DisplayNode | DisplayEllipsis;
 
 const NODE_WIDTH = 64;
 const NODE_HEIGHT = 26;
-const ELLIPSIS_WIDTH = 36;
-const H_GAP = 12;
+const ELLIPSIS_WIDTH = 40;
+const H_GAP = 24;
 const V_GAP = 8;
 const STEP_Y = NODE_HEIGHT + V_GAP;
 
