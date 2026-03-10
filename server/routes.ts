@@ -18,7 +18,7 @@ Identify the opening name precisely (e.g., 'The Sicilian Defense, Najdorf Variat
 If the position is in the middlegame or endgame, identify key strategic themes (pawn structure, piece activity, king safety, etc.).
 Be succinct and to the point. Be encouraging but honest.
 
-You have access to a Stockfish chess engine tool. Use it to verify the evaluation of any moves or positions you discuss. When suggesting alternative moves, call evaluate_position with the resulting FEN to confirm the engine agrees with your assessment. This ensures your coaching advice is factually accurate.`;
+You have access to a Stockfish chess engine tool. Use it sparingly — only call evaluate_position once or twice per response to verify a key claim. Do NOT evaluate every candidate move separately. Trust the evaluation and top moves already provided in the context. Only use the tool if you need to check a specific alternative position the student asks about.`;
 
 const tools: OpenAI.ChatCompletionTool[] = [
   {
@@ -288,33 +288,65 @@ export async function registerRoutes(
       let currentMsgs = [...chatMessages];
 
       if (useToolCalling) {
-        for (let round = 0; round < 5; round++) {
-          const toolCheckResponse = await callOpenAIWithRetry({
+        for (let round = 0; round < 2; round++) {
+          const toolStream = await openai.chat.completions.create({
             model: "gpt-5-nano",
             messages: currentMsgs,
             tools,
             max_completion_tokens: 8192,
+            stream: true,
           });
 
-          const choice = toolCheckResponse.choices[0];
-          if (!choice) break;
+          let toolCalls: Record<number, { id: string; name: string; args: string }> = {};
+          let contentChunks: string[] = [];
+          let hasToolCalls = false;
 
-          const message = choice.message;
-          if (message.tool_calls && message.tool_calls.length > 0) {
+          for await (const chunk of toolStream) {
+            const delta = chunk.choices[0]?.delta;
+            if (!delta) continue;
+
+            if (delta.content) {
+              contentChunks.push(delta.content);
+              res.write(`data: ${JSON.stringify({ type: "token", text: delta.content })}\n\n`);
+            }
+
+            if (delta.tool_calls) {
+              hasToolCalls = true;
+              for (const tc of delta.tool_calls) {
+                if (!toolCalls[tc.index]) {
+                  toolCalls[tc.index] = { id: tc.id || "", name: tc.function?.name || "", args: "" };
+                }
+                if (tc.id) toolCalls[tc.index].id = tc.id;
+                if (tc.function?.name) toolCalls[tc.index].name = tc.function.name;
+                if (tc.function?.arguments) toolCalls[tc.index].args += tc.function.arguments;
+              }
+            }
+          }
+
+          if (hasToolCalls) {
             res.write(`data: ${JSON.stringify({ type: "status", text: "Verifying with Stockfish..." })}\n\n`);
-            currentMsgs.push(message);
-            const toolResults = await handleToolCalls(message.tool_calls);
+
+            const assembledToolCalls: OpenAI.ChatCompletionMessageToolCall[] = Object.values(toolCalls).map(tc => ({
+              id: tc.id,
+              type: "function" as const,
+              function: { name: tc.name, arguments: tc.args },
+            }));
+
+            const assistantMsg: OpenAI.ChatCompletionAssistantMessageParam = {
+              role: "assistant",
+              content: contentChunks.join("") || null,
+              tool_calls: assembledToolCalls,
+            };
+            currentMsgs.push(assistantMsg);
+
+            const toolResults = await handleToolCalls(assembledToolCalls);
             currentMsgs.push(...toolResults);
             continue;
           }
 
-          if (message.content) {
-            res.write(`data: ${JSON.stringify({ type: "token", text: message.content })}\n\n`);
-            res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
-            res.end();
-            return;
-          }
-          break;
+          res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+          res.end();
+          return;
         }
       }
 
