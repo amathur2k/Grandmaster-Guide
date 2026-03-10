@@ -24,7 +24,7 @@ import {
   FlipVertical2,
   Loader2,
 } from "lucide-react";
-import logoPath from "@assets/logo_nobg.png";
+import logoPath from "@assets/logo_final.png";
 
 export interface VariationNode {
   id: string;
