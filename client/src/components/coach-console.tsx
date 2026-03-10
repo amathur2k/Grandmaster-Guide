@@ -1,8 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Loader2, Brain, Send, Trash2 } from "lucide-react";
+import { Sparkles, Loader2, Brain, Send, Trash2, Wrench } from "lucide-react";
 import type { StockfishEvaluation, ChatMessage } from "@shared/schema";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface CoachConsoleProps {
   evaluation: StockfishEvaluation;
@@ -13,6 +19,8 @@ interface CoachConsoleProps {
   onSendMessage: (text: string) => void;
   isChatLoading: boolean;
   onClearChat: () => void;
+  useToolCalling: boolean;
+  onToggleToolCalling: (value: boolean) => void;
 }
 
 export function CoachConsole({
@@ -24,6 +32,8 @@ export function CoachConsole({
   onSendMessage,
   isChatLoading,
   onClearChat,
+  useToolCalling,
+  onToggleToolCalling,
 }: CoachConsoleProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -104,6 +114,32 @@ export function CoachConsole({
                 </>
               )}
             </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => onToggleToolCalling(!useToolCalling)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      useToolCalling
+                        ? "bg-primary/10 text-primary border border-primary/30"
+                        : "bg-muted text-muted-foreground border border-border"
+                    }`}
+                    data-testid="toggle-tool-calling"
+                  >
+                    <Wrench className="w-3 h-3" />
+                    Stockfish verify {useToolCalling ? "ON" : "OFF"}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[220px]">
+                  <p className="text-xs">
+                    {useToolCalling
+                      ? "AI will call Stockfish to verify its analysis. Slower but more accurate."
+                      : "AI responds without engine verification. Faster but may be less accurate."}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             {!isEngineReady && (
               <p className="text-xs text-muted-foreground">Engine loading...</p>
             )}
@@ -178,6 +214,32 @@ export function CoachConsole({
               <Sparkles className="w-3 h-3" />
               Re-analyze position
             </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => onToggleToolCalling(!useToolCalling)}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                      useToolCalling
+                        ? "bg-primary/10 text-primary border border-primary/30"
+                        : "bg-muted text-muted-foreground border border-border"
+                    }`}
+                    data-testid="toggle-tool-calling-chat"
+                  >
+                    <Wrench className="w-3 h-3" />
+                    {useToolCalling ? "Verify ON" : "Verify OFF"}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[220px]">
+                  <p className="text-xs">
+                    {useToolCalling
+                      ? "AI calls Stockfish to verify analysis. Slower but accurate."
+                      : "AI responds without engine verification. Faster."}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
       )}

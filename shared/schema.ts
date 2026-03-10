@@ -7,6 +7,7 @@ export const analyzePositionSchema = z.object({
   topMoves: z.array(z.string()),
   turn: z.enum(["w", "b"]),
   playerColor: z.enum(["white", "black"]),
+  useToolCalling: z.boolean().optional().default(true),
 });
 
 export type AnalyzePositionRequest = z.infer<typeof analyzePositionSchema>;
@@ -24,6 +25,7 @@ export const coachChatSchema = z.object({
   turn: z.enum(["w", "b"]),
   playerColor: z.enum(["white", "black"]),
   messages: z.array(chatMessageSchema).min(1),
+  useToolCalling: z.boolean().optional().default(true),
 });
 
 export type ChatMessage = z.infer<typeof chatMessageSchema>;

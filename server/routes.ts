@@ -153,17 +153,22 @@ async function callOpenAIWithRetry(
 
 async function chatWithTools(
   messages: OpenAI.ChatCompletionMessageParam[],
+  useToolCalling = true,
   maxToolRounds = 5
 ): Promise<string> {
   let currentMessages = [...messages];
 
   for (let round = 0; round < maxToolRounds; round++) {
-    const response = await callOpenAIWithRetry({
+    const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
       model: "gpt-5.2",
       messages: currentMessages,
-      tools,
       max_completion_tokens: 8192,
-    });
+    };
+    if (useToolCalling) {
+      params.tools = tools;
+    }
+
+    const response = await callOpenAIWithRetry(params);
 
     const choice = response.choices[0];
     if (!choice) {
@@ -220,12 +225,16 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid request data" });
       }
 
-      const contextMessage = buildContextMessage(parsed.data);
+      const { useToolCalling, ...positionData } = parsed.data;
+      const contextMessage = buildContextMessage(positionData);
 
-      const explanation = await chatWithTools([
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: contextMessage },
-      ]);
+      const explanation = await chatWithTools(
+        [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: contextMessage },
+        ],
+        useToolCalling
+      );
 
       res.json({ explanation });
     } catch (error: unknown) {
@@ -249,7 +258,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid request data" });
       }
 
-      const { messages, ...positionData } = parsed.data;
+      const { messages, useToolCalling, ...positionData } = parsed.data;
       const contextMessage = buildContextMessage(positionData);
 
       const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
@@ -271,7 +280,7 @@ export async function registerRoutes(
         }
       }
 
-      const reply = await chatWithTools(chatMessages);
+      const reply = await chatWithTools(chatMessages, useToolCalling);
       res.json({ reply });
     } catch (error: unknown) {
       console.error("Error in coach chat:", error);

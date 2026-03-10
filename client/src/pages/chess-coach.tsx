@@ -123,6 +123,7 @@ export default function ChessCoach() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [useToolCalling, setUseToolCalling] = useState(true);
   const [isComputingScores, setIsComputingScores] = useState(false);
   const [computeProgress, setComputeProgress] = useState({ current: 0, total: 0 });
   const boardContainerRef = useRef<HTMLDivElement>(null);
@@ -429,7 +430,7 @@ export default function ChessCoach() {
     setChatMessages([]);
     try {
       const context = getPositionContext();
-      const response = await apiRequest("POST", "/api/analyze", context);
+      const response = await apiRequest("POST", "/api/analyze", { ...context, useToolCalling });
       const data = await response.json();
 
       setChatMessages([
@@ -452,7 +453,7 @@ export default function ChessCoach() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [getPositionContext, toast]);
+  }, [getPositionContext, toast, useToolCalling]);
 
   const sendChatMessage = useCallback(async (text: string) => {
     const userMessage: ChatMessage = { role: "user", text };
@@ -465,6 +466,7 @@ export default function ChessCoach() {
       const response = await apiRequest("POST", "/api/chat", {
         ...context,
         messages: currentMessages,
+        useToolCalling,
       });
       const data = await response.json();
 
@@ -478,7 +480,7 @@ export default function ChessCoach() {
     } finally {
       setIsChatLoading(false);
     }
-  }, [chatMessages, getPositionContext, toast]);
+  }, [chatMessages, getPositionContext, toast, useToolCalling]);
 
   const explainMove = useCallback((moveUci: string, moveSan: string, score: string, pvSan: string) => {
     const turnLabel = game.turn() === "w" ? "White" : "Black";
@@ -869,6 +871,8 @@ export default function ChessCoach() {
               onSendMessage={sendChatMessage}
               isChatLoading={isChatLoading}
               onClearChat={clearChat}
+              useToolCalling={useToolCalling}
+              onToggleToolCalling={setUseToolCalling}
             />
           </div>
         </div>
