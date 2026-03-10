@@ -24,6 +24,7 @@ import {
   FlipVertical2,
   Loader2,
 } from "lucide-react";
+import logoPath from "@assets/logo_nobg.png";
 
 export interface VariationNode {
   id: string;
@@ -506,27 +507,18 @@ export default function ChessCoach() {
             ? "White to move"
             : "Black to move";
 
-  const hasBranches = useMemo(() => {
-    function check(node: VariationNode): boolean {
-      if (node.children.length > 1) return true;
-      return node.children.some(check);
-    }
-    return check(tree);
-  }, [tree]);
 
   return (
     <div className="flex flex-col h-screen bg-background">
       <header className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">CC</span>
-          </div>
+          <img src={logoPath} alt="Chess Analyzer" className="w-9 h-9 object-contain" />
           <div>
             <h1 className="text-base font-bold leading-tight" data-testid="text-app-title">
-              AI Chess Coach
+              Chess Analyzer
             </h1>
             <p className="text-xs text-muted-foreground leading-tight">
-              Powered by Stockfish + Gemini
+              LLMs fact checked by Stockfish
             </p>
           </div>
           <Dialog open={showPgnModal} onOpenChange={setShowPgnModal}>
@@ -586,6 +578,7 @@ export default function ChessCoach() {
           </Dialog>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground font-medium">Analyse as:</span>
           <div className="flex items-center gap-1.5 border border-border rounded-md p-0.5" data-testid="player-color-selector">
             <button
               onClick={() => { setPlayerColor("white"); setBoardOrientation("white"); }}
@@ -641,7 +634,7 @@ export default function ChessCoach() {
             <div
               ref={boardContainerRef}
               className="flex items-center justify-center min-h-0"
-              style={{ flex: hasBranches ? "0 0 auto" : "1 1 0" }}
+              style={{ flex: "0 0 auto" }}
             >
               <div style={{ width: boardSize, height: boardSize }}>
                 <Chessboard
@@ -733,15 +726,20 @@ export default function ChessCoach() {
               )}
             </div>
 
-            {hasBranches && (
-              <div className="flex-1 min-h-[100px] border border-border rounded-md overflow-auto bg-muted/20">
+            <div className="flex-1 min-h-[100px] border border-border rounded-md overflow-hidden bg-muted/20 flex flex-col">
+              <div className="px-3 py-1.5 border-b border-border bg-muted/40 shrink-0">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Gameline Tree
+                </h3>
+              </div>
+              <div className="flex-1 overflow-auto">
                 <VariationTree
                   tree={tree}
                   currentPath={currentPath}
                   onNodeClick={navigateToNode}
                 />
               </div>
-            )}
+            </div>
           </div>
         </div>
 

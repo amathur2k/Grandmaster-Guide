@@ -27,10 +27,10 @@ interface DisplayLine {
   key: string;
 }
 
-const NODE_WIDTH = 64;
-const NODE_HEIGHT = 26;
+const NODE_WIDTH = 74;
+const NODE_HEIGHT = 28;
 const H_GAP = 16;
-const V_GAP = 8;
+const V_GAP = 10;
 const STEP_X = NODE_WIDTH + H_GAP;
 const STEP_Y = NODE_HEIGHT + V_GAP;
 
@@ -39,7 +39,7 @@ function getMoveLabel(node: VariationNode, root: VariationNode): string {
   if (depth < 0) return node.move;
   const moveNum = Math.floor(depth / 2) + 1;
   const isWhite = depth % 2 === 0;
-  return isWhite ? `${moveNum}.${node.move}` : `${moveNum}…${node.move}`;
+  return isWhite ? `${moveNum}.${node.move}` : `${moveNum}..${node.move}`;
 }
 
 function getDepth(target: VariationNode, root: VariationNode, d: number = -1): number {
@@ -191,8 +191,8 @@ export function VariationTree({ tree, currentPath, onNodeClick }: VariationTreeP
 
   if (nodes.length === 0) {
     return (
-      <div className="p-3 text-xs text-muted-foreground italic text-center" data-testid="variation-tree-empty">
-        Make different moves to create variations
+      <div className="p-4 text-xs text-muted-foreground italic text-center" data-testid="variation-tree-empty">
+        Play different moves from any position to create branches
       </div>
     );
   }
@@ -243,7 +243,7 @@ export function VariationTree({ tree, currentPath, onNodeClick }: VariationTreeP
       {nodes.map(node => (
         <button
           key={node.id}
-          className={`absolute text-[11px] font-mono leading-none rounded px-1.5 py-1 border transition-colors truncate ${
+          className={`absolute text-xs font-mono leading-none rounded px-1.5 py-1.5 border transition-colors truncate ${
             node.isCurrentNode
               ? "bg-primary text-primary-foreground border-primary font-bold shadow-sm"
               : node.isOnCurrentPath
