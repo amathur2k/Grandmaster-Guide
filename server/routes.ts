@@ -1,14 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 import { analyzePositionSchema, coachChatSchema } from "@shared/schema";
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-  },
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
 const SYSTEM_PROMPT = `You are a witty Grandmaster Chess Coach. I will provide the full PGN of the game so far, the current FEN, the engine's evaluation, and which color the student is playing.
@@ -16,7 +13,7 @@ const SYSTEM_PROMPT = `You are a witty Grandmaster Chess Coach. I will provide t
 Always address the student as the color they are playing. Analyze from their perspective.
 If the eval is positive for the student, explain their advantage and what they're doing right.
 If it's negative, explain the threat they missed or the mistake they made, and suggest what they should have done.
-Identify the opening name precisely (e.g., 'The Sicilian Defense, Najdorf Variation'). Use web search to look up the opening if needed.
+Identify the opening name precisely (e.g., 'The Sicilian Defense, Najdorf Variation').
 If the position is in the middlegame or endgame, identify key strategic themes (pawn structure, piece activity, king safety, etc.).
 Be succinct and to the point. Be encouraging but honest.`;
 
@@ -43,23 +40,17 @@ export async function registerRoutes(
       }
 
       const contextMessage = buildContextMessage(parsed.data);
-      const fullPrompt = SYSTEM_PROMPT + "\n\n" + contextMessage;
-      console.log("--- GEMINI PROMPT ---");
-      console.log(fullPrompt);
-      console.log("--- END PROMPT ---");
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
-        contents: [
-          { role: "user", parts: [{ text: fullPrompt }] },
+      const response = await openai.chat.completions.create({
+        model: "gpt-5.2",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: contextMessage },
         ],
-        config: {
-          maxOutputTokens: 8192,
-          tools: [{ googleSearch: {} }],
-        },
+        max_completion_tokens: 8192,
       });
 
-      const explanation = response.text || "I couldn't analyze this position. Try making a few more moves!";
+      const explanation = response.choices[0]?.message?.content || "I couldn't analyze this position. Try making a few more moves!";
       res.json({ explanation });
     } catch (error) {
       console.error("Error analyzing position:", error);
@@ -77,33 +68,32 @@ export async function registerRoutes(
       const { messages, ...positionData } = parsed.data;
       const contextMessage = buildContextMessage(positionData);
 
-      const contents = messages.map((msg, i) => {
+      const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
+        { role: "system", content: SYSTEM_PROMPT },
+      ];
+
+      for (let i = 0; i < messages.length; i++) {
+        const msg = messages[i];
         if (i === 0 && msg.role === "user") {
-          return {
-            role: "user" as const,
-            parts: [{ text: SYSTEM_PROMPT + "\n\n" + contextMessage + "\n\n" + msg.text }],
-          };
+          chatMessages.push({
+            role: "user",
+            content: contextMessage + "\n\n" + msg.text,
+          });
+        } else {
+          chatMessages.push({
+            role: msg.role === "model" ? "assistant" : "user",
+            content: msg.text,
+          });
         }
-        return {
-          role: msg.role as "user" | "model",
-          parts: [{ text: msg.text }],
-        };
+      }
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5.2",
+        messages: chatMessages,
+        max_completion_tokens: 8192,
       });
 
-      console.log("--- GEMINI CHAT ---");
-      console.log(`Messages: ${messages.length}, Latest: "${messages[messages.length - 1]?.text?.slice(0, 100)}..."`);
-      console.log("--- END CHAT ---");
-
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
-        contents,
-        config: {
-          maxOutputTokens: 8192,
-          tools: [{ googleSearch: {} }],
-        },
-      });
-
-      const reply = response.text || "I'm not sure how to respond to that. Could you rephrase your question?";
+      const reply = response.choices[0]?.message?.content || "I'm not sure how to respond to that. Could you rephrase your question?";
       res.json({ reply });
     } catch (error) {
       console.error("Error in coach chat:", error);

@@ -1,14 +1,14 @@
-# AI Chess Coach
+# Chess Analyzer
 
 ## Overview
-An interactive AI Chess Coach MVP that lets users play chess on an interactive board, get real-time Stockfish engine evaluation, and receive grandmaster-style explanations and interactive coaching powered by Google Gemini AI. Features a variation tree that preserves all explored move lines.
+An interactive Chess Analyzer that lets users play chess on an interactive board, get real-time Stockfish engine evaluation, and receive grandmaster-style explanations and interactive coaching powered by OpenAI GPT-5.2. Features a variation tree that preserves all explored move lines. Tagline: "LLMs fact checked by Stockfish".
 
 ## Architecture
 - **Frontend**: React + Tailwind CSS + shadcn/ui components
 - **Backend**: Express.js with `/api/analyze` and `/api/chat` endpoints
 - **Chess Logic**: chess.js for rules/FEN/PGN, react-chessboard@4.7.2 for the interactive board (React 18 compatible)
 - **Engine**: Stockfish 18 lite-single WASM (`client/public/stockfish.js` + `client/public/stockfish.wasm`) loaded as a Web Worker with MultiPV 3
-- **AI**: Google Gemini (gemini-2.5-pro) via Replit AI Integrations with web search enabled (no API key needed)
+- **AI**: OpenAI GPT-5.2 via Replit AI Integrations (no API key needed, billed to Replit credits)
 
 ## Key Files
 - `client/src/pages/chess-coach.tsx` - Main chess page with board, controls, variation tree state, PGN input, chat state management
@@ -20,7 +20,7 @@ An interactive AI Chess Coach MVP that lets users play chess on an interactive b
 - `client/src/components/coach-console.tsx` - Interactive AI coach chat panel with follow-up questions
 - `client/src/hooks/use-stockfish.ts` - Stockfish Web Worker integration hook with `evaluate` and `evaluateAsync` methods
 - `client/public/stockfish.js` - Stockfish 18 lite-single WASM engine
-- `server/routes.ts` - Backend routes for Gemini AI analysis and chat
+- `server/routes.ts` - Backend routes for OpenAI GPT-5.2 analysis and chat
 - `shared/schema.ts` - Shared types and Zod validation schemas (includes EngineLine, ChatMessage types)
 
 ## Variation Tree Data Model
@@ -43,7 +43,7 @@ Game state uses a tree structure instead of flat arrays:
 7. The variation tree component renders below the eval graph when branches exist
 8. Engine lines section shows top 3 moves with scores; each has an "explain" button
 9. "Explain This Position" sends FEN, full PGN, eval, and top moves to `/api/analyze`
-10. Backend calls Gemini 2.5 Pro with chess coach system prompt and web search tool
+10. Backend calls OpenAI GPT-5.2 with chess coach system prompt
 11. AI explanation displayed as first message in interactive coach chat
 12. User can ask follow-up questions via `/api/chat` which maintains full conversation history
 
