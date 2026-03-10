@@ -479,7 +479,7 @@ export default function ChessCoach() {
     sendChatMessage(question);
   }, [game, sendChatMessage]);
 
-  const loadEngineLine = useCallback((pvUci: string[], baseFen: string) => {
+  const loadEngineLine = useCallback(async (pvUci: string[], baseFen: string) => {
     if (pvUci.length === 0) {
       toast({ title: "No moves", description: "Engine line is empty.", variant: "destructive" });
       return;
@@ -489,7 +489,6 @@ export default function ChessCoach() {
     let currentNode = newRoot;
     const newPath = [newRoot.id];
 
-    const baseGame = new Chess(baseFen);
     const priorMoves: string[] = [];
     const history = game.history();
 
@@ -556,9 +555,29 @@ export default function ChessCoach() {
 
     toast({
       title: "Engine Line Loaded",
-      description: `Loaded ${pvCount} moves from engine line.`,
+      description: `Loaded ${newPath.length - 1} moves. Computing evaluations...`,
     });
-  }, [game, toast]);
+
+    setIsComputingScores(true);
+    setComputeProgress({ current: 0, total: newPath.length - 1 });
+
+    const evalGame = new Chess();
+    let updatedTree = cloneTree(newRoot);
+
+    for (let i = 1; i < newPath.length; i++) {
+      const node = findNodeById(updatedTree, newPath[i]);
+      if (!node) break;
+      evalGame.load(node.fen);
+      setComputeProgress({ current: i, total: newPath.length - 1 });
+      const result = await evaluateAsync(node.fen, evalGame.turn(), 12);
+      updatedTree = setNodeScore(updatedTree, newPath[i], result);
+    }
+
+    setTree(updatedTree);
+    setIsComputingScores(false);
+    endBatch();
+    evaluate(pvGame.fen(), pvGame.turn());
+  }, [game, toast, evaluateAsync, endBatch, evaluate]);
 
   const clearChat = useCallback(() => {
     setChatMessages([]);
