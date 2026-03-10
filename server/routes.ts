@@ -18,7 +18,7 @@ Identify the opening name precisely (e.g., 'The Sicilian Defense, Najdorf Variat
 If the position is in the middlegame or endgame, identify key strategic themes (pawn structure, piece activity, king safety, etc.).
 Be succinct and to the point. Be encouraging but honest.
 
-You have access to a Stockfish chess engine tool. Use it sparingly — only call evaluate_position once or twice per response to verify a key claim. Do NOT evaluate every candidate move separately. Trust the evaluation and top moves already provided in the context. Only use the tool if you need to check a specific alternative position the student asks about.`;
+When Stockfish engine analysis is included in the context, use it to ground your assessment. Reference specific engine scores and best moves to support your coaching advice. This data is from a real Stockfish engine so you can trust it completely.`;
 
 const tools: OpenAI.ChatCompletionTool[] = [
   {
@@ -160,7 +160,7 @@ async function chatWithTools(
 
   for (let round = 0; round < maxToolRounds; round++) {
     const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
-      model: "gpt-5-nano",
+      model: "gpt-5-mini",
       messages: currentMessages,
       max_completion_tokens: 8192,
     };
@@ -188,7 +188,7 @@ async function chatWithTools(
   }
 
   const finalResponse = await callOpenAIWithRetry({
-    model: "gpt-5-nano",
+    model: "gpt-5-mini",
     messages: currentMessages,
     max_completion_tokens: 8192,
   });
@@ -226,16 +226,36 @@ export async function registerRoutes(
       }
 
       const { useToolCalling, ...positionData } = parsed.data;
-      const contextMessage = buildContextMessage(positionData);
+      let contextMessage = buildContextMessage(positionData);
 
-      const explanation = await chatWithTools(
-        [
+      if (useToolCalling) {
+        const fen = sanitizeFen(positionData.fen);
+        if (fen) {
+          try {
+            const evalResult = await stockfishService.evaluate(fen, 18);
+            const scoreDisplay = evalResult.mate !== null
+              ? `Mate in ${evalResult.mate} (${evalResult.mate > 0 ? "White wins" : "Black wins"})`
+              : `${evalResult.score > 0 ? "+" : ""}${evalResult.score.toFixed(2)}`;
+            contextMessage += `\n\n[Stockfish Deep Analysis (depth ${evalResult.depth})]
+Score: ${scoreDisplay}
+Best move: ${evalResult.bestMove}
+Principal variation: ${evalResult.pv.slice(0, 8).join(" ")}`;
+          } catch (e) {
+            console.error("[analyze] Stockfish pre-eval failed:", e);
+          }
+        }
+      }
+
+      const response = await callOpenAIWithRetry({
+        model: "gpt-5-mini",
+        messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: contextMessage },
         ],
-        useToolCalling
-      );
+        max_completion_tokens: 8192,
+      });
 
+      const explanation = response.choices[0]?.message?.content || "I couldn't generate a response. Please try again.";
       res.json({ explanation });
     } catch (error: unknown) {
       console.error("Error analyzing position:", error);
@@ -259,113 +279,91 @@ export async function registerRoutes(
       }
 
       const { messages, useToolCalling, ...positionData } = parsed.data;
-      const contextMessage = buildContextMessage(positionData);
-
-      const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
-        { role: "system", content: SYSTEM_PROMPT },
-      ];
-
-      for (let i = 0; i < messages.length; i++) {
-        const msg = messages[i];
-        if (i === 0 && msg.role === "user") {
-          chatMessages.push({
-            role: "user",
-            content: contextMessage + "\n\n" + msg.text,
-          });
-        } else {
-          chatMessages.push({
-            role: msg.role === "model" ? "assistant" : "user",
-            content: msg.text,
-          });
-        }
-      }
+      let contextMessage = buildContextMessage(positionData);
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
       res.flushHeaders();
 
-      let currentMsgs = [...chatMessages];
-
-      if (useToolCalling) {
-        for (let round = 0; round < 2; round++) {
-          const toolStream = await openai.chat.completions.create({
-            model: "gpt-5-nano",
-            messages: currentMsgs,
-            tools,
-            max_completion_tokens: 8192,
-            stream: true,
-          });
-
-          let toolCalls: Record<number, { id: string; name: string; args: string }> = {};
-          let contentChunks: string[] = [];
-          let hasToolCalls = false;
-
-          for await (const chunk of toolStream) {
-            const delta = chunk.choices[0]?.delta;
-            if (!delta) continue;
-
-            if (delta.content) {
-              contentChunks.push(delta.content);
-              res.write(`data: ${JSON.stringify({ type: "token", text: delta.content })}\n\n`);
-            }
-
-            if (delta.tool_calls) {
-              hasToolCalls = true;
-              for (const tc of delta.tool_calls) {
-                if (!toolCalls[tc.index]) {
-                  toolCalls[tc.index] = { id: tc.id || "", name: tc.function?.name || "", args: "" };
-                }
-                if (tc.id) toolCalls[tc.index].id = tc.id;
-                if (tc.function?.name) toolCalls[tc.index].name = tc.function.name;
-                if (tc.function?.arguments) toolCalls[tc.index].args += tc.function.arguments;
-              }
-            }
-          }
-
-          if (hasToolCalls) {
-            res.write(`data: ${JSON.stringify({ type: "status", text: "Verifying with Stockfish..." })}\n\n`);
-
-            const assembledToolCalls: OpenAI.ChatCompletionMessageToolCall[] = Object.values(toolCalls).map(tc => ({
-              id: tc.id,
-              type: "function" as const,
-              function: { name: tc.name, arguments: tc.args },
-            }));
-
-            const assistantMsg: OpenAI.ChatCompletionAssistantMessageParam = {
-              role: "assistant",
-              content: contentChunks.join("") || null,
-              tool_calls: assembledToolCalls,
-            };
-            currentMsgs.push(assistantMsg);
-
-            const toolResults = await handleToolCalls(assembledToolCalls);
-            currentMsgs.push(...toolResults);
-            continue;
-          }
-
-          res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
-          res.end();
-          return;
+      let clientDisconnected = false;
+      const heartbeat = setInterval(() => {
+        if (!clientDisconnected) {
+          res.write(`: heartbeat\n\n`);
         }
-      }
+      }, 15000);
 
-      const stream = await openai.chat.completions.create({
-        model: "gpt-5-nano",
-        messages: currentMsgs,
-        max_completion_tokens: 8192,
-        stream: true,
+      res.on("close", () => {
+        clientDisconnected = true;
+        clearInterval(heartbeat);
       });
 
-      for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta?.content;
-        if (delta) {
-          res.write(`data: ${JSON.stringify({ type: "token", text: delta })}\n\n`);
-        }
-      }
+      try {
+        const startTime = Date.now();
 
-      res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
-      res.end();
+        if (useToolCalling) {
+          res.write(`data: ${JSON.stringify({ type: "status", text: "Running Stockfish analysis..." })}\n\n`);
+          const fen = sanitizeFen(positionData.fen);
+          if (fen) {
+            try {
+              console.log(`[chat] Pre-evaluating position: ${fen}`);
+              const evalResult = await stockfishService.evaluate(fen, 18);
+              const scoreDisplay = evalResult.mate !== null
+                ? `Mate in ${evalResult.mate} (${evalResult.mate > 0 ? "White wins" : "Black wins"})`
+                : `${evalResult.score > 0 ? "+" : ""}${evalResult.score.toFixed(2)}`;
+              contextMessage += `\n\n[Stockfish Deep Analysis (depth ${evalResult.depth})]
+Score: ${scoreDisplay}
+Best move: ${evalResult.bestMove}
+Principal variation: ${evalResult.pv.slice(0, 8).join(" ")}`;
+              console.log(`[chat] Stockfish eval done: score=${evalResult.score}, bestMove=${evalResult.bestMove}`);
+            } catch (e) {
+              console.error("[chat] Stockfish pre-eval failed:", e);
+            }
+          }
+        }
+
+        if (clientDisconnected) {
+          console.log(`[chat] Client disconnected before LLM call`);
+          return;
+        }
+
+        const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
+          { role: "system", content: SYSTEM_PROMPT },
+        ];
+
+        for (let i = 0; i < messages.length; i++) {
+          const msg = messages[i];
+          if (i === 0 && msg.role === "user") {
+            chatMessages.push({
+              role: "user",
+              content: contextMessage + "\n\n" + msg.text,
+            });
+          } else {
+            chatMessages.push({
+              role: msg.role === "model" ? "assistant" : "user",
+              content: msg.text,
+            });
+          }
+        }
+
+        const response = await callOpenAIWithRetry({
+          model: "gpt-5-mini",
+          messages: chatMessages,
+          max_completion_tokens: 8192,
+        });
+        const content = response.choices[0]?.message?.content || "I couldn't generate a response. Please try again.";
+        console.log(`[chat] Response ready in ${Date.now() - startTime}ms, length=${content.length}`);
+
+        if (!clientDisconnected) {
+          res.write(`data: ${JSON.stringify({ type: "token", text: content })}\n\n`);
+          res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+        }
+        clearInterval(heartbeat);
+        if (!clientDisconnected) res.end();
+      } catch (innerError) {
+        clearInterval(heartbeat);
+        throw innerError;
+      }
     } catch (error: unknown) {
       console.error("Error in coach chat:", error);
       const isRateLimit =
