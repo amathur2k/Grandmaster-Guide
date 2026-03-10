@@ -54,7 +54,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
   const displayLines = useMemo(() => {
     return lines.map((line, i) => {
       const san = uciToSan(fen, line.move);
-      const pvSanMoves = pvToSan(fen, line.pv.slice(0, 6));
+      const pvSanMoves = pvToSan(fen, line.pv.slice(0, 14));
       const scoreStr = formatScore(line.score, line.mate);
 
       const isPositive = line.mate !== null ? line.mate > 0 : line.score > 0;
@@ -132,7 +132,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
           <Button
             size="icon"
             variant="ghost"
-            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
             onClick={() => onAnalyzeLine(line.pvUci, fen)}
             title={`Analyze this line`}
             data-testid={`button-analyze-line-${line.index}`}
@@ -142,7 +142,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
           <Button
             size="icon"
             variant="ghost"
-            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
             onClick={() => onExplainMove(line.uci, line.san, line.rawScore, line.pvSan)}
             title={`Explain ${line.san}`}
             data-testid={`button-explain-move-${line.index}`}
