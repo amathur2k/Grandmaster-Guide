@@ -280,19 +280,75 @@ export async function registerRoutes(
         }
       }
 
-      const reply = await chatWithTools(chatMessages, useToolCalling);
-      res.json({ reply });
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.flushHeaders();
+
+      let currentMsgs = [...chatMessages];
+
+      if (useToolCalling) {
+        for (let round = 0; round < 5; round++) {
+          const toolCheckResponse = await callOpenAIWithRetry({
+            model: "gpt-5-mini",
+            messages: currentMsgs,
+            tools,
+            max_completion_tokens: 8192,
+          });
+
+          const choice = toolCheckResponse.choices[0];
+          if (!choice) break;
+
+          const message = choice.message;
+          if (message.tool_calls && message.tool_calls.length > 0) {
+            res.write(`data: ${JSON.stringify({ type: "status", text: "Verifying with Stockfish..." })}\n\n`);
+            currentMsgs.push(message);
+            const toolResults = await handleToolCalls(message.tool_calls);
+            currentMsgs.push(...toolResults);
+            continue;
+          }
+
+          if (message.content) {
+            res.write(`data: ${JSON.stringify({ type: "token", text: message.content })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+            res.end();
+            return;
+          }
+          break;
+        }
+      }
+
+      const stream = await openai.chat.completions.create({
+        model: "gpt-5-mini",
+        messages: currentMsgs,
+        max_completion_tokens: 8192,
+        stream: true,
+      });
+
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (delta) {
+          res.write(`data: ${JSON.stringify({ type: "token", text: delta })}\n\n`);
+        }
+      }
+
+      res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+      res.end();
     } catch (error: unknown) {
       console.error("Error in coach chat:", error);
       const isRateLimit =
         error instanceof Error &&
         "status" in error &&
         (error as { status: number }).status === 429;
-      const status = isRateLimit ? 429 : 500;
       const msg = isRateLimit
         ? "AI service is busy. Please wait a moment and try again."
         : "Failed to get coach response";
-      res.status(status).json({ error: msg });
+      if (!res.headersSent) {
+        res.status(isRateLimit ? 429 : 500).json({ error: msg });
+      } else {
+        res.write(`data: ${JSON.stringify({ type: "error", text: msg })}\n\n`);
+        res.end();
+      }
     }
   });
 

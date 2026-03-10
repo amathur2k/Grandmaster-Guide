@@ -425,14 +425,79 @@ export default function ChessCoach() {
     try {
       const context = getPositionContext();
       const currentMessages = [...chatMessages, userMessage];
-      const response = await apiRequest("POST", "/api/chat", {
-        ...context,
-        messages: currentMessages,
-        useToolCalling,
-      });
-      const data = await response.json();
 
-      setChatMessages(prev => [...prev, { role: "model", text: data.reply }]);
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...context,
+          messages: currentMessages,
+          useToolCalling,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`${response.status}: ${await response.text()}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No stream reader");
+
+      const decoder = new TextDecoder();
+      let accumulated = "";
+      let modelMessageAdded = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const text = decoder.decode(value, { stream: true });
+        const lines = text.split("\n");
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr) continue;
+
+          try {
+            const event = JSON.parse(jsonStr);
+
+            if (event.type === "token") {
+              accumulated += event.text;
+              if (!modelMessageAdded) {
+                modelMessageAdded = true;
+                setChatMessages(prev => [...prev, { role: "model", text: accumulated }]);
+              } else {
+                setChatMessages(prev => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = { role: "model", text: accumulated };
+                  return updated;
+                });
+              }
+            } else if (event.type === "status") {
+              if (!modelMessageAdded) {
+                modelMessageAdded = true;
+                setChatMessages(prev => [...prev, { role: "model", text: `_${event.text}_` }]);
+              } else {
+                setChatMessages(prev => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = { role: "model", text: `_${event.text}_` };
+                  return updated;
+                });
+              }
+            } else if (event.type === "error") {
+              throw new Error(event.text);
+            }
+          } catch (e) {
+            if (e instanceof SyntaxError) continue;
+            throw e;
+          }
+        }
+      }
+
+      if (!modelMessageAdded) {
+        setChatMessages(prev => [...prev, { role: "model", text: "I couldn't generate a response. Please try again." }]);
+      }
     } catch {
       toast({
         title: "Chat Error",
