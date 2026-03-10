@@ -15,6 +15,8 @@ export function useStockfish() {
   const turnRef = useRef<"w" | "b">("w");
   const evalResolveRef = useRef<((result: EvalResult) => void) | null>(null);
   const batchModeRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [evaluation, setEvaluation] = useState<StockfishEvaluation>({
     score: 0,
     bestMove: "",
@@ -24,20 +26,10 @@ export function useStockfish() {
     mate: null,
   });
 
-  useEffect(() => {
-    const handleGlobalError = (e: ErrorEvent) => {
-      if (e.filename?.includes("stockfish") || e.message?.includes("stockfish")) {
-        e.preventDefault();
-      }
-    };
-    const handleUnhandledRejection = (e: PromiseRejectionEvent) => {
-      const reason = String(e.reason || "");
-      if (reason.includes("stockfish") || reason.includes("Worker")) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener("error", handleGlobalError);
-    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+  const createWorker = useCallback(() => {
+    try {
+      workerRef.current?.terminate();
+    } catch {}
 
     try {
       const worker = new Worker("/stockfish.js");
@@ -60,6 +52,8 @@ export function useStockfish() {
 
         if (line === "readyok") {
           setIsReady(true);
+          setHasError(false);
+          retryCountRef.current = 0;
           return;
         }
 
@@ -130,10 +124,19 @@ export function useStockfish() {
       worker.onerror = (e) => {
         e.preventDefault();
         setIsReady(false);
-        setHasError(true);
         if (evalResolveRef.current) {
           evalResolveRef.current({ score: 0, mate: null });
           evalResolveRef.current = null;
+        }
+        batchModeRef.current = false;
+
+        if (retryCountRef.current < 3) {
+          retryCountRef.current++;
+          retryTimerRef.current = setTimeout(() => {
+            createWorker();
+          }, 1000 * retryCountRef.current);
+        } else {
+          setHasError(true);
         }
       };
 
@@ -141,15 +144,41 @@ export function useStockfish() {
       worker.postMessage("setoption name MultiPV value 3");
       worker.postMessage("isready");
     } catch {
-      setHasError(true);
+      if (retryCountRef.current < 3) {
+        retryCountRef.current++;
+        retryTimerRef.current = setTimeout(() => {
+          createWorker();
+        }, 1000 * retryCountRef.current);
+      } else {
+        setHasError(true);
+      }
     }
+  }, []);
+
+  useEffect(() => {
+    const handleGlobalError = (e: ErrorEvent) => {
+      if (e.filename?.includes("stockfish") || e.message?.includes("stockfish")) {
+        e.preventDefault();
+      }
+    };
+    const handleUnhandledRejection = (e: PromiseRejectionEvent) => {
+      const reason = String(e.reason || "");
+      if (reason.includes("stockfish") || reason.includes("Worker")) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("error", handleGlobalError);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+
+    createWorker();
 
     return () => {
       workerRef.current?.terminate();
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
       window.removeEventListener("error", handleGlobalError);
       window.removeEventListener("unhandledrejection", handleUnhandledRejection);
     };
-  }, []);
+  }, [createWorker]);
 
   const evaluate = useCallback((fen: string, turn: "w" | "b", depth = 18) => {
     if (workerRef.current && isReady) {
