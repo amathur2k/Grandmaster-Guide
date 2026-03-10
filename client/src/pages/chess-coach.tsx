@@ -10,6 +10,7 @@ import { VariationTree } from "@/components/variation-tree";
 import { CoachConsole } from "@/components/coach-console";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { ChatMessage } from "@shared/schema";
@@ -117,6 +118,7 @@ export default function ChessCoach() {
   const [playerColor, setPlayerColor] = useState<"white" | "black">("white");
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
   const [pgnInput, setPgnInput] = useState("");
+  const [showPgnModal, setShowPgnModal] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -527,6 +529,61 @@ export default function ChessCoach() {
               Powered by Stockfish + Gemini
             </p>
           </div>
+          <Dialog open={showPgnModal} onOpenChange={setShowPgnModal}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 ml-2"
+                data-testid="button-open-pgn"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Load PGN
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Load PGN</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-3">
+                <Textarea
+                  value={pgnInput}
+                  onChange={(e) => setPgnInput(e.target.value)}
+                  placeholder="Paste PGN here...&#10;e.g. 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"
+                  className="resize-none text-sm font-mono min-h-[120px]"
+                  rows={5}
+                  data-testid="input-pgn"
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowPgnModal(false)}
+                    data-testid="button-cancel-pgn"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      loadPgn();
+                      setShowPgnModal(false);
+                    }}
+                    disabled={isComputingScores || !pgnInput.trim()}
+                    className="gap-1.5"
+                    data-testid="button-load-pgn"
+                  >
+                    {isComputingScores ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="w-3.5 h-3.5" />
+                    )}
+                    Load
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 border border-border rounded-md p-0.5" data-testid="player-color-selector">
@@ -676,36 +733,8 @@ export default function ChessCoach() {
               )}
             </div>
 
-            <div className="flex gap-2 shrink-0 items-start">
-              <div className="flex gap-2 items-end shrink-0">
-                <Textarea
-                  value={pgnInput}
-                  onChange={(e) => setPgnInput(e.target.value)}
-                  placeholder="Paste PGN..."
-                  className="resize-none text-xs font-mono h-9 max-w-[180px]"
-                  rows={1}
-                  data-testid="input-pgn"
-                />
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={loadPgn}
-                  disabled={isComputingScores}
-                  className="shrink-0 gap-1.5"
-                  data-testid="button-load-pgn"
-                >
-                  {isComputingScores ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Upload className="w-3.5 h-3.5" />
-                  )}
-                  Load
-                </Button>
-              </div>
-            </div>
-
             {hasBranches && (
-              <div className="flex-1 min-h-[120px] border border-border rounded-md overflow-auto bg-muted/20">
+              <div className="flex-1 min-h-[100px] border border-border rounded-md overflow-auto bg-muted/20">
                 <VariationTree
                   tree={tree}
                   currentPath={currentPath}

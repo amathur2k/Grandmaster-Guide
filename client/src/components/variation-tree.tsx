@@ -39,7 +39,7 @@ type DisplayItem = DisplayNode | DisplayEllipsis;
 
 const NODE_WIDTH = 56;
 const NODE_HEIGHT = 24;
-const ELLIPSIS_WIDTH = 24;
+const ELLIPSIS_WIDTH = 28;
 const H_GAP = 6;
 const V_GAP = 6;
 const STEP_Y = NODE_HEIGHT + V_GAP;
@@ -284,10 +284,10 @@ export function VariationTree({ tree, currentPath, onNodeClick }: VariationTreeP
           return (
             <span
               key={item.key}
-              className={`absolute text-[10px] font-mono leading-none flex items-center justify-center ${
+              className={`absolute text-xs font-bold leading-none flex items-center justify-center tracking-widest ${
                 item.isOnCurrentPath
                   ? "text-blue-500 dark:text-blue-400"
-                  : "text-muted-foreground/50"
+                  : "text-muted-foreground"
               }`}
               style={{
                 left: item.x,
