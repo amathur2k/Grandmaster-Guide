@@ -436,10 +436,17 @@ export default function ChessCoach() {
         { role: "user", text: "Explain this position" },
         { role: "model", text: data.explanation },
       ]);
-    } catch {
+    } catch (err: unknown) {
+      let description = "Could not get AI explanation. Please try again.";
+      if (err && typeof err === "object" && "message" in err) {
+        const msg = (err as { message: string }).message;
+        if (msg.includes("busy") || msg.includes("429")) {
+          description = "AI service is busy. Please wait a moment and try again.";
+        }
+      }
       toast({
         title: "Analysis Failed",
-        description: "Could not get AI explanation. Please try again.",
+        description,
         variant: "destructive",
       });
     } finally {

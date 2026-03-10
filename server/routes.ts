@@ -125,6 +125,32 @@ async function handleToolCalls(
   return results;
 }
 
+async function callOpenAIWithRetry(
+  params: OpenAI.ChatCompletionCreateParamsNonStreaming,
+  maxRetries = 3
+): Promise<OpenAI.ChatCompletion> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await openai.chat.completions.create(params);
+    } catch (error: unknown) {
+      const isRateLimit =
+        error instanceof Error &&
+        "status" in error &&
+        (error as { status: number }).status === 429;
+      if (isRateLimit && attempt < maxRetries) {
+        const delay = Math.min(2000 * Math.pow(2, attempt), 15000);
+        console.log(
+          `[openai] Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`
+        );
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error("Unreachable");
+}
+
 async function chatWithTools(
   messages: OpenAI.ChatCompletionMessageParam[],
   maxToolRounds = 5
@@ -132,7 +158,7 @@ async function chatWithTools(
   let currentMessages = [...messages];
 
   for (let round = 0; round < maxToolRounds; round++) {
-    const response = await openai.chat.completions.create({
+    const response = await callOpenAIWithRetry({
       model: "gpt-5.2",
       messages: currentMessages,
       tools,
@@ -156,7 +182,7 @@ async function chatWithTools(
     return message.content || "I couldn't generate a response. Please try again.";
   }
 
-  const finalResponse = await openai.chat.completions.create({
+  const finalResponse = await callOpenAIWithRetry({
     model: "gpt-5.2",
     messages: currentMessages,
     max_completion_tokens: 8192,
@@ -202,9 +228,17 @@ export async function registerRoutes(
       ]);
 
       res.json({ explanation });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error analyzing position:", error);
-      res.status(500).json({ error: "Failed to analyze position" });
+      const isRateLimit =
+        error instanceof Error &&
+        "status" in error &&
+        (error as { status: number }).status === 429;
+      const status = isRateLimit ? 429 : 500;
+      const msg = isRateLimit
+        ? "AI service is busy. Please wait a moment and try again."
+        : "Failed to analyze position";
+      res.status(status).json({ error: msg });
     }
   });
 
@@ -239,9 +273,17 @@ export async function registerRoutes(
 
       const reply = await chatWithTools(chatMessages);
       res.json({ reply });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error in coach chat:", error);
-      res.status(500).json({ error: "Failed to get coach response" });
+      const isRateLimit =
+        error instanceof Error &&
+        "status" in error &&
+        (error as { status: number }).status === 429;
+      const status = isRateLimit ? 429 : 500;
+      const msg = isRateLimit
+        ? "AI service is busy. Please wait a moment and try again."
+        : "Failed to get coach response";
+      res.status(status).json({ error: msg });
     }
   });
 
