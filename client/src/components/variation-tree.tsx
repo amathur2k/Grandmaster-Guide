@@ -37,11 +37,11 @@ interface DisplayLine {
 
 type DisplayItem = DisplayNode | DisplayEllipsis;
 
-const NODE_WIDTH = 56;
-const NODE_HEIGHT = 24;
-const ELLIPSIS_WIDTH = 28;
-const H_GAP = 6;
-const V_GAP = 6;
+const NODE_WIDTH = 64;
+const NODE_HEIGHT = 26;
+const ELLIPSIS_WIDTH = 36;
+const H_GAP = 12;
+const V_GAP = 8;
 const STEP_Y = NODE_HEIGHT + V_GAP;
 
 function getMoveLabel(node: VariationNode, root: VariationNode): string {
@@ -304,7 +304,7 @@ export function VariationTree({ tree, currentPath, onNodeClick }: VariationTreeP
         return (
           <button
             key={item.id}
-            className={`absolute text-[10px] font-mono leading-none rounded px-1.5 py-1 border transition-colors truncate ${
+            className={`absolute text-[11px] font-mono leading-none rounded px-1.5 py-1 border transition-colors truncate ${
               item.isCurrentNode
                 ? "bg-primary text-primary-foreground border-primary font-bold shadow-sm"
                 : item.isOnCurrentPath
