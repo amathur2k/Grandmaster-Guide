@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import OpenAI from "openai";
 import { analyzePositionSchema, coachChatSchema } from "@shared/schema";
+import { stockfishService } from "./stockfish-service";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -15,9 +16,163 @@ If the eval is positive for the student, explain their advantage and what they'r
 If it's negative, explain the threat they missed or the mistake they made, and suggest what they should have done.
 Identify the opening name precisely (e.g., 'The Sicilian Defense, Najdorf Variation').
 If the position is in the middlegame or endgame, identify key strategic themes (pawn structure, piece activity, king safety, etc.).
-Be succinct and to the point. Be encouraging but honest.`;
+Be succinct and to the point. Be encouraging but honest.
 
-function buildContextMessage(data: { fen: string; pgn: string; evaluation: string; topMoves: string[]; turn: string; playerColor: string }) {
+You have access to a Stockfish chess engine tool. Use it to verify the evaluation of any moves or positions you discuss. When suggesting alternative moves, call evaluate_position with the resulting FEN to confirm the engine agrees with your assessment. This ensures your coaching advice is factually accurate.`;
+
+const tools: OpenAI.ChatCompletionTool[] = [
+  {
+    type: "function",
+    function: {
+      name: "evaluate_position",
+      description:
+        "Evaluate a chess position using Stockfish engine. Returns centipawn score from White's perspective, mate distance if applicable, best move in UCI notation, and principal variation. Use this to verify your analysis and move suggestions.",
+      parameters: {
+        type: "object",
+        properties: {
+          fen: {
+            type: "string",
+            description:
+              "The FEN string of the chess position to evaluate (e.g. 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1')",
+          },
+          depth: {
+            type: "number",
+            description:
+              "Search depth for Stockfish (default 16, max 20). Higher depth gives more accurate results but takes longer.",
+          },
+        },
+        required: ["fen"],
+      },
+    },
+  },
+];
+
+function sanitizeFen(fen: string): string | null {
+  if (typeof fen !== "string" || fen.length > 200) return null;
+  const cleaned = fen.replace(/[\r\n\x00-\x1f]/g, "").trim();
+  if (!/^[rnbqkpRNBQKP1-8/]+ [wb] [KQkq-]+ [a-h1-8-]+ \d+ \d+$/.test(cleaned)) return null;
+  return cleaned;
+}
+
+function clampDepth(raw: unknown): number {
+  const n = typeof raw === "number" ? raw : 16;
+  if (!Number.isFinite(n) || n < 6) return 6;
+  if (n > 20) return 20;
+  return Math.round(n);
+}
+
+async function handleToolCalls(
+  toolCalls: OpenAI.ChatCompletionMessageToolCall[]
+): Promise<OpenAI.ChatCompletionToolMessageParam[]> {
+  const results: OpenAI.ChatCompletionToolMessageParam[] = [];
+
+  for (const call of toolCalls) {
+    if (call.function.name === "evaluate_position") {
+      try {
+        const args = JSON.parse(call.function.arguments);
+        const fen = sanitizeFen(args.fen);
+        if (!fen) {
+          results.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: JSON.stringify({ error: "Invalid FEN string provided" }),
+          });
+          continue;
+        }
+        const depth = clampDepth(args.depth);
+
+        console.log(`[stockfish-tool] Evaluating: ${fen} at depth ${depth}`);
+        const result = await stockfishService.evaluate(fen, depth);
+        console.log(`[stockfish-tool] Result: score=${result.score}, bestMove=${result.bestMove}`);
+
+        const scoreDisplay =
+          result.mate !== null
+            ? `Mate in ${result.mate} (${result.mate > 0 ? "White wins" : "Black wins"})`
+            : `${result.score > 0 ? "+" : ""}${result.score.toFixed(2)} (${result.score > 0.5 ? "White is better" : result.score < -0.5 ? "Black is better" : "roughly equal"})`;
+
+        results.push({
+          role: "tool",
+          tool_call_id: call.id,
+          content: JSON.stringify({
+            fen,
+            score: result.score,
+            mate: result.mate,
+            scoreDisplay,
+            bestMove: result.bestMove,
+            principalVariation: result.pv.slice(0, 8).join(" "),
+            depth: result.depth,
+          }),
+        });
+      } catch (error) {
+        results.push({
+          role: "tool",
+          tool_call_id: call.id,
+          content: JSON.stringify({
+            error: "Failed to evaluate position",
+            details: error instanceof Error ? error.message : "Unknown error",
+          }),
+        });
+      }
+    } else {
+      results.push({
+        role: "tool",
+        tool_call_id: call.id,
+        content: JSON.stringify({ error: `Unknown tool: ${call.function.name}` }),
+      });
+    }
+  }
+
+  return results;
+}
+
+async function chatWithTools(
+  messages: OpenAI.ChatCompletionMessageParam[],
+  maxToolRounds = 5
+): Promise<string> {
+  let currentMessages = [...messages];
+
+  for (let round = 0; round < maxToolRounds; round++) {
+    const response = await openai.chat.completions.create({
+      model: "gpt-5.2",
+      messages: currentMessages,
+      tools,
+      max_completion_tokens: 8192,
+    });
+
+    const choice = response.choices[0];
+    if (!choice) {
+      return "I couldn't generate a response. Please try again.";
+    }
+
+    const message = choice.message;
+
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      currentMessages.push(message);
+      const toolResults = await handleToolCalls(message.tool_calls);
+      currentMessages.push(...toolResults);
+      continue;
+    }
+
+    return message.content || "I couldn't generate a response. Please try again.";
+  }
+
+  const finalResponse = await openai.chat.completions.create({
+    model: "gpt-5.2",
+    messages: currentMessages,
+    max_completion_tokens: 8192,
+  });
+
+  return finalResponse.choices[0]?.message?.content || "I couldn't generate a response. Please try again.";
+}
+
+function buildContextMessage(data: {
+  fen: string;
+  pgn: string;
+  evaluation: string;
+  topMoves: string[];
+  turn: string;
+  playerColor: string;
+}) {
   const turnLabel = data.turn === "w" ? "White" : "Black";
   return `[Chess Position Context]
 Full PGN of the game: ${data.pgn || "No moves yet (starting position)"}
@@ -41,16 +196,11 @@ export async function registerRoutes(
 
       const contextMessage = buildContextMessage(parsed.data);
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: contextMessage },
-        ],
-        max_completion_tokens: 8192,
-      });
+      const explanation = await chatWithTools([
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: contextMessage },
+      ]);
 
-      const explanation = response.choices[0]?.message?.content || "I couldn't analyze this position. Try making a few more moves!";
       res.json({ explanation });
     } catch (error) {
       console.error("Error analyzing position:", error);
@@ -87,13 +237,7 @@ export async function registerRoutes(
         }
       }
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: chatMessages,
-        max_completion_tokens: 8192,
-      });
-
-      const reply = response.choices[0]?.message?.content || "I'm not sure how to respond to that. Could you rephrase your question?";
+      const reply = await chatWithTools(chatMessages);
       res.json({ reply });
     } catch (error) {
       console.error("Error in coach chat:", error);
