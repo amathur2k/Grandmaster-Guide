@@ -479,6 +479,87 @@ export default function ChessCoach() {
     sendChatMessage(question);
   }, [game, sendChatMessage]);
 
+  const loadEngineLine = useCallback((pvUci: string[], baseFen: string) => {
+    if (pvUci.length === 0) {
+      toast({ title: "No moves", description: "Engine line is empty.", variant: "destructive" });
+      return;
+    }
+
+    const newRoot = createRootNode();
+    let currentNode = newRoot;
+    const newPath = [newRoot.id];
+
+    const baseGame = new Chess(baseFen);
+    const priorMoves: string[] = [];
+    const history = game.history();
+
+    const tempReplay = new Chess();
+    for (const san of history) {
+      tempReplay.move(san);
+      priorMoves.push(san);
+      if (tempReplay.fen().split(" ").slice(0, 4).join(" ") === baseFen.split(" ").slice(0, 4).join(" ")) {
+        break;
+      }
+    }
+
+    for (const san of priorMoves) {
+      const replayGame = new Chess(currentNode === newRoot ? "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" : currentNode.fen);
+      const m = replayGame.move(san);
+      if (!m) break;
+      const child: VariationNode = {
+        id: nextNodeId(),
+        move: m.san,
+        fen: replayGame.fen(),
+        score: null,
+        children: [],
+      };
+      currentNode.children.push(child);
+      newPath.push(child.id);
+      currentNode = child;
+    }
+
+    const pvGame = new Chess(baseFen);
+    let pvCount = 0;
+    for (const uci of pvUci) {
+      try {
+        const from = uci.slice(0, 2);
+        const to = uci.slice(2, 4);
+        const promotion = uci.length > 4 ? uci[4] : undefined;
+        const move = pvGame.move({ from, to, promotion });
+        if (!move) break;
+        pvCount++;
+
+        const child: VariationNode = {
+          id: nextNodeId(),
+          move: move.san,
+          fen: pvGame.fen(),
+          score: null,
+          children: [],
+        };
+        currentNode.children.push(child);
+        newPath.push(child.id);
+        currentNode = child;
+      } catch {
+        break;
+      }
+    }
+
+    if (pvCount === 0) {
+      toast({ title: "Could not load line", description: "No valid moves in engine PV.", variant: "destructive" });
+      return;
+    }
+
+    setTree(newRoot);
+    setCurrentPath(newPath);
+    setGame(new Chess(pvGame.fen()));
+    setChatMessages([]);
+
+    toast({
+      title: "Engine Line Loaded",
+      description: `Loaded ${pvCount} moves from engine line.`,
+    });
+  }, [game, toast]);
+
   const clearChat = useCallback(() => {
     setChatMessages([]);
   }, []);
@@ -768,6 +849,7 @@ export default function ChessCoach() {
               turn={game.turn() as "w" | "b"}
               isReady={isReady}
               onExplainMove={explainMove}
+              onAnalyzeLine={loadEngineLine}
             />
           </div>
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">

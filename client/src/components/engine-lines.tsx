@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Chess } from "chess.js";
 import { Button } from "@/components/ui/button";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Search } from "lucide-react";
 import type { EngineLine } from "@shared/schema";
 
 interface EngineLinesProps {
@@ -10,6 +10,7 @@ interface EngineLinesProps {
   turn: "w" | "b";
   isReady: boolean;
   onExplainMove: (moveUci: string, moveSan: string, score: string, pvSan: string) => void;
+  onAnalyzeLine: (pvUci: string[], baseFen: string) => void;
 }
 
 function uciToSan(fen: string, uciMove: string): string | null {
@@ -49,7 +50,7 @@ function formatScore(score: number, mate: number | null): string {
   return score >= 0 ? `+${score.toFixed(1)}` : score.toFixed(1);
 }
 
-export function EngineLines({ lines, fen, turn, isReady, onExplainMove }: EngineLinesProps) {
+export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyzeLine }: EngineLinesProps) {
   const displayLines = useMemo(() => {
     return lines.map((line, i) => {
       const san = uciToSan(fen, line.move);
@@ -79,6 +80,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove }: Engine
         isNeutral,
         pvDisplay,
         pvSan: pvSanMoves.join(" "),
+        pvUci: line.pv,
         rawScore: scoreStr,
       };
     });
@@ -127,6 +129,16 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove }: Engine
           >
             {line.pvDisplay}
           </span>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            onClick={() => onAnalyzeLine(line.pvUci, fen)}
+            title={`Analyze this line`}
+            data-testid={`button-analyze-line-${line.index}`}
+          >
+            <Search className="w-3 h-3" />
+          </Button>
           <Button
             size="icon"
             variant="ghost"
