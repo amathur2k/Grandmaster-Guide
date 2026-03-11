@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MoveHistoryProps {
@@ -7,6 +8,21 @@ interface MoveHistoryProps {
 }
 
 export function MoveHistory({ moves, currentMoveIndex, onMoveClick }: MoveHistoryProps) {
+  const activeRef = useRef<HTMLButtonElement>(null);
+  const topRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (currentMoveIndex < 0) {
+      if (topRef.current) {
+        topRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+      return;
+    }
+    if (activeRef.current) {
+      activeRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [currentMoveIndex]);
+
   const movePairs: { number: number; white: string; black?: string; whiteIndex: number; blackIndex?: number }[] = [];
 
   for (let i = 0; i < moves.length; i += 2) {
@@ -26,6 +42,7 @@ export function MoveHistory({ moves, currentMoveIndex, onMoveClick }: MoveHistor
       </h3>
       <ScrollArea className="flex-1">
         <div className="px-2 pb-2">
+          <div ref={topRef} />
           {movePairs.length === 0 ? (
             <p className="text-sm text-muted-foreground px-1 py-3 text-center italic">
               No moves yet. Play a move or load a PGN.
@@ -41,6 +58,7 @@ export function MoveHistory({ moves, currentMoveIndex, onMoveClick }: MoveHistor
                     {pair.number}.
                   </span>
                   <button
+                    ref={currentMoveIndex === pair.whiteIndex ? activeRef : undefined}
                     onClick={() => onMoveClick(pair.whiteIndex)}
                     className={`px-1.5 py-0.5 rounded-sm flex-1 text-left transition-colors ${
                       currentMoveIndex === pair.whiteIndex
@@ -53,6 +71,7 @@ export function MoveHistory({ moves, currentMoveIndex, onMoveClick }: MoveHistor
                   </button>
                   {pair.black && pair.blackIndex !== undefined && (
                     <button
+                      ref={currentMoveIndex === pair.blackIndex ? activeRef : undefined}
                       onClick={() => onMoveClick(pair.blackIndex!)}
                       className={`px-1.5 py-0.5 rounded-sm flex-1 text-left transition-colors ${
                         currentMoveIndex === pair.blackIndex
