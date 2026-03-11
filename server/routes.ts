@@ -5,8 +5,7 @@ import { analyzePositionSchema, coachChatSchema } from "@shared/schema";
 import { stockfishService } from "./stockfish-service";
 
 const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 const SYSTEM_PROMPT = `You are a witty Grandmaster Chess Coach. I will provide the full PGN of the game so far, the current FEN, the engine's evaluation, and which color the student is playing.
@@ -160,7 +159,7 @@ async function chatWithTools(
 
   for (let round = 0; round < maxToolRounds; round++) {
     const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
-      model: "gpt-5-mini",
+      model: "gpt-4o-mini",
       messages: currentMessages,
       max_completion_tokens: 8192,
     };
@@ -188,7 +187,7 @@ async function chatWithTools(
   }
 
   const finalResponse = await callOpenAIWithRetry({
-    model: "gpt-5-mini",
+    model: "gpt-4o-mini",
     messages: currentMessages,
     max_completion_tokens: 8192,
   });
@@ -247,7 +246,7 @@ Principal variation: ${evalResult.pv.slice(0, 8).join(" ")}`;
       }
 
       const response = await callOpenAIWithRetry({
-        model: "gpt-5-mini",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: contextMessage },
@@ -346,20 +345,29 @@ Principal variation: ${evalResult.pv.slice(0, 8).join(" ")}`;
           }
         }
 
-        const response = await callOpenAIWithRetry({
-          model: "gpt-5-mini",
+        const stream = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
           messages: chatMessages,
           max_completion_tokens: 8192,
+          stream: true,
         });
-        const content = response.choices[0]?.message?.content || "I couldn't generate a response. Please try again.";
-        console.log(`[chat] Response ready in ${Date.now() - startTime}ms, length=${content.length}`);
 
-        if (!clientDisconnected) {
-          res.write(`data: ${JSON.stringify({ type: "token", text: content })}\n\n`);
-          res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+        let tokenCount = 0;
+        for await (const chunk of stream) {
+          if (clientDisconnected) break;
+          const delta = chunk.choices[0]?.delta?.content;
+          if (delta) {
+            tokenCount++;
+            res.write(`data: ${JSON.stringify({ type: "token", text: delta })}\n\n`);
+          }
         }
+        console.log(`[chat] Streamed ${tokenCount} tokens in ${Date.now() - startTime}ms`);
+
         clearInterval(heartbeat);
-        if (!clientDisconnected) res.end();
+        if (!clientDisconnected) {
+          res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+          res.end();
+        }
       } catch (innerError) {
         clearInterval(heartbeat);
         throw innerError;
