@@ -48,13 +48,71 @@ const SYSTEM_PROMPT = `You are a witty Grandmaster Chess Coach. You receive the 
 2. **Use the top engine moves.** When suggesting moves, draw from the engine lines provided. Cite the engine score to justify why a move is strong or weak.
 3. **Standard Algebraic Notation (SAN) only.** Always write moves in SAN (e.g. Nf3, Bb5, O-O, exd5). Never use UCI notation (e.g. e2e4) or coordinate-only formats.
 4. **Demonstrate ideas with full move sequences.** When explaining an idea, plan, or tactic, show the concrete continuation — at least 2-4 moves deep (both sides). Use the principal variations from the engine lines to support your sequences.
-5. **Verify with Stockfish.** When you are given Stockfish verification data, use it to confirm whether the idea actually works. If the engine shows the idea loses material or the position, say so honestly and suggest the engine's preferred continuation instead.
-6. **Identify the opening** precisely (e.g., "Sicilian Defense, Najdorf Variation").
-7. **In middlegame/endgame**, identify key strategic themes (pawn structure, piece activity, king safety, etc.).
-8. **Be succinct, encouraging, and honest.** If the position is bad, explain what went wrong and how to improve.
+5. **Validate every move you suggest.** Before presenting any move to the student, call the validate_move tool with the current FEN and the move in SAN. If the move is illegal, do NOT suggest it — pick from the legal moves returned by the tool instead. You may batch-validate a sequence by chaining: validate move 1 from the starting FEN, then validate move 2 from the resulting FEN, and so on.
+6. **Verify with Stockfish.** When you are given Stockfish verification data, use it to confirm whether the idea actually works. If the engine shows the idea loses material or the position, say so honestly and suggest the engine's preferred continuation instead.
+7. **Identify the opening** precisely (e.g., "Sicilian Defense, Najdorf Variation").
+8. **In middlegame/endgame**, identify key strategic themes (pawn structure, piece activity, king safety, etc.).
+9. **Be succinct, encouraging, and honest.** If the position is bad, explain what went wrong and how to improve.
 
 ## Engine data you can trust
 The engine lines, scores, and Stockfish deep analysis in the context come from a real Stockfish engine. You can trust them completely. Always prefer engine data over your own calculation when they conflict.`;
+
+const tools: OpenAI.ChatCompletionTool[] = [
+  {
+    type: "function",
+    function: {
+      name: "validate_move",
+      description:
+        "Check whether a chess move is legal in a given position. Pass the COMPLETE FEN (all 6 fields) and the move in SAN. Returns legality, resulting FEN if legal, or legal moves if illegal. ALWAYS call this for every move you suggest.",
+      parameters: {
+        type: "object",
+        properties: {
+          fen: {
+            type: "string",
+            description: "The COMPLETE FEN string with all 6 fields (e.g. 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1'). Copy the full FEN from the position context — do not truncate it.",
+          },
+          move: {
+            type: "string",
+            description:
+              "The move in Standard Algebraic Notation (SAN), e.g. 'Nf3', 'e4', 'O-O', 'exd5', 'Qxf7#'.",
+          },
+        },
+        required: ["fen", "move"],
+      },
+    },
+  },
+];
+
+function handleValidateMove(fen: string, moveSan: string): object {
+  try {
+    const g = new Chess(fen);
+    const result = g.move(moveSan);
+    if (result) {
+      return {
+        legal: true,
+        move: result.san,
+        resultingFen: g.fen(),
+        captured: result.captured || null,
+        isCheck: g.isCheck(),
+        isCheckmate: g.isCheckmate(),
+      };
+    }
+    const legalMoves = new Chess(fen).moves();
+    return {
+      legal: false,
+      move: moveSan,
+      error: `"${moveSan}" is not a legal move in this position.`,
+      legalMoves: legalMoves.slice(0, 30),
+      totalLegalMoves: legalMoves.length,
+    };
+  } catch (e) {
+    return {
+      legal: false,
+      move: moveSan,
+      error: e instanceof Error ? e.message : "Invalid FEN or move format",
+    };
+  }
+}
 
 function sanitizeFen(fen: string): string | null {
   if (typeof fen !== "string" || fen.length > 200) return null;
@@ -159,17 +217,52 @@ Best continuation: ${pvSan.join(" ")}`;
         }
       }
 
-      const response = await callOpenAIWithRetry({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: contextMessage },
-        ],
-        max_completion_tokens: 8192,
-      });
+      const analyzeMessages: OpenAI.ChatCompletionMessageParam[] = [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: contextMessage },
+      ];
 
-      const explanation = response.choices[0]?.message?.content || "I couldn't generate a response. Please try again.";
-      res.json({ explanation });
+      let explanation = "";
+      for (let round = 0; round <= 10; round++) {
+        const response = await callOpenAIWithRetry({
+          model: "gpt-4o-mini",
+          messages: analyzeMessages,
+          max_completion_tokens: 8192,
+          tools,
+        });
+        const choice = response.choices[0];
+        if (!choice) break;
+
+        if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
+          analyzeMessages.push(choice.message);
+          for (const tc of choice.message.tool_calls) {
+            if (tc.function.name === "validate_move") {
+              try {
+                const args = JSON.parse(tc.function.arguments);
+                let fen = args.fen || "";
+                const move = args.move || "";
+                let result = handleValidateMove(fen, move);
+                if ((result as any).error?.includes("Invalid FEN")) {
+                  fen = positionData.fen;
+                  result = handleValidateMove(fen, move);
+                }
+                console.log(`[analyze] validate_move: move="${move}" => legal=${(result as any).legal}`);
+                analyzeMessages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) });
+              } catch {
+                analyzeMessages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Failed to parse arguments" }) });
+              }
+            } else {
+              analyzeMessages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: `Unknown tool: ${tc.function.name}` }) });
+            }
+          }
+          continue;
+        }
+
+        explanation = choice.message.content || "";
+        break;
+      }
+
+      res.json({ explanation: explanation || "I couldn't generate a response. Please try again." });
     } catch (error: unknown) {
       console.error("Error analyzing position:", error);
       const isRateLimit =
@@ -267,22 +360,107 @@ Use this to verify any ideas or plans you suggest. If your suggested line differ
         });
         console.log(`[chat] === END PROMPT (${chatMessages.length} messages) ===`);
 
-        const stream = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: chatMessages,
-          max_completion_tokens: 8192,
-          stream: true,
-        });
-
         let tokenCount = 0;
-        for await (const chunk of stream) {
+        const maxToolRounds = 10;
+
+        for (let round = 0; round <= maxToolRounds; round++) {
           if (clientDisconnected) break;
-          const delta = chunk.choices[0]?.delta?.content;
-          if (delta) {
-            tokenCount++;
-            res.write(`data: ${JSON.stringify({ type: "token", text: delta })}\n\n`);
+
+          const stream = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: chatMessages,
+            max_completion_tokens: 8192,
+            tools,
+            stream: true,
+          });
+
+          let assistantContent = "";
+          const toolCallAccum: Map<number, { id: string; name: string; args: string }> = new Map();
+          let hasToolCalls = false;
+          const bufferedTokens: string[] = [];
+
+          for await (const chunk of stream) {
+            if (clientDisconnected) break;
+            const choice = chunk.choices[0];
+            if (!choice) continue;
+
+            if (choice.delta?.content) {
+              assistantContent += choice.delta.content;
+              bufferedTokens.push(choice.delta.content);
+            }
+
+            if (choice.delta?.tool_calls) {
+              hasToolCalls = true;
+              for (const tc of choice.delta.tool_calls) {
+                const idx = tc.index;
+                if (!toolCallAccum.has(idx)) {
+                  toolCallAccum.set(idx, { id: tc.id || "", name: tc.function?.name || "", args: "" });
+                }
+                const entry = toolCallAccum.get(idx)!;
+                if (tc.id) entry.id = tc.id;
+                if (tc.function?.name) entry.name = tc.function.name;
+                if (tc.function?.arguments) entry.args += tc.function.arguments;
+              }
+            }
           }
+
+          if (!hasToolCalls || toolCallAccum.size === 0) {
+            for (const token of bufferedTokens) {
+              if (clientDisconnected) break;
+              tokenCount++;
+              res.write(`data: ${JSON.stringify({ type: "token", text: token })}\n\n`);
+            }
+            break;
+          }
+
+          const assistantMsg: OpenAI.ChatCompletionMessageParam = {
+            role: "assistant",
+            content: assistantContent || null,
+            tool_calls: Array.from(toolCallAccum.values()).map((tc) => ({
+              id: tc.id,
+              type: "function" as const,
+              function: { name: tc.name, arguments: tc.args },
+            })),
+          };
+          chatMessages.push(assistantMsg);
+
+          for (const tc of toolCallAccum.values()) {
+            if (tc.name === "validate_move") {
+              try {
+                const args = JSON.parse(tc.args);
+                let fen = args.fen || "";
+                const move = args.move || "";
+                let result = handleValidateMove(fen, move);
+                if ((result as any).error?.includes("Invalid FEN")) {
+                  console.log(`[chat] validate_move: bad FEN from LLM, retrying with request FEN`);
+                  fen = positionData.fen;
+                  result = handleValidateMove(fen, move);
+                }
+                console.log(`[chat] validate_move: move="${move}" => legal=${(result as any).legal}`);
+                chatMessages.push({
+                  role: "tool",
+                  tool_call_id: tc.id,
+                  content: JSON.stringify(result),
+                });
+              } catch (e) {
+                chatMessages.push({
+                  role: "tool",
+                  tool_call_id: tc.id,
+                  content: JSON.stringify({ error: "Failed to parse tool arguments" }),
+                });
+              }
+            } else {
+              chatMessages.push({
+                role: "tool",
+                tool_call_id: tc.id,
+                content: JSON.stringify({ error: `Unknown tool: ${tc.name}` }),
+              });
+            }
+          }
+
+          res.write(`data: ${JSON.stringify({ type: "status", text: "Validating moves..." })}\n\n`);
         }
+
         console.log(`[chat] Streamed ${tokenCount} tokens in ${Date.now() - startTime}ms`);
 
         clearInterval(heartbeat);

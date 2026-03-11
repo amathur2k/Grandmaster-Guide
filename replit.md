@@ -54,8 +54,15 @@ Game state uses a tree structure instead of flat arrays:
 - Provides `stockfishService.evaluate(fen, depth)` returning `{ score, mate, bestMove, pv, depth }` (White POV)
 - Requests are queued — only one evaluation runs at a time; auto-restarts on process crash
 - When "Verify ON", the `/api/chat` and `/api/analyze` endpoints run Stockfish at depth 18 on the current position BEFORE calling the LLM, and inject the engine results (score, best move, principal variation) directly into the context prompt
-- This approach avoids the OpenAI tool-calling API (which adds 60-90s latency through the integrations proxy) while still grounding LLM responses in real engine data
 - SSE heartbeat (`: heartbeat\n\n` every 15s) keeps the connection alive during long API calls
+
+## Move Validation Tool (OpenAI Function Calling)
+- `validate_move` tool: LLM calls this to check if a move is legal before suggesting it
+- Uses chess.js server-side — instant (<1ms), no latency impact unlike Stockfish tool calls
+- Returns `{ legal, move, resultingFen }` on success, or `{ legal: false, error, legalMoves[] }` on failure
+- FEN fallback: if the LLM passes a truncated FEN, the server retries with the original request FEN
+- Streaming + tool calling loop: up to 10 rounds; model can validate multiple moves in sequence by chaining resultingFen values
+- All engine lines and Stockfish PVs are converted from UCI to SAN server-side before injection into the prompt
 
 ## Important Notes
 - `evaluateAsync` returns a promise that resolves when `bestmove` is received — used for batch PGN evaluation
