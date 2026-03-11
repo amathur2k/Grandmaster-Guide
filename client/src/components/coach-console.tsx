@@ -75,18 +75,19 @@ function InteractiveMessage({
           return <span key={i}>{renderText(seg.content)}</span>;
         }
         const seq = sequences.find((s) => s.id === seg.seqId);
+        const movesUpTo = seq ? seq.moves.slice(0, seg.orderInSeq + 1) : [];
         return (
           <span
             key={i}
             className="text-blue-600 dark:text-blue-400 font-semibold underline decoration-dotted underline-offset-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-sm px-0.5 transition-colors"
             onMouseEnter={() =>
-              seq && onHover(seq.moves.map((m) => ({ from: m.from, to: m.to })))
+              movesUpTo.length > 0 && onHover(movesUpTo.map((m) => ({ from: m.from, to: m.to })))
             }
             onMouseLeave={() => onHover(null)}
             onClick={() =>
-              seq && onClick(fen, nodeId, seq.moves.map((m) => m.san))
+              movesUpTo.length > 0 && onClick(fen, nodeId, movesUpTo.map((m) => m.san))
             }
-            title="Click to add this line to the game tree"
+            title="Click to play up to this move"
             data-testid={`move-token-${seg.san}-${i}`}
           >
             {seg.san}
