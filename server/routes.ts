@@ -345,6 +345,13 @@ Principal variation: ${evalResult.pv.slice(0, 8).join(" ")}`;
           }
         }
 
+        console.log(`[chat] === PROMPT SENT TO OPENAI ===`);
+        chatMessages.forEach((m, i) => {
+          const preview = typeof m.content === 'string' ? m.content.slice(0, 500) : JSON.stringify(m.content).slice(0, 500);
+          console.log(`[chat] Message[${i}] role=${m.role} (${typeof m.content === 'string' ? m.content.length : 0} chars): ${preview}${(typeof m.content === 'string' && m.content.length > 500) ? '...' : ''}`);
+        });
+        console.log(`[chat] === END PROMPT (${chatMessages.length} messages) ===`);
+
         const stream = await openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages: chatMessages,
