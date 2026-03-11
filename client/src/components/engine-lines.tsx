@@ -146,7 +146,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
               {line.score}
             </span>
             <span
-              className="text-xs font-mono text-foreground truncate flex-1 inline-flex flex-wrap gap-x-0"
+              className="text-xs font-mono text-foreground truncate flex-1"
               data-testid={`engine-pv-${line.index}`}
             >
               {line.pvMoveInfos.map((moveInfo, mi) => {
@@ -155,16 +155,16 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
 
                 let prefix = "";
                 if (mi === 0) {
-                  prefix = isBlackStart ? `${line.startMoveNum}...` : `${line.startMoveNum}. `;
+                  prefix = isBlackStart ? `${line.startMoveNum}…` : `${line.startMoveNum}.`;
                 } else if (!isBlackTurn) {
-                  prefix = `${moveNum}. `;
+                  prefix = `${moveNum}.`;
                 }
 
                 return (
-                  <span key={mi} className="inline">
-                    {prefix && <span className="text-muted-foreground">{prefix}</span>}
+                  <span key={mi}>
+                    {prefix && <span className="text-muted-foreground/70 mr-0.5">{prefix}</span>}
                     <span
-                      className="text-blue-600 dark:text-blue-400 font-semibold cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-sm px-px transition-colors"
+                      className="text-foreground hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-sm transition-colors"
                       onMouseEnter={() => handleHover(line.pvMoveInfos, mi)}
                       onMouseLeave={() => onHoverMoves(null)}
                       onClick={() => handleClick(line.pvMoveInfos, mi)}
@@ -173,7 +173,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
                     >
                       {moveInfo.san}
                     </span>
-                    {mi < line.pvMoveInfos.length - 1 && " "}
+                    {mi < line.pvMoveInfos.length - 1 && <span className="mx-px"> </span>}
                   </span>
                 );
               })}
