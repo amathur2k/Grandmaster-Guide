@@ -145,7 +145,7 @@ export default function ChessCoach() {
   const [showPgnModal, setShowPgnModal] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessageWithFen[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [hoverArrows, setHoverArrows] = useState<Array<{ from: string; to: string }>>([]);
+  const [hoverArrows, setHoverArrows] = useState<Array<{ from: string; to: string; moveNum: number }>>([]);
   const coachSequencePending = useRef(false);
   const [useToolCalling, setUseToolCalling] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -660,7 +660,7 @@ export default function ChessCoach() {
     unlock();
   }, [tree, toast, isReady, evaluateAsync, endBatch, evaluate]);
 
-  const handleHoverMoves = useCallback((arrows: Array<{ from: string; to: string }> | null) => {
+  const handleHoverMoves = useCallback((arrows: Array<{ from: string; to: string; moveNum: number }> | null) => {
     setHoverArrows(arrows || []);
   }, []);
 
@@ -947,7 +947,7 @@ export default function ChessCoach() {
                             boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
                           }}
                         >
-                          {i + 1}
+                          {arrow.moveNum}
                         </div>
                       );
                     })}
@@ -1071,7 +1071,7 @@ export default function ChessCoach() {
               isReady={isReady}
               onExplainMove={explainMove}
               onAnalyzeLine={loadEngineLine}
-              onHoverMoves={(arrows) => setHoverArrows(arrows || [])}
+              onHoverMoves={handleHoverMoves}
               onClickSequence={playCoachSequence}
               currentNodeId={currentNodeId}
             />

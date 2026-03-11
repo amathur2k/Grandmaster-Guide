@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { Chess } from "chess.js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Brain, Send, Trash2, Wrench, Sparkles, Square } from "lucide-react";
@@ -31,7 +32,7 @@ interface CoachConsoleProps {
   useToolCalling: boolean;
   onToggleToolCalling: (value: boolean) => void;
   gameFen: string;
-  onHoverMoves: (arrows: Array<{ from: string; to: string }> | null) => void;
+  onHoverMoves: (arrows: Array<{ from: string; to: string; moveNum: number }> | null) => void;
   onClickSequence: (fen: string, nodeId: string | undefined, sanMoves: string[]) => void;
 }
 
@@ -60,13 +61,22 @@ function InteractiveMessage({
   text: string;
   fen: string;
   nodeId?: string;
-  onHover: (arrows: Array<{ from: string; to: string }> | null) => void;
+  onHover: (arrows: Array<{ from: string; to: string; moveNum: number }> | null) => void;
   onClick: (fen: string, nodeId: string | undefined, moves: string[]) => void;
 }) {
   const { segments, sequences } = useMemo(
     () => parseMovesInText(text, fen),
     [text, fen]
   );
+
+  const fenMeta = useMemo(() => {
+    try {
+      const g = new Chess(fen);
+      return { startMoveNum: g.moveNumber(), startIsBlack: g.turn() === "b" };
+    } catch {
+      return { startMoveNum: 1, startIsBlack: false };
+    }
+  }, [fen]);
 
   return (
     <div className="whitespace-pre-wrap">
@@ -76,13 +86,23 @@ function InteractiveMessage({
         }
         const seq = sequences.find((s) => s.id === seg.seqId);
         const movesUpTo = seq ? seq.moves.slice(0, seg.orderInSeq + 1) : [];
+
+        const seqStartIndex = seq ? seq.moves.indexOf(movesUpTo[0]!) : 0;
+
         return (
           <span
             key={i}
             className="text-blue-600 dark:text-blue-400 font-semibold underline decoration-dotted underline-offset-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-sm px-0.5 transition-colors"
-            onMouseEnter={() =>
-              movesUpTo.length > 0 && onHover(movesUpTo.map((m) => ({ from: m.from, to: m.to })))
-            }
+            onMouseEnter={() => {
+              if (movesUpTo.length > 0) {
+                const arrows = movesUpTo.map((m, idx) => {
+                  const globalIdx = seqStartIndex + idx;
+                  const moveNum = fenMeta.startMoveNum + Math.floor((globalIdx + (fenMeta.startIsBlack ? 1 : 0)) / 2);
+                  return { from: m.from, to: m.to, moveNum };
+                });
+                onHover(arrows);
+              }
+            }}
             onMouseLeave={() => onHover(null)}
             onClick={() =>
               movesUpTo.length > 0 && onClick(fen, nodeId, movesUpTo.map((m) => m.san))

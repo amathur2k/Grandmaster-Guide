@@ -17,7 +17,7 @@ interface EngineLinesProps {
   isReady: boolean;
   onExplainMove: (moveUci: string, moveSan: string, score: string, pvSan: string) => void;
   onAnalyzeLine: (pvUci: string[], baseFen: string) => void;
-  onHoverMoves: (arrows: Array<{ from: string; to: string }> | null) => void;
+  onHoverMoves: (arrows: Array<{ from: string; to: string; moveNum: number }> | null) => void;
   onClickSequence: (fen: string, nodeId: string | undefined, sanMoves: string[]) => void;
   currentNodeId?: string;
 }
@@ -96,8 +96,11 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
     });
   }, [lines, fen, turn]);
 
-  const handleHover = useCallback((pvMoveInfos: PvMoveInfo[], upToIndex: number) => {
-    const arrows = pvMoveInfos.slice(0, upToIndex + 1).map(m => ({ from: m.from, to: m.to }));
+  const handleHover = useCallback((pvMoveInfos: PvMoveInfo[], upToIndex: number, startMoveNum: number, startIsBlack: boolean) => {
+    const arrows = pvMoveInfos.slice(0, upToIndex + 1).map((m, i) => {
+      const moveNum = startMoveNum + Math.floor((i + (startIsBlack ? 1 : 0)) / 2);
+      return { from: m.from, to: m.to, moveNum };
+    });
     onHoverMoves(arrows);
   }, [onHoverMoves]);
 
@@ -165,7 +168,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
                     {prefix && <span className="text-muted-foreground/70 mr-0.5">{prefix}</span>}
                     <span
                       className="text-foreground hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-sm transition-colors"
-                      onMouseEnter={() => handleHover(line.pvMoveInfos, mi)}
+                      onMouseEnter={() => handleHover(line.pvMoveInfos, mi, line.startMoveNum, isBlackStart)}
                       onMouseLeave={() => onHoverMoves(null)}
                       onClick={() => handleClick(line.pvMoveInfos, mi)}
                       title="Click to play up to this move"
