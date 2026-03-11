@@ -53,11 +53,29 @@ function renderText(content: string): (string | JSX.Element)[] {
   return parts.length > 0 ? parts : [content];
 }
 
+function countPlayedMoves(sourceFen: string, moves: Array<{ san: string }>, currentBoardFen: string): number {
+  const boardPos = currentBoardFen.split(" ").slice(0, 4).join(" ");
+  let played = 0;
+  try {
+    const g = new Chess(sourceFen);
+    for (const m of moves) {
+      const r = g.move(m.san);
+      if (!r) break;
+      const pos = g.fen().split(" ").slice(0, 4).join(" ");
+      if (pos === boardPos) {
+        played = moves.indexOf(m) + 1;
+      }
+    }
+  } catch {}
+  return played;
+}
+
 function InteractiveMessage({
   text,
   fen,
   nodeId,
   fallbackFens,
+  currentBoardFen,
   onHover,
   onClick,
 }: {
@@ -65,6 +83,7 @@ function InteractiveMessage({
   fen: string;
   nodeId?: string;
   fallbackFens?: FallbackFen[];
+  currentBoardFen: string;
   onHover: (arrows: Array<{ from: string; to: string; moveNum: number }> | null) => void;
   onClick: (fen: string, nodeId: string | undefined, moves: string[]) => void;
 }) {
@@ -91,18 +110,32 @@ function InteractiveMessage({
             className="text-blue-600 dark:text-blue-400 font-semibold underline decoration-dotted underline-offset-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-sm px-0.5 transition-colors"
             onMouseEnter={() => {
               if (movesUpTo.length > 0) {
-                const meta = getMoveNumMeta(effectiveFen);
-                const arrows = movesUpTo.map((m, idx) => {
-                  const moveNum = meta.startMoveNum + Math.floor((idx + (meta.startIsBlack ? 1 : 0)) / 2);
-                  return { from: m.from, to: m.to, moveNum };
-                });
-                onHover(arrows);
+                const alreadyPlayed = countPlayedMoves(effectiveFen, movesUpTo, currentBoardFen);
+                const unplayed = movesUpTo.slice(alreadyPlayed);
+                if (unplayed.length > 0) {
+                  const meta = getMoveNumMeta(effectiveFen);
+                  const arrows = unplayed.map((m, idx) => {
+                    const globalIdx = alreadyPlayed + idx;
+                    const moveNum = meta.startMoveNum + Math.floor((globalIdx + (meta.startIsBlack ? 1 : 0)) / 2);
+                    return { from: m.from, to: m.to, moveNum };
+                  });
+                  onHover(arrows);
+                } else {
+                  onHover(null);
+                }
               }
             }}
             onMouseLeave={() => onHover(null)}
-            onClick={() =>
-              movesUpTo.length > 0 && onClick(effectiveFen, effectiveNodeId, movesUpTo.map((m) => m.san))
-            }
+            onClick={() => {
+              if (movesUpTo.length > 0) {
+                const alreadyPlayed = countPlayedMoves(effectiveFen, movesUpTo, currentBoardFen);
+                const unplayedSan = movesUpTo.slice(alreadyPlayed).map((m) => m.san);
+                if (unplayedSan.length > 0) {
+                  const playFromFen = alreadyPlayed > 0 ? currentBoardFen : effectiveFen;
+                  onClick(playFromFen, undefined, unplayedSan);
+                }
+              }
+            }}
             title="Click to play up to this move"
             data-testid={`move-token-${seg.san}-${i}`}
           >
@@ -227,6 +260,7 @@ export function CoachConsole({
                         fen={msg.fen!}
                         nodeId={msg.nodeId}
                         fallbackFens={fallbackFens}
+                        currentBoardFen={gameFen}
                         onHover={onHoverMoves}
                         onClick={onClickSequence}
                       />

@@ -942,6 +942,7 @@ export default function ChessCoach() {
                       return (
                         <div
                           key={i}
+                          data-testid={`arrow-badge-${i}`}
                           style={{
                             position: "absolute",
                             left: pos.x - 11,
