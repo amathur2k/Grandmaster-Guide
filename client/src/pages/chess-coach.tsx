@@ -106,6 +106,13 @@ function findNodeByFen(node: VariationNode, fen: string): string | null {
   return null;
 }
 
+function collectTreeFens(node: VariationNode, out: Array<{ fen: string; nodeId: string }>) {
+  out.push({ fen: node.fen, nodeId: node.id });
+  for (const child of node.children) {
+    collectTreeFens(child, out);
+  }
+}
+
 function squareToPixel(sq: string, size: number, orient: "white" | "black") {
   const f = sq.charCodeAt(0) - 97;
   const r = parseInt(sq[1]) - 1;
@@ -172,6 +179,12 @@ export default function ChessCoach() {
   const hasScores = useMemo(() => activeLine.some(n => n.score !== null), [activeLine]);
 
   const currentNodeId = currentPath[currentPath.length - 1];
+
+  const treeFallbackFens = useMemo(() => {
+    const out: Array<{ fen: string; nodeId: string }> = [];
+    collectTreeFens(tree, out);
+    return out;
+  }, [tree]);
 
   const getCurrentPgn = useCallback(() => {
     const pgnGame = new Chess();
@@ -1087,6 +1100,7 @@ export default function ChessCoach() {
               useToolCalling={useToolCalling}
               onToggleToolCalling={setUseToolCalling}
               gameFen={game.fen()}
+              fallbackFens={treeFallbackFens}
               onHoverMoves={handleHoverMoves}
               onClickSequence={playCoachSequence}
             />

@@ -38,7 +38,7 @@ Game state uses a tree structure instead of flat arrays:
 
 ## Interactive Coach Moves
 AI coach responses contain interactive chess move tokens:
-- **Move parsing**: `parse-chess-moves.ts` scans AI text for SAN moves (supports annotations `!?`, move numbers `1.`, `1...`), validates each against chess.js from the message's stored FEN, and groups consecutive legal moves into sequences
+- **Move parsing**: `parse-chess-moves.ts` scans AI text for SAN moves (supports annotations `!?`, move numbers `1.`, `1...`), validates each against chess.js from the message's stored FEN, and groups consecutive legal moves into sequences. Moves with explicit move-number prefixes (e.g., `11...Nxg4`, `11. Nb3`) that aren't legal from the message FEN use fallback resolution against all game tree positions, filtered by matching move number and turn color
 - **Hover**: Hovering any move in a sequence shows gold arrows (`customArrows`) on the board for ALL moves in that sequence, with numbered overlay badges at 40% along each arrow
 - **Click**: Clicking a move sequence plays it as a new branch in the variation tree (follows existing nodes first, creates new ones for diverging moves), then evaluates all new positions via Stockfish
 - **FEN tracking**: Each chat message stores the board FEN and node ID at send time, so moves remain interactive even after navigating elsewhere

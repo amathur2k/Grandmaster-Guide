@@ -7,6 +7,7 @@ import type { StockfishEvaluation } from "@shared/schema";
 import {
   parseMovesInText,
   type MoveSequence,
+  type FallbackFen,
 } from "@/lib/parse-chess-moves";
 import {
   Tooltip,
@@ -32,6 +33,7 @@ interface CoachConsoleProps {
   useToolCalling: boolean;
   onToggleToolCalling: (value: boolean) => void;
   gameFen: string;
+  fallbackFens?: FallbackFen[];
   onHoverMoves: (arrows: Array<{ from: string; to: string; moveNum: number }> | null) => void;
   onClickSequence: (fen: string, nodeId: string | undefined, sanMoves: string[]) => void;
 }
@@ -55,28 +57,21 @@ function InteractiveMessage({
   text,
   fen,
   nodeId,
+  fallbackFens,
   onHover,
   onClick,
 }: {
   text: string;
   fen: string;
   nodeId?: string;
+  fallbackFens?: FallbackFen[];
   onHover: (arrows: Array<{ from: string; to: string; moveNum: number }> | null) => void;
   onClick: (fen: string, nodeId: string | undefined, moves: string[]) => void;
 }) {
   const { segments, sequences } = useMemo(
-    () => parseMovesInText(text, fen),
-    [text, fen]
+    () => parseMovesInText(text, fen, fallbackFens),
+    [text, fen, fallbackFens]
   );
-
-  const fenMeta = useMemo(() => {
-    try {
-      const g = new Chess(fen);
-      return { startMoveNum: g.moveNumber(), startIsBlack: g.turn() === "b" };
-    } catch {
-      return { startMoveNum: 1, startIsBlack: false };
-    }
-  }, [fen]);
 
   return (
     <div className="whitespace-pre-wrap">
@@ -87,7 +82,8 @@ function InteractiveMessage({
         const seq = sequences.find((s) => s.id === seg.seqId);
         const movesUpTo = seq ? seq.moves.slice(0, seg.orderInSeq + 1) : [];
 
-        const seqStartIndex = seq ? seq.moves.indexOf(movesUpTo[0]!) : 0;
+        const effectiveFen = seq?.sourceFen || seg.sourceFen || fen;
+        const effectiveNodeId = seq?.sourceNodeId || seg.sourceNodeId || nodeId;
 
         return (
           <span
@@ -95,9 +91,9 @@ function InteractiveMessage({
             className="text-blue-600 dark:text-blue-400 font-semibold underline decoration-dotted underline-offset-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-sm px-0.5 transition-colors"
             onMouseEnter={() => {
               if (movesUpTo.length > 0) {
+                const meta = getMoveNumMeta(effectiveFen);
                 const arrows = movesUpTo.map((m, idx) => {
-                  const globalIdx = seqStartIndex + idx;
-                  const moveNum = fenMeta.startMoveNum + Math.floor((globalIdx + (fenMeta.startIsBlack ? 1 : 0)) / 2);
+                  const moveNum = meta.startMoveNum + Math.floor((idx + (meta.startIsBlack ? 1 : 0)) / 2);
                   return { from: m.from, to: m.to, moveNum };
                 });
                 onHover(arrows);
@@ -105,7 +101,7 @@ function InteractiveMessage({
             }}
             onMouseLeave={() => onHover(null)}
             onClick={() =>
-              movesUpTo.length > 0 && onClick(fen, nodeId, movesUpTo.map((m) => m.san))
+              movesUpTo.length > 0 && onClick(effectiveFen, effectiveNodeId, movesUpTo.map((m) => m.san))
             }
             title="Click to play up to this move"
             data-testid={`move-token-${seg.san}-${i}`}
@@ -118,6 +114,15 @@ function InteractiveMessage({
   );
 }
 
+function getMoveNumMeta(fen: string) {
+  try {
+    const g = new Chess(fen);
+    return { startMoveNum: g.moveNumber(), startIsBlack: g.turn() === "b" };
+  } catch {
+    return { startMoveNum: 1, startIsBlack: false };
+  }
+}
+
 export function CoachConsole({
   evaluation,
   messages,
@@ -128,6 +133,7 @@ export function CoachConsole({
   useToolCalling,
   onToggleToolCalling,
   gameFen,
+  fallbackFens,
   onHoverMoves,
   onClickSequence,
 }: CoachConsoleProps) {
@@ -220,6 +226,7 @@ export function CoachConsole({
                         text={msg.text}
                         fen={msg.fen!}
                         nodeId={msg.nodeId}
+                        fallbackFens={fallbackFens}
                         onHover={onHoverMoves}
                         onClick={onClickSequence}
                       />
