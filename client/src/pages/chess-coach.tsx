@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { Chess } from "chess.js";
+import { Chess, type Square } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import { useStockfish } from "@/hooks/use-stockfish";
 import { EvalBar } from "@/components/eval-bar";
@@ -7,13 +7,12 @@ import { MoveHistory } from "@/components/move-history";
 import { EngineLines } from "@/components/engine-lines";
 import { EvalGraph } from "@/components/eval-graph";
 import { VariationTree } from "@/components/variation-tree";
-import { CoachConsole } from "@/components/coach-console";
+import { CoachConsole, type ChatMessageWithFen } from "@/components/coach-console";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { ChatMessage } from "@shared/schema";
 import {
   RotateCcw,
   ChevronFirst,
@@ -98,6 +97,30 @@ function getActiveLine(root: VariationNode, currentPath: string[]): VariationNod
   return line;
 }
 
+function findNodeByFen(node: VariationNode, fen: string): string | null {
+  if (node.fen === fen) return node.id;
+  for (const child of node.children) {
+    const found = findNodeByFen(child, fen);
+    if (found) return found;
+  }
+  return null;
+}
+
+function squareToPixel(sq: string, size: number, orient: "white" | "black") {
+  const f = sq.charCodeAt(0) - 97;
+  const r = parseInt(sq[1]) - 1;
+  const s = size / 8;
+  return orient === "white"
+    ? { x: f * s + s / 2, y: (7 - r) * s + s / 2 }
+    : { x: (7 - f) * s + s / 2, y: r * s + s / 2 };
+}
+
+function getArrowMidpoint(from: string, to: string, size: number, orient: "white" | "black") {
+  const p1 = squareToPixel(from, size, orient);
+  const p2 = squareToPixel(to, size, orient);
+  return { x: p1.x + 0.4 * (p2.x - p1.x), y: p1.y + 0.4 * (p2.y - p1.y) };
+}
+
 function setNodeScore(
   root: VariationNode,
   nodeId: string,
@@ -120,8 +143,10 @@ export default function ChessCoach() {
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
   const [pgnInput, setPgnInput] = useState("");
   const [showPgnModal, setShowPgnModal] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessageWithFen[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [hoverArrows, setHoverArrows] = useState<Array<{ from: string; to: string }>>([]);
+  const coachSequencePending = useRef(false);
   const [useToolCalling, setUseToolCalling] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [isComputingScores, setIsComputingScores] = useState(false);
@@ -427,7 +452,9 @@ export default function ChessCoach() {
   }, []);
 
   const sendChatMessage = useCallback(async (text: string) => {
-    const userMessage: ChatMessage = { role: "user", text };
+    const msgFen = game.fen();
+    const msgNodeId = currentNodeId;
+    const userMessage: ChatMessageWithFen = { role: "user", text, fen: msgFen, nodeId: msgNodeId };
     setChatMessages(prev => [...prev, userMessage]);
     setIsChatLoading(true);
 
@@ -479,22 +506,22 @@ export default function ChessCoach() {
               accumulated += event.text;
               if (!modelMessageAdded) {
                 modelMessageAdded = true;
-                setChatMessages(prev => [...prev, { role: "model", text: accumulated }]);
+                setChatMessages(prev => [...prev, { role: "model", text: accumulated, fen: msgFen, nodeId: msgNodeId }]);
               } else {
                 setChatMessages(prev => {
                   const updated = [...prev];
-                  updated[updated.length - 1] = { role: "model", text: accumulated };
+                  updated[updated.length - 1] = { role: "model", text: accumulated, fen: msgFen, nodeId: msgNodeId };
                   return updated;
                 });
               }
             } else if (event.type === "status") {
               if (!modelMessageAdded) {
                 modelMessageAdded = true;
-                setChatMessages(prev => [...prev, { role: "model", text: `_${event.text}_` }]);
+                setChatMessages(prev => [...prev, { role: "model", text: `_${event.text}_`, fen: msgFen, nodeId: msgNodeId }]);
               } else {
                 setChatMessages(prev => {
                   const updated = [...prev];
-                  updated[updated.length - 1] = { role: "model", text: `_${event.text}_` };
+                  updated[updated.length - 1] = { role: "model", text: `_${event.text}_`, fen: msgFen, nodeId: msgNodeId };
                   return updated;
                 });
               }
@@ -509,7 +536,7 @@ export default function ChessCoach() {
       }
 
       if (!modelMessageAdded) {
-        setChatMessages(prev => [...prev, { role: "model", text: "I couldn't generate a response. Please try again." }]);
+        setChatMessages(prev => [...prev, { role: "model", text: "I couldn't generate a response. Please try again.", fen: msgFen, nodeId: msgNodeId }]);
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
@@ -524,13 +551,118 @@ export default function ChessCoach() {
       abortControllerRef.current = null;
       setIsChatLoading(false);
     }
-  }, [chatMessages, getPositionContext, toast, useToolCalling]);
+  }, [chatMessages, getPositionContext, toast, useToolCalling, game, currentNodeId]);
 
   const explainMove = useCallback((moveUci: string, moveSan: string, score: string, pvSan: string) => {
     const turnLabel = game.turn() === "w" ? "White" : "Black";
     const question = `Why is ${moveSan} (${score}) the engine's recommended move for ${turnLabel}? The continuation is: ${pvSan}. Explain the idea behind this move.`;
     sendChatMessage(question);
   }, [game, sendChatMessage]);
+
+  const playCoachSequence = useCallback(async (startFen: string, startNodeId: string | undefined, sanMoves: string[]) => {
+    if (sanMoves.length === 0) return;
+    if (coachSequencePending.current) return;
+    coachSequencePending.current = true;
+    setHoverArrows([]);
+
+    const unlock = () => { coachSequencePending.current = false; };
+
+    let branchNodeId: string | null = null;
+    if (startNodeId) {
+      const node = findNodeById(tree, startNodeId);
+      if (node) branchNodeId = startNodeId;
+    }
+    if (!branchNodeId) branchNodeId = findNodeByFen(tree, startFen);
+    if (!branchNodeId) {
+      toast({ title: "Position not found", description: "Could not find the position in the game tree.", variant: "destructive" });
+      unlock();
+      return;
+    }
+
+    const branchPath = getPathToNode(tree, branchNodeId);
+    if (!branchPath) { unlock(); return; }
+
+    const branchNode = findNodeById(tree, branchNodeId);
+    if (!branchNode) { unlock(); return; }
+
+    let currentNode = branchNode;
+    const followedPath = [...branchPath];
+    const remainingMoves = [...sanMoves];
+
+    while (remainingMoves.length > 0) {
+      const existing = currentNode.children.find(c => c.move === remainingMoves[0]);
+      if (existing) {
+        followedPath.push(existing.id);
+        currentNode = existing;
+        remainingMoves.shift();
+      } else {
+        break;
+      }
+    }
+
+    if (remainingMoves.length === 0) {
+      isNavigatingRef.current = true;
+      setCurrentPath(followedPath);
+      setGame(new Chess(currentNode.fen));
+      toast({ title: "Existing Line", description: "Navigated to existing variation." });
+      unlock();
+      return;
+    }
+
+    const playGame = new Chess(currentNode.fen);
+    const newNodes: VariationNode[] = [];
+    for (const san of remainingMoves) {
+      try {
+        const result = playGame.move(san);
+        if (!result) break;
+        newNodes.push({ id: nextNodeId(), move: result.san, fen: playGame.fen(), score: null, children: [] });
+      } catch (_e) { break; }
+    }
+
+    if (newNodes.length === 0) {
+      isNavigatingRef.current = true;
+      setCurrentPath(followedPath);
+      setGame(new Chess(currentNode.fen));
+      unlock();
+      return;
+    }
+
+    for (let i = 0; i < newNodes.length - 1; i++) newNodes[i].children.push(newNodes[i + 1]);
+
+    const attachId = currentNode.id;
+    setTree(prev => {
+      const clone = cloneTree(prev);
+      const parent = findNodeById(clone, attachId);
+      if (parent) parent.children.push(newNodes[0]);
+      return clone;
+    });
+
+    const fullPath = [...followedPath, ...newNodes.map(n => n.id)];
+    setCurrentPath(fullPath);
+    setGame(new Chess(playGame.fen()));
+
+    toast({ title: "Coach Line Added", description: `Added ${newNodes.length} new moves.` });
+
+    if (isReady) {
+      setIsComputingScores(true);
+      setComputeProgress({ current: 0, total: newNodes.length });
+      for (let i = 0; i < newNodes.length; i++) {
+        const evalG = new Chess(newNodes[i].fen);
+        setComputeProgress({ current: i + 1, total: newNodes.length });
+        const result = await evaluateAsync(newNodes[i].fen, evalG.turn(), 12);
+        setTree(prev => setNodeScore(prev, newNodes[i].id, result));
+      }
+      setIsComputingScores(false);
+      endBatch();
+      evaluate(playGame.fen(), playGame.turn());
+    }
+
+    unlock();
+  }, [tree, toast, isReady, evaluateAsync, endBatch, evaluate]);
+
+  const handleHoverMoves = useCallback((arrows: Array<{ from: string; to: string }> | null) => {
+    setHoverArrows(arrows || []);
+  }, []);
 
   const loadEngineLine = useCallback(async (pvUci: string[], baseFen: string) => {
     if (pvUci.length === 0) {
@@ -614,6 +746,7 @@ export default function ChessCoach() {
 
   const clearChat = useCallback(() => {
     setChatMessages([]);
+    setHoverArrows([]);
   }, []);
 
   useEffect(() => {
@@ -769,7 +902,7 @@ export default function ChessCoach() {
               className="flex items-center justify-center min-h-0"
               style={{ flex: "0 0 auto" }}
             >
-              <div style={{ width: boardSize, height: boardSize }}>
+              <div style={{ width: boardSize, height: boardSize, position: "relative" }}>
                 <Chessboard
                   id="chess-board"
                   position={game.fen()}
@@ -783,8 +916,43 @@ export default function ChessCoach() {
                   customDarkSquareStyle={{ backgroundColor: "#779952" }}
                   customLightSquareStyle={{ backgroundColor: "#edeed1" }}
                   customNotationStyle={{ fontSize: "14px", fontWeight: "bold", opacity: 0.8 }}
+                  customArrows={hoverArrows.map(a => [a.from as Square, a.to as Square, "rgba(255, 170, 0, 0.75)"])}
                   animationDuration={200}
                 />
+                {hoverArrows.length > 0 && (
+                  <div
+                    style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 10 }}
+                    data-testid="arrow-overlay"
+                  >
+                    {hoverArrows.map((arrow, i) => {
+                      const pos = getArrowMidpoint(arrow.from, arrow.to, boardSize, boardOrientation);
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            position: "absolute",
+                            left: pos.x - 11,
+                            top: pos.y - 11,
+                            width: 22,
+                            height: 22,
+                            borderRadius: "50%",
+                            backgroundColor: "rgba(255, 170, 0, 0.95)",
+                            color: "#fff",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            border: "2px solid rgba(255,255,255,0.85)",
+                            boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
+                          }}
+                        >
+                          {i + 1}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -915,6 +1083,9 @@ export default function ChessCoach() {
               onCancelChat={cancelChat}
               useToolCalling={useToolCalling}
               onToggleToolCalling={setUseToolCalling}
+              gameFen={game.fen()}
+              onHoverMoves={handleHoverMoves}
+              onClickSequence={playCoachSequence}
             />
           </div>
         </div>

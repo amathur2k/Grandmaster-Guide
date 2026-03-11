@@ -1,8 +1,12 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Brain, Send, Trash2, Wrench, Sparkles, Square } from "lucide-react";
-import type { StockfishEvaluation, ChatMessage } from "@shared/schema";
+import type { StockfishEvaluation } from "@shared/schema";
+import {
+  parseMovesInText,
+  type MoveSequence,
+} from "@/lib/parse-chess-moves";
 import {
   Tooltip,
   TooltipContent,
@@ -10,15 +14,87 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+export interface ChatMessageWithFen {
+  role: "user" | "model";
+  text: string;
+  fen?: string;
+  nodeId?: string;
+}
+
 interface CoachConsoleProps {
   evaluation: StockfishEvaluation;
-  messages: ChatMessage[];
+  messages: ChatMessageWithFen[];
   onSendMessage: (text: string) => void;
   isChatLoading: boolean;
   onClearChat: () => void;
   onCancelChat: () => void;
   useToolCalling: boolean;
   onToggleToolCalling: (value: boolean) => void;
+  gameFen: string;
+  onHoverMoves: (arrows: Array<{ from: string; to: string }> | null) => void;
+  onClickSequence: (fen: string, nodeId: string | undefined, sanMoves: string[]) => void;
+}
+
+function renderText(content: string): (string | JSX.Element)[] {
+  const parts: (string | JSX.Element)[] = [];
+  const re = /(\*\*[^*]+\*\*)/g;
+  let last = 0;
+  let key = 0;
+  let match;
+  while ((match = re.exec(content)) !== null) {
+    if (match.index > last) parts.push(content.slice(last, match.index));
+    parts.push(<strong key={`b${key++}`}>{match[0].slice(2, -2)}</strong>);
+    last = match.index + match[0].length;
+  }
+  if (last < content.length) parts.push(content.slice(last));
+  return parts.length > 0 ? parts : [content];
+}
+
+function InteractiveMessage({
+  text,
+  fen,
+  nodeId,
+  onHover,
+  onClick,
+}: {
+  text: string;
+  fen: string;
+  nodeId?: string;
+  onHover: (arrows: Array<{ from: string; to: string }> | null) => void;
+  onClick: (fen: string, nodeId: string | undefined, moves: string[]) => void;
+}) {
+  const { segments, sequences } = useMemo(
+    () => parseMovesInText(text, fen),
+    [text, fen]
+  );
+
+  return (
+    <div className="whitespace-pre-wrap">
+      {segments.map((seg, i) => {
+        if (seg.type === "text") {
+          return <span key={i}>{renderText(seg.content)}</span>;
+        }
+        const seq = sequences.find((s) => s.id === seg.seqId);
+        return (
+          <span
+            key={i}
+            className="text-blue-600 dark:text-blue-400 font-semibold underline decoration-dotted underline-offset-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-sm px-0.5 transition-colors"
+            onMouseEnter={() =>
+              seq && onHover(seq.moves.map((m) => ({ from: m.from, to: m.to })))
+            }
+            onMouseLeave={() => onHover(null)}
+            onClick={() =>
+              seq && onClick(fen, nodeId, seq.moves.map((m) => m.san))
+            }
+            title="Click to add this line to the game tree"
+            data-testid={`move-token-${seg.san}-${i}`}
+          >
+            {seg.san}
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 export function CoachConsole({
@@ -30,6 +106,9 @@ export function CoachConsole({
   onCancelChat,
   useToolCalling,
   onToggleToolCalling,
+  gameFen,
+  onHoverMoves,
+  onClickSequence,
 }: CoachConsoleProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -94,23 +173,44 @@ export function CoachConsole({
           </div>
         ) : (
           <div className="space-y-3">
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                data-testid={`chat-message-${i}`}
-              >
+            {messages.map((msg, i) => {
+              const isStreaming =
+                isChatLoading &&
+                i === messages.length - 1 &&
+                msg.role === "model";
+              const showInteractive =
+                msg.role === "model" && !isStreaming && !!msg.fen;
+
+              return (
                 <div
-                  className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : "bg-muted border border-border/50 rounded-bl-sm"
-                  }`}
+                  key={i}
+                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                  data-testid={`chat-message-${i}`}
                 >
-                  <p className="whitespace-pre-wrap">{msg.text}</p>
+                  <div
+                    className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-br-sm"
+                        : "bg-muted border border-border/50 rounded-bl-sm"
+                    }`}
+                  >
+                    {showInteractive ? (
+                      <InteractiveMessage
+                        text={msg.text}
+                        fen={msg.fen!}
+                        nodeId={msg.nodeId}
+                        onHover={onHoverMoves}
+                        onClick={onClickSequence}
+                      />
+                    ) : (
+                      <p className="whitespace-pre-wrap">
+                        {renderText(msg.text)}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {isChatLoading && !messages.some((m, i) => m.role === "model" && i === messages.length - 1) && (
               <div className="flex justify-start" data-testid="chat-loading">
                 <div className="bg-muted border border-border/50 rounded-xl rounded-bl-sm px-4 py-3">

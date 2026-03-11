@@ -18,7 +18,8 @@ An interactive Chess Analyzer that lets users play chess on an interactive board
 - `client/src/components/eval-graph.tsx` - SVG evaluation graph showing scores across the active line (below board)
 - `client/src/components/engine-lines.tsx` - Top 3 engine move suggestions with per-line scores and explain buttons
 - `client/src/components/move-history.tsx` - Move history panel showing the active line's moves
-- `client/src/components/coach-console.tsx` - Interactive AI coach chat panel with follow-up questions
+- `client/src/components/coach-console.tsx` - Interactive AI coach chat panel with follow-up questions and interactive move tokens
+- `client/src/lib/parse-chess-moves.ts` - SAN move parser for AI text: regex + chess.js validation, groups consecutive legal moves into sequences
 - `client/src/hooks/use-stockfish.ts` - Stockfish Web Worker integration hook with `evaluate` and `evaluateAsync` methods
 - `client/public/stockfish.js` - Stockfish 18 lite-single WASM engine
 - `server/routes.ts` - Backend routes for OpenAI GPT-5.2 analysis and chat with streaming, tool calling (validate_move + evaluate_position)
@@ -34,6 +35,16 @@ Game state uses a tree structure instead of flat arrays:
 - **Branching**: making a different move from an existing position creates a new child node; the original line remains as a sibling
 - **Navigation**: goForward follows first-child of current node; goBack pops from currentPath; clicking a tree node uses `getPathToNode` to find the path
 - **Scores**: stored per-node as nullable `{score, mate}` objects; the eval graph receives scores for the active line only
+
+## Interactive Coach Moves
+AI coach responses contain interactive chess move tokens:
+- **Move parsing**: `parse-chess-moves.ts` scans AI text for SAN moves (supports annotations `!?`, move numbers `1.`, `1...`), validates each against chess.js from the message's stored FEN, and groups consecutive legal moves into sequences
+- **Hover**: Hovering any move in a sequence shows gold arrows (`customArrows`) on the board for ALL moves in that sequence, with numbered overlay badges at 40% along each arrow
+- **Click**: Clicking a move sequence plays it as a new branch in the variation tree (follows existing nodes first, creates new ones for diverging moves), then evaluates all new positions via Stockfish
+- **FEN tracking**: Each chat message stores the board FEN and node ID at send time, so moves remain interactive even after navigating elsewhere
+- **Markdown rendering**: Text segments get basic `**bold**` → `<strong>` rendering
+- **Streaming guard**: Move parsing only runs on finalized messages (not during token streaming)
+- **Re-entry guard**: `coachSequencePending` ref prevents overlapping branch creation from rapid clicks
 
 ## Data Flow
 1. User makes a move on the board or loads PGN
