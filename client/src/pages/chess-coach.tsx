@@ -782,6 +782,7 @@ export default function ChessCoach() {
                   }}
                   customDarkSquareStyle={{ backgroundColor: "#779952" }}
                   customLightSquareStyle={{ backgroundColor: "#edeed1" }}
+                  customNotationStyle={{ fontSize: "14px", fontWeight: "bold", opacity: 0.8 }}
                   animationDuration={200}
                 />
               </div>
