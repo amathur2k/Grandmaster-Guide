@@ -170,6 +170,7 @@ export default function ChessCoach() {
       pgn: getCurrentPgn(),
       evaluation: evalDisplay,
       topMoves: evaluation.topMoves,
+      engineLines: evaluation.lines,
       turn: game.turn() as "w" | "b",
       playerColor,
     };

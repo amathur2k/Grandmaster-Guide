@@ -1,10 +1,18 @@
 import { z } from "zod";
 
+export const engineLineSchema = z.object({
+  move: z.string(),
+  score: z.number(),
+  mate: z.number().nullable(),
+  pv: z.array(z.string()),
+});
+
 export const analyzePositionSchema = z.object({
   fen: z.string(),
   pgn: z.string(),
   evaluation: z.string(),
   topMoves: z.array(z.string()),
+  engineLines: z.array(engineLineSchema).optional().default([]),
   turn: z.enum(["w", "b"]),
   playerColor: z.enum(["white", "black"]),
   useToolCalling: z.boolean().optional().default(true),
@@ -22,6 +30,7 @@ export const coachChatSchema = z.object({
   pgn: z.string(),
   evaluation: z.string(),
   topMoves: z.array(z.string()),
+  engineLines: z.array(engineLineSchema).optional().default([]),
   turn: z.enum(["w", "b"]),
   playerColor: z.enum(["white", "black"]),
   messages: z.array(chatMessageSchema).min(1),

@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import OpenAI from "openai";
+import { Chess } from "chess.js";
 import { analyzePositionSchema, coachChatSchema } from "@shared/schema";
 import { stockfishService } from "./stockfish-service";
 
@@ -8,120 +9,58 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const SYSTEM_PROMPT = `You are a witty Grandmaster Chess Coach. I will provide the full PGN of the game so far, the current FEN, the engine's evaluation, and which color the student is playing.
+function uciToSan(fen: string, uci: string): string {
+  try {
+    const g = new Chess(fen);
+    const from = uci.slice(0, 2);
+    const to = uci.slice(2, 4);
+    const promotion = uci.length > 4 ? uci[4] : undefined;
+    const move = g.move({ from, to, promotion });
+    return move ? move.san : uci;
+  } catch {
+    return uci;
+  }
+}
 
-Always address the student as the color they are playing. Analyze from their perspective.
-If the eval is positive for the student, explain their advantage and what they're doing right.
-If it's negative, explain the threat they missed or the mistake they made, and suggest what they should have done.
-Identify the opening name precisely (e.g., 'The Sicilian Defense, Najdorf Variation').
-If the position is in the middlegame or endgame, identify key strategic themes (pawn structure, piece activity, king safety, etc.).
-Be succinct and to the point. Be encouraging but honest.
+function pvToSan(fen: string, pvUci: string[]): string[] {
+  const result: string[] = [];
+  const g = new Chess(fen);
+  for (const uci of pvUci) {
+    try {
+      const from = uci.slice(0, 2);
+      const to = uci.slice(2, 4);
+      const promotion = uci.length > 4 ? uci[4] : undefined;
+      const move = g.move({ from, to, promotion });
+      if (!move) break;
+      result.push(move.san);
+    } catch {
+      break;
+    }
+  }
+  return result;
+}
 
-When Stockfish engine analysis is included in the context, use it to ground your assessment. Reference specific engine scores and best moves to support your coaching advice. This data is from a real Stockfish engine so you can trust it completely.`;
+const SYSTEM_PROMPT = `You are a witty Grandmaster Chess Coach. You receive the full PGN, current FEN, engine evaluation, and the top engine-recommended moves with their scores and principal variations (PV).
 
-const tools: OpenAI.ChatCompletionTool[] = [
-  {
-    type: "function",
-    function: {
-      name: "evaluate_position",
-      description:
-        "Evaluate a chess position using Stockfish engine. Returns centipawn score from White's perspective, mate distance if applicable, best move in UCI notation, and principal variation. Use this to verify your analysis and move suggestions.",
-      parameters: {
-        type: "object",
-        properties: {
-          fen: {
-            type: "string",
-            description:
-              "The FEN string of the chess position to evaluate (e.g. 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1')",
-          },
-          depth: {
-            type: "number",
-            description:
-              "Search depth for Stockfish (default 16, max 20). Higher depth gives more accurate results but takes longer.",
-          },
-        },
-        required: ["fen"],
-      },
-    },
-  },
-];
+## Rules
+
+1. **Address the student by their color.** Analyze from their perspective.
+2. **Use the top engine moves.** When suggesting moves, draw from the engine lines provided. Cite the engine score to justify why a move is strong or weak.
+3. **Standard Algebraic Notation (SAN) only.** Always write moves in SAN (e.g. Nf3, Bb5, O-O, exd5). Never use UCI notation (e.g. e2e4) or coordinate-only formats.
+4. **Demonstrate ideas with full move sequences.** When explaining an idea, plan, or tactic, show the concrete continuation — at least 2-4 moves deep (both sides). Use the principal variations from the engine lines to support your sequences.
+5. **Verify with Stockfish.** When you are given Stockfish verification data, use it to confirm whether the idea actually works. If the engine shows the idea loses material or the position, say so honestly and suggest the engine's preferred continuation instead.
+6. **Identify the opening** precisely (e.g., "Sicilian Defense, Najdorf Variation").
+7. **In middlegame/endgame**, identify key strategic themes (pawn structure, piece activity, king safety, etc.).
+8. **Be succinct, encouraging, and honest.** If the position is bad, explain what went wrong and how to improve.
+
+## Engine data you can trust
+The engine lines, scores, and Stockfish deep analysis in the context come from a real Stockfish engine. You can trust them completely. Always prefer engine data over your own calculation when they conflict.`;
 
 function sanitizeFen(fen: string): string | null {
   if (typeof fen !== "string" || fen.length > 200) return null;
   const cleaned = fen.replace(/[\r\n\x00-\x1f]/g, "").trim();
   if (!/^[rnbqkpRNBQKP1-8/]+ [wb] [KQkq-]+ [a-h1-8-]+ \d+ \d+$/.test(cleaned)) return null;
   return cleaned;
-}
-
-function clampDepth(raw: unknown): number {
-  const n = typeof raw === "number" ? raw : 16;
-  if (!Number.isFinite(n) || n < 6) return 6;
-  if (n > 20) return 20;
-  return Math.round(n);
-}
-
-async function handleToolCalls(
-  toolCalls: OpenAI.ChatCompletionMessageToolCall[]
-): Promise<OpenAI.ChatCompletionToolMessageParam[]> {
-  const results: OpenAI.ChatCompletionToolMessageParam[] = [];
-
-  for (const call of toolCalls) {
-    if (call.function.name === "evaluate_position") {
-      try {
-        const args = JSON.parse(call.function.arguments);
-        const fen = sanitizeFen(args.fen);
-        if (!fen) {
-          results.push({
-            role: "tool",
-            tool_call_id: call.id,
-            content: JSON.stringify({ error: "Invalid FEN string provided" }),
-          });
-          continue;
-        }
-        const depth = clampDepth(args.depth);
-
-        console.log(`[stockfish-tool] Evaluating: ${fen} at depth ${depth}`);
-        const result = await stockfishService.evaluate(fen, depth);
-        console.log(`[stockfish-tool] Result: score=${result.score}, bestMove=${result.bestMove}`);
-
-        const scoreDisplay =
-          result.mate !== null
-            ? `Mate in ${result.mate} (${result.mate > 0 ? "White wins" : "Black wins"})`
-            : `${result.score > 0 ? "+" : ""}${result.score.toFixed(2)} (${result.score > 0.5 ? "White is better" : result.score < -0.5 ? "Black is better" : "roughly equal"})`;
-
-        results.push({
-          role: "tool",
-          tool_call_id: call.id,
-          content: JSON.stringify({
-            fen,
-            score: result.score,
-            mate: result.mate,
-            scoreDisplay,
-            bestMove: result.bestMove,
-            principalVariation: result.pv.slice(0, 8).join(" "),
-            depth: result.depth,
-          }),
-        });
-      } catch (error) {
-        results.push({
-          role: "tool",
-          tool_call_id: call.id,
-          content: JSON.stringify({
-            error: "Failed to evaluate position",
-            details: error instanceof Error ? error.message : "Unknown error",
-          }),
-        });
-      }
-    } else {
-      results.push({
-        role: "tool",
-        tool_call_id: call.id,
-        content: JSON.stringify({ error: `Unknown tool: ${call.function.name}` }),
-      });
-    }
-  }
-
-  return results;
 }
 
 async function callOpenAIWithRetry(
@@ -150,49 +89,9 @@ async function callOpenAIWithRetry(
   throw new Error("Unreachable");
 }
 
-async function chatWithTools(
-  messages: OpenAI.ChatCompletionMessageParam[],
-  useToolCalling = true,
-  maxToolRounds = 5
-): Promise<string> {
-  let currentMessages = [...messages];
-
-  for (let round = 0; round < maxToolRounds; round++) {
-    const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
-      model: "gpt-4o-mini",
-      messages: currentMessages,
-      max_completion_tokens: 8192,
-    };
-    if (useToolCalling) {
-      params.tools = tools;
-    }
-
-    const response = await callOpenAIWithRetry(params);
-
-    const choice = response.choices[0];
-    if (!choice) {
-      return "I couldn't generate a response. Please try again.";
-    }
-
-    const message = choice.message;
-
-    if (message.tool_calls && message.tool_calls.length > 0) {
-      currentMessages.push(message);
-      const toolResults = await handleToolCalls(message.tool_calls);
-      currentMessages.push(...toolResults);
-      continue;
-    }
-
-    return message.content || "I couldn't generate a response. Please try again.";
-  }
-
-  const finalResponse = await callOpenAIWithRetry({
-    model: "gpt-4o-mini",
-    messages: currentMessages,
-    max_completion_tokens: 8192,
-  });
-
-  return finalResponse.choices[0]?.message?.content || "I couldn't generate a response. Please try again.";
+function formatScore(score: number, mate: number | null): string {
+  if (mate !== null) return `Mate in ${Math.abs(mate)} (${mate > 0 ? "White wins" : "Black wins"})`;
+  return `${score > 0 ? "+" : ""}${score.toFixed(2)}`;
 }
 
 function buildContextMessage(data: {
@@ -200,17 +99,32 @@ function buildContextMessage(data: {
   pgn: string;
   evaluation: string;
   topMoves: string[];
+  engineLines?: { move: string; score: number; mate: number | null; pv: string[] }[];
   turn: string;
   playerColor: string;
 }) {
   const turnLabel = data.turn === "w" ? "White" : "Black";
+
+  let engineLinesBlock = "No engine lines available.";
+  if (data.engineLines && data.engineLines.length > 0) {
+    const lines = data.engineLines.map((line, i) => {
+      const moveSan = uciToSan(data.fen, line.move);
+      const pvSan = pvToSan(data.fen, line.pv.slice(0, 10));
+      const scoreStr = formatScore(line.score, line.mate);
+      return `  ${i + 1}. ${moveSan} (eval: ${scoreStr}) — continuation: ${pvSan.join(" ")}`;
+    });
+    engineLinesBlock = lines.join("\n");
+  }
+
   return `[Chess Position Context]
 Full PGN of the game: ${data.pgn || "No moves yet (starting position)"}
 Current position (FEN): ${data.fen}
-Engine evaluation (from White's perspective): ${data.evaluation}
-Top 3 engine suggestions: ${data.topMoves.length > 0 ? data.topMoves.join(", ") : "N/A"}
+Overall evaluation (from White's perspective): ${data.evaluation}
 It is ${turnLabel}'s turn to move.
-The student is playing as ${data.playerColor}.`;
+The student is playing as ${data.playerColor}.
+
+[Top Engine Moves — use these for your suggestions]
+${engineLinesBlock}`;
 }
 
 export async function registerRoutes(
@@ -232,13 +146,13 @@ export async function registerRoutes(
         if (fen) {
           try {
             const evalResult = await stockfishService.evaluate(fen, 18);
-            const scoreDisplay = evalResult.mate !== null
-              ? `Mate in ${evalResult.mate} (${evalResult.mate > 0 ? "White wins" : "Black wins"})`
-              : `${evalResult.score > 0 ? "+" : ""}${evalResult.score.toFixed(2)}`;
-            contextMessage += `\n\n[Stockfish Deep Analysis (depth ${evalResult.depth})]
+            const scoreDisplay = formatScore(evalResult.score, evalResult.mate);
+            const bestMoveSan = uciToSan(fen, evalResult.bestMove);
+            const pvSan = pvToSan(fen, evalResult.pv.slice(0, 10));
+            contextMessage += `\n\n[Stockfish Deep Verification (depth ${evalResult.depth})]
 Score: ${scoreDisplay}
-Best move: ${evalResult.bestMove}
-Principal variation: ${evalResult.pv.slice(0, 8).join(" ")}`;
+Best move: ${bestMoveSan}
+Best continuation: ${pvSan.join(" ")}`;
           } catch (e) {
             console.error("[analyze] Stockfish pre-eval failed:", e);
           }
@@ -301,20 +215,21 @@ Principal variation: ${evalResult.pv.slice(0, 8).join(" ")}`;
         const startTime = Date.now();
 
         if (useToolCalling) {
-          res.write(`data: ${JSON.stringify({ type: "status", text: "Running Stockfish analysis..." })}\n\n`);
+          res.write(`data: ${JSON.stringify({ type: "status", text: "Running Stockfish verification..." })}\n\n`);
           const fen = sanitizeFen(positionData.fen);
           if (fen) {
             try {
               console.log(`[chat] Pre-evaluating position: ${fen}`);
               const evalResult = await stockfishService.evaluate(fen, 18);
-              const scoreDisplay = evalResult.mate !== null
-                ? `Mate in ${evalResult.mate} (${evalResult.mate > 0 ? "White wins" : "Black wins"})`
-                : `${evalResult.score > 0 ? "+" : ""}${evalResult.score.toFixed(2)}`;
-              contextMessage += `\n\n[Stockfish Deep Analysis (depth ${evalResult.depth})]
+              const scoreDisplay = formatScore(evalResult.score, evalResult.mate);
+              const bestMoveSan = uciToSan(fen, evalResult.bestMove);
+              const pvSan = pvToSan(fen, evalResult.pv.slice(0, 10));
+              contextMessage += `\n\n[Stockfish Deep Verification (depth ${evalResult.depth})]
 Score: ${scoreDisplay}
-Best move: ${evalResult.bestMove}
-Principal variation: ${evalResult.pv.slice(0, 8).join(" ")}`;
-              console.log(`[chat] Stockfish eval done: score=${evalResult.score}, bestMove=${evalResult.bestMove}`);
+Best move: ${bestMoveSan}
+Best continuation: ${pvSan.join(" ")}
+Use this to verify any ideas or plans you suggest. If your suggested line differs from the engine's best line, explain why or defer to the engine.`;
+              console.log(`[chat] Stockfish eval done: score=${evalResult.score}, bestMove=${bestMoveSan}`);
             } catch (e) {
               console.error("[chat] Stockfish pre-eval failed:", e);
             }
