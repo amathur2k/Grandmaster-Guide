@@ -9,7 +9,7 @@ An interactive Chess Analyzer that lets users play chess on an interactive board
 - **Chess Logic**: chess.js for rules/FEN/PGN, react-chessboard@4.7.2 for the interactive board (React 18 compatible)
 - **Client Engine**: Stockfish 18 lite-single WASM (`client/public/stockfish.js` + `client/public/stockfish.wasm`) loaded as a Web Worker with MultiPV 3
 - **Server Engine**: Server-side Stockfish via `stockfish` npm package (`server/stockfish-service.ts`), spawned as a child process for LLM tool calling
-- **AI**: OpenAI GPT-4o-mini via direct OpenAI API (OPENAI_API_KEY secret) with real token streaming and Stockfish context injection
+- **AI**: OpenAI GPT-5.2 via direct OpenAI API (OPENAI_API_KEY secret) with real token streaming, function calling (validate_move + evaluate_position tools), and Stockfish context injection
 
 ## Key Files
 - `client/src/pages/chess-coach.tsx` - Main chess page with board, controls, variation tree state, PGN input, chat state management
@@ -21,7 +21,7 @@ An interactive Chess Analyzer that lets users play chess on an interactive board
 - `client/src/components/coach-console.tsx` - Interactive AI coach chat panel with follow-up questions
 - `client/src/hooks/use-stockfish.ts` - Stockfish Web Worker integration hook with `evaluate` and `evaluateAsync` methods
 - `client/public/stockfish.js` - Stockfish 18 lite-single WASM engine
-- `server/routes.ts` - Backend routes for OpenAI GPT-4o-mini analysis and chat with streaming
+- `server/routes.ts` - Backend routes for OpenAI GPT-5.2 analysis and chat with streaming, tool calling (validate_move + evaluate_position)
 - `server/stockfish-service.ts` - Server-side Stockfish engine service (spawns child process, queued evaluation)
 - `shared/schema.ts` - Shared types and Zod validation schemas (includes EngineLine, ChatMessage types)
 
@@ -53,16 +53,20 @@ Game state uses a tree structure instead of flat arrays:
 - `server/stockfish-service.ts` spawns the `stockfish` npm package binary (`node_modules/stockfish/bin/stockfish.js`) as a child process using `spawn(process.execPath, [enginePath])`
 - Provides `stockfishService.evaluate(fen, depth)` returning `{ score, mate, bestMove, pv, depth }` (White POV)
 - Requests are queued — only one evaluation runs at a time; auto-restarts on process crash
-- When "Verify ON", the `/api/chat` and `/api/analyze` endpoints run Stockfish at depth 18 on the current position BEFORE calling the LLM, and inject the engine results (score, best move, principal variation) directly into the context prompt
 - SSE heartbeat (`: heartbeat\n\n` every 15s) keeps the connection alive during long API calls
 
-## Move Validation Tool (OpenAI Function Calling)
-- `validate_move` tool: LLM calls this to check if a move is legal before suggesting it
-- Uses chess.js server-side — instant (<1ms), no latency impact unlike Stockfish tool calls
-- Returns `{ legal, move, resultingFen }` on success, or `{ legal: false, error, legalMoves[] }` on failure
-- FEN fallback: if the LLM passes a truncated FEN, the server retries with the original request FEN
-- Streaming + tool calling loop: up to 10 rounds; model can validate multiple moves in sequence by chaining resultingFen values
+## OpenAI Function Calling Tools
+- **`validate_move`** (always available): LLM calls this to check if a move is legal before suggesting it
+  - Uses chess.js server-side — instant (<1ms), no latency impact
+  - Returns `{ legal, move, resultingFen }` on success, or `{ legal: false, error, legalMoves[] }` on failure
+  - FEN fallback: if the LLM passes a truncated FEN, the server retries with the original request FEN
+- **`evaluate_position`** (available when Verify ON): LLM calls this to run Stockfish depth-18 evaluation on any FEN
+  - Returns `{ fen, score, mate, scoreDisplay, bestMove (SAN), principalVariation (SAN), depth }`
+  - Used by the LLM to verify its own ideas/plans against the engine mid-generation
+- Streaming + tool calling loop: up to 15 rounds; model can chain calls (validate → evaluate → validate → ...)
+- `getTools(useVerify)` controls which tools are available based on the Verify toggle
 - All engine lines and Stockfish PVs are converted from UCI to SAN server-side before injection into the prompt
+- Shared `handleToolCall()` dispatcher handles both tools for both `/api/chat` and `/api/analyze` endpoints
 
 ## Important Notes
 - `evaluateAsync` returns a promise that resolves when `bestmove` is received — used for batch PGN evaluation
@@ -76,4 +80,4 @@ Game state uses a tree structure instead of flat arrays:
 - Board max size is 480px (reduced from 640px) to allow space for variation tree
 
 ## No Database Required
-This app is stateless - all chess state is managed client-side. Only OpenAI GPT-4o-mini calls (with Stockfish context injection) go through the backend. Cancel button aborts in-flight requests via AbortController.
+This app is stateless - all chess state is managed client-side. Only OpenAI GPT-5.2 calls (with Stockfish context injection and tool calling) go through the backend. Cancel button aborts in-flight requests via AbortController.
