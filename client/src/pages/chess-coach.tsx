@@ -1395,6 +1395,7 @@ export default function ChessCoach() {
           <a href="/terms" className="hover:text-foreground transition-colors">Terms of Use</a>
           <a href="/about" className="hover:text-foreground transition-colors">About Us</a>
           <a href="/contact" className="hover:text-foreground transition-colors">Contact Us</a>
+          <a href="/free-chess-game-review" className="hover:text-foreground transition-colors">Free Chess Review</a>
         </div>
       </footer>
     </div>

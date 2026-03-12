@@ -137,6 +137,7 @@ export default function PrivacyPolicy() {
           <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Use</Link>
           <Link href="/about" className="hover:text-foreground transition-colors">About Us</Link>
           <Link href="/contact" className="hover:text-foreground transition-colors">Contact Us</Link>
+          <Link href="/free-chess-game-review" className="hover:text-foreground transition-colors">Free Chess Review</Link>
         </div>
       </footer>
     </div>

@@ -106,6 +106,7 @@ export default function AboutUs() {
           <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
           <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Use</Link>
           <Link href="/contact" className="hover:text-foreground transition-colors">Contact Us</Link>
+          <Link href="/free-chess-game-review" className="hover:text-foreground transition-colors">Free Chess Review</Link>
         </div>
       </footer>
     </div>

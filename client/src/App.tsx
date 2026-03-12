@@ -8,6 +8,7 @@ import PrivacyPolicy from "@/pages/privacy-policy";
 import TermsOfUse from "@/pages/terms-of-use";
 import AboutUs from "@/pages/about-us";
 import ContactUs from "@/pages/contact-us";
+import FreeChessGameReview from "@/pages/free-chess-game-review";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/terms" component={TermsOfUse} />
       <Route path="/about" component={AboutUs} />
       <Route path="/contact" component={ContactUs} />
+      <Route path="/free-chess-game-review" component={FreeChessGameReview} />
       <Route component={NotFound} />
     </Switch>
   );
