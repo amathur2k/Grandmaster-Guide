@@ -277,7 +277,7 @@ export default function ChessCoach() {
   const isNavigatingRef = useRef(false);
   const [showPaywall, setShowPaywall] = useState(false);
 
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, signIn } = useAuth();
   const { evaluation, isReady, hasError, evaluate, evaluateAsync, endBatch } = useStockfish();
   const { toast } = useToast();
 
@@ -1097,7 +1097,7 @@ export default function ChessCoach() {
           ) : (
             <a
               href="/api/auth/google"
-              onClick={(e) => { e.preventDefault(); (window.top || window).location.href = '/api/auth/google'; }}
+              onClick={(e) => { e.preventDefault(); signIn(); }}
               className="ml-auto text-xs font-medium text-primary hover:underline"
               data-testid="link-sign-in"
             >
@@ -1357,7 +1357,7 @@ export default function ChessCoach() {
             </p>
             <a
               href="/api/auth/google"
-              onClick={(e) => { e.preventDefault(); (window.top || window).location.href = '/api/auth/google'; }}
+              onClick={(e) => { e.preventDefault(); signIn(); }}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-foreground text-background px-6 py-3 text-sm font-semibold hover:opacity-90 transition-opacity w-full"
               data-testid="button-paywall-sign-in"
             >
