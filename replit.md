@@ -1,7 +1,7 @@
-# Chess Analyzer
+# Chess Analysis
 
 ## Overview
-An interactive Chess Analyzer that lets users play chess on an interactive board, get real-time Stockfish engine evaluation, and receive grandmaster-style explanations and interactive coaching powered by OpenAI GPT-5-mini. Features a variation tree that preserves all explored move lines. Tagline: "LLMs fact checked by Stockfish".
+An interactive Chess Analysis that lets users play chess on an interactive board, get real-time Stockfish engine evaluation, and receive grandmaster-style explanations and interactive coaching powered by OpenAI GPT-5-mini. Features a variation tree that preserves all explored move lines. Tagline: "LLMs fact checked by Stockfish".
 
 ## Architecture
 - **Frontend**: React + Tailwind CSS + shadcn/ui components

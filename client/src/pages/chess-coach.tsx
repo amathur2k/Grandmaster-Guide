@@ -1005,10 +1005,10 @@ export default function ChessCoach() {
     <div className="flex flex-col h-screen bg-background">
       <header className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center gap-3">
-          <img src={logoPath} alt="Chess Analyzer" className="w-9 h-9 object-contain" />
+          <img src={logoPath} alt="Chess Analysis" className="w-9 h-9 object-contain" />
           <div>
             <h1 className="text-base font-bold leading-tight" data-testid="text-app-title">
-              Chess Analyzer
+              Chess Analysis
             </h1>
             <p className="text-xs text-muted-foreground leading-tight">
               LLMs fact checked by Stockfish
@@ -1354,7 +1354,7 @@ export default function ChessCoach() {
           data-testid="paywall-overlay"
         >
           <div className="bg-background rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 text-center border border-border">
-            <img src={logoPath} alt="Chess Analyzer" className="w-16 h-16 mx-auto mb-4 object-contain" />
+            <img src={logoPath} alt="Chess Analysis" className="w-16 h-16 mx-auto mb-4 object-contain" />
             <h2 className="text-xl font-bold text-foreground mb-2">You've used your 5 free games</h2>
             <p className="text-sm text-muted-foreground mb-6">
               Sign in with Google to get unlimited access for free.

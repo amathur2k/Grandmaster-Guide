@@ -7,8 +7,8 @@ export default function TermsOfUse() {
       <header className="flex items-center gap-3 px-6 py-4 border-b border-border">
         <Link href="/">
           <a className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <img src={logoPath} alt="Chess Analyzer" className="w-8 h-8 object-contain" />
-            <span className="font-bold text-base">Chess Analyzer</span>
+            <img src={logoPath} alt="Chess Analysis" className="w-8 h-8 object-contain" />
+            <span className="font-bold text-base">Chess Analysis</span>
           </a>
         </Link>
       </header>
@@ -20,7 +20,7 @@ export default function TermsOfUse() {
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-3">1. Acceptance of Terms</h2>
           <p className="text-muted-foreground leading-relaxed">
-            By accessing or using Chess Analyzer ("the Service") at chessanalysis.co, you agree to be
+            By accessing or using Chess Analysis ("the Service") at chessanalysis.co, you agree to be
             bound by these Terms of Use. If you do not agree to these terms, please do not use the Service.
           </p>
         </section>
@@ -28,7 +28,7 @@ export default function TermsOfUse() {
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-3">2. Description of Service</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Chess Analyzer is an interactive chess analysis tool that combines the Stockfish chess engine
+            Chess Analysis is an interactive chess analysis tool that combines the Stockfish chess engine
             with large language model (LLM) AI coaching. It allows you to import, play through, and
             analyse chess games with engine evaluations and natural language coaching explanations.
           </p>
@@ -81,7 +81,7 @@ export default function TermsOfUse() {
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-3">6. Intellectual Property</h2>
           <p className="text-muted-foreground leading-relaxed">
-            The Chess Analyzer name, logo, and interface design are our property. The Stockfish engine
+            The Chess Analysis name, logo, and interface design are our property. The Stockfish engine
             is open source software licensed under the GNU GPL v3. Chess game notation (PGN) submitted
             by you remains your property. AI-generated coaching text is provided for your personal use
             and may not be republished commercially without permission.

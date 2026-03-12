@@ -7,8 +7,8 @@ export default function PrivacyPolicy() {
       <header className="flex items-center gap-3 px-6 py-4 border-b border-border">
         <Link href="/">
           <a className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <img src={logoPath} alt="Chess Analyzer" className="w-8 h-8 object-contain" />
-            <span className="font-bold text-base">Chess Analyzer</span>
+            <img src={logoPath} alt="Chess Analysis" className="w-8 h-8 object-contain" />
+            <span className="font-bold text-base">Chess Analysis</span>
           </a>
         </Link>
       </header>
@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-3">1. Overview</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Chess Analyzer ("we", "our", or "us") is committed to protecting your privacy. This policy
+            Chess Analysis ("we", "our", or "us") is committed to protecting your privacy. This policy
             explains what data we collect, how we use it, and your rights regarding that data when you
             use our chess analysis service at chessanalysis.co.
           </p>
@@ -66,7 +66,7 @@ export default function PrivacyPolicy() {
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-3">3. How We Use Your Data</h2>
           <ul className="list-disc list-inside space-y-2 text-muted-foreground leading-relaxed">
-            <li>To provide and operate the Chess Analyzer service</li>
+            <li>To provide and operate the Chess Analysis service</li>
             <li>To authenticate you via Google Sign-In</li>
             <li>To enforce the free usage tier and recognise returning users</li>
             <li>To improve the service through aggregated, anonymised usage analytics</li>
