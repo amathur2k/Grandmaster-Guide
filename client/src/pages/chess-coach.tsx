@@ -627,7 +627,10 @@ export default function ChessCoach() {
       setGame(gameCopy);
 
       if (!isAuthenticated) {
-        incrementGameCount();
+        const newCount = incrementGameCount();
+        if (newCount >= FREE_GAME_LIMIT) {
+          setShowPaywall(true);
+        }
       }
 
       if (isReady) {
