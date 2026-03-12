@@ -107,12 +107,12 @@ function PlayerBand({ name, rating, color, captured, netAdvantage, clock, isBott
         {captured.length > 0 && (
           <span className="flex items-center gap-0 ml-1">
             {captured.map((p, i) => (
-              <span key={i} className="text-muted-foreground/60" style={{ fontSize: 12, lineHeight: 1 }}>
+              <span key={i} style={{ fontSize: 17, lineHeight: 1, color: "#1e3a5f" }}>
                 {PIECE_SYMBOLS[p]}
               </span>
             ))}
             {netAdvantage > 0 && (
-              <span className="ml-1 text-muted-foreground text-[10px] font-medium">+{netAdvantage}</span>
+              <span className="ml-1 text-[11px] font-semibold" style={{ color: "#1e3a5f" }}>+{netAdvantage}</span>
             )}
           </span>
         )}
