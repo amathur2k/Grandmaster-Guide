@@ -25,7 +25,7 @@ import {
   Loader2,
   LogOut,
 } from "lucide-react";
-import logoPath from "@assets/logo_final.png";
+import logoPath from "@assets/logo_1773342065527.png";
 
 export interface VariationNode {
   id: string;

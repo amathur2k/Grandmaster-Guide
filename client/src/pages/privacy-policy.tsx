@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import logoPath from "@assets/logo_final.png";
+import logoPath from "@assets/logo_1773342065527.png";
 
 export default function PrivacyPolicy() {
   return (
