@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
@@ -41,35 +41,10 @@ export function useAuth() {
     },
   });
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const signIn = useCallback(() => {
-    window.open("/api/auth/google", "_blank");
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch("/api/auth/me", { credentials: "include" });
-        if (res.ok) {
-          const data = await res.json();
-          if (data) {
-            queryClient.setQueryData(["/api/auth/me"], data);
-            if (pollRef.current) clearInterval(pollRef.current);
-          }
-        }
-      } catch {}
-    }, 2000);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
-
   return {
     user: user ?? null,
     isLoading,
     isAuthenticated: !!user,
     logout: () => logoutMutation.mutate(),
-    signIn,
   };
 }
