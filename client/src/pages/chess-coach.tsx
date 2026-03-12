@@ -30,6 +30,100 @@ export interface VariationNode {
   fen: string;
   score: { score: number; mate: number | null } | null;
   children: VariationNode[];
+  clock?: string;
+}
+
+export interface GameMeta {
+  white: { name: string; rating?: number };
+  black: { name: string; rating?: number };
+}
+
+function parseClock(comment: string): string | undefined {
+  const m = comment.match(/\[%clk (\d+):(\d+):(\d+)\]/);
+  if (!m) return undefined;
+  const totalMins = parseInt(m[1]) * 60 + parseInt(m[2]);
+  const secs = parseInt(m[3]);
+  return `${totalMins}:${secs.toString().padStart(2, "0")}`;
+}
+
+const PIECE_ORDER = ["Q", "R", "B", "N", "P", "q", "r", "b", "n", "p"];
+const PIECE_SYMBOLS: Record<string, string> = {
+  P: "♙", N: "♘", B: "♗", R: "♖", Q: "♕",
+  p: "♟", n: "♞", b: "♝", r: "♜", q: "♛",
+};
+const PIECE_VALUES: Record<string, number> = { Q: 9, R: 5, B: 3, N: 3, P: 1 };
+
+function computeCapturedPieces(fen: string): { whiteCaptured: string[]; blackCaptured: string[] } {
+  const start: Record<string, number> = { P: 8, N: 2, B: 2, R: 2, Q: 1, p: 8, n: 2, b: 2, r: 2, q: 1 };
+  const cur: Record<string, number> = {};
+  for (const ch of fen.split(" ")[0]) {
+    if (/[pnbrqPNBRQ]/.test(ch)) cur[ch] = (cur[ch] || 0) + 1;
+  }
+  const whiteCaptured: string[] = [];
+  const blackCaptured: string[] = [];
+  for (const p of PIECE_ORDER) {
+    const diff = (start[p] || 0) - (cur[p] || 0);
+    const isBlack = p === p.toLowerCase();
+    for (let i = 0; i < diff; i++) {
+      (isBlack ? whiteCaptured : blackCaptured).push(p);
+    }
+  }
+  return { whiteCaptured, blackCaptured };
+}
+
+function materialAdvantage(captured: string[]): number {
+  return captured.reduce((sum, p) => sum + (PIECE_VALUES[p.toUpperCase()] || 0), 0);
+}
+
+interface PlayerBandProps {
+  name?: string;
+  rating?: number;
+  color: "white" | "black";
+  captured: string[];
+  netAdvantage: number;
+  clock?: string;
+  isBottom: boolean;
+}
+
+function PlayerBand({ name, rating, color, captured, netAdvantage, clock, isBottom }: PlayerBandProps) {
+  if (!name) return null;
+  return (
+    <div
+      className="flex items-center justify-between gap-2 py-1 px-0.5"
+      data-testid={isBottom ? "player-band-bottom" : "player-band-top"}
+    >
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <span
+          className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${
+            color === "white"
+              ? "bg-white border-muted-foreground/50"
+              : "bg-foreground border-muted-foreground/50"
+          }`}
+        />
+        <span className="font-semibold text-sm text-foreground truncate">{name}</span>
+        {rating !== undefined && (
+          <span className="text-xs text-muted-foreground shrink-0">({rating})</span>
+        )}
+        {captured.length > 0 && (
+          <span className="flex items-center gap-0 ml-1">
+            {captured.map((p, i) => (
+              <span key={i} className="text-muted-foreground/60" style={{ fontSize: 12, lineHeight: 1 }}>
+                {PIECE_SYMBOLS[p]}
+              </span>
+            ))}
+            {netAdvantage > 0 && (
+              <span className="ml-1 text-muted-foreground text-[10px] font-medium">+{netAdvantage}</span>
+            )}
+          </span>
+        )}
+      </div>
+      {clock && (
+        <span className="text-sm font-mono font-semibold tabular-nums text-foreground bg-muted px-2 py-0.5 rounded shrink-0">
+          {clock}
+        </span>
+      )}
+    </div>
+  );
 }
 
 let _nodeId = 0;
@@ -147,6 +241,7 @@ export default function ChessCoach() {
   const [currentPath, setCurrentPath] = useState<string[]>(() => [tree.id]);
   const [playerColor, setPlayerColor] = useState<"white" | "black">("white");
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
+  const [gameMeta, setGameMeta] = useState<GameMeta | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessageWithFen[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -175,6 +270,32 @@ export default function ChessCoach() {
   );
 
   const hasScores = useMemo(() => activeLine.some(n => n.score !== null), [activeLine]);
+
+  // Clocks: find most recent clock for each side up to currentMoveIndex
+  const { whiteClock, blackClock } = useMemo(() => {
+    let wClock: string | undefined;
+    let bClock: string | undefined;
+    for (let i = 0; i <= currentMoveIndex; i++) {
+      const node = activeLine[i + 1];
+      if (!node) break;
+      if (i % 2 === 0) { if (node.clock) wClock = node.clock; }
+      else              { if (node.clock) bClock = node.clock; }
+    }
+    return { whiteClock: wClock, blackClock: bClock };
+  }, [activeLine, currentMoveIndex]);
+
+  // Captured pieces from current FEN
+  const { whiteCaptured, blackCaptured } = useMemo(
+    () => computeCapturedPieces(game.fen()),
+    [game]
+  );
+
+  // Net material advantage per side
+  const { whiteAdv, blackAdv } = useMemo(() => {
+    const wMat = materialAdvantage(whiteCaptured);
+    const bMat = materialAdvantage(blackCaptured);
+    return { whiteAdv: Math.max(0, wMat - bMat), blackAdv: Math.max(0, bMat - wMat) };
+  }, [whiteCaptured, blackCaptured]);
 
   const currentNodeId = currentPath[currentPath.length - 1];
 
@@ -354,6 +475,7 @@ export default function ChessCoach() {
     setTree(newRoot);
     setCurrentPath([newRoot.id]);
     setGame(new Chess());
+    setGameMeta(null);
   }, []);
 
   const navigateToNode = useCallback((nodeId: string) => {
@@ -373,7 +495,7 @@ export default function ChessCoach() {
     setGame(gameCopy);
   }, [tree]);
 
-  const loadPgn = useCallback(async (pgn: string) => {
+  const loadPgn = useCallback(async (pgn: string, importedUsername?: string) => {
     if (!pgn.trim()) {
       toast({
         title: "Empty PGN",
@@ -397,12 +519,56 @@ export default function ChessCoach() {
         return;
       }
 
+      // Parse PGN headers for player metadata
+      const headers = gameCopy.header();
+      const whiteName = headers.White && headers.White !== "?" ? headers.White : undefined;
+      const blackName = headers.Black && headers.Black !== "?" ? headers.Black : undefined;
+      const whiteElo = headers.WhiteElo ? parseInt(headers.WhiteElo) : undefined;
+      const blackElo = headers.BlackElo ? parseInt(headers.BlackElo) : undefined;
+
+      if (whiteName || blackName) {
+        setGameMeta({
+          white: { name: whiteName || "White", rating: isNaN(whiteElo!) ? undefined : whiteElo },
+          black: { name: blackName || "Black", rating: isNaN(blackElo!) ? undefined : blackElo },
+        });
+      } else {
+        setGameMeta(null);
+      }
+
+      // Auto-detect which side the imported user plays
+      if (importedUsername) {
+        const uLower = importedUsername.toLowerCase();
+        if (whiteName && whiteName.toLowerCase() === uLower) {
+          setPlayerColor("white");
+          setBoardOrientation("white");
+        } else if (blackName && blackName.toLowerCase() === uLower) {
+          setPlayerColor("black");
+          setBoardOrientation("black");
+        }
+      }
+
+      // Build a FEN→comment map from the PGN (clock annotations live in comments)
+      const commentMap = new Map<string, string>();
+      for (const { fen: cFen, comment } of gameCopy.getComments()) {
+        commentMap.set(cFen, comment);
+      }
+
+      // Parse clock times by replaying move-by-move and looking up each FEN
+      const clockGame = new Chess();
+      const clocks: (string | undefined)[] = [];
+      for (const moveSan of history) {
+        clockGame.move(moveSan);
+        const comment = commentMap.get(clockGame.fen()) || "";
+        clocks.push(parseClock(comment));
+      }
+
       const newRoot = createRootNode();
       let currentNode = newRoot;
       const newPath = [newRoot.id];
       const tempGame = new Chess();
 
-      for (const moveSan of history) {
+      for (let i = 0; i < history.length; i++) {
+        const moveSan = history[i];
         tempGame.move(moveSan);
         const child: VariationNode = {
           id: nextNodeId(),
@@ -410,6 +576,7 @@ export default function ChessCoach() {
           fen: tempGame.fen(),
           score: null,
           children: [],
+          clock: clocks[i],
         };
         currentNode.children.push(child);
         newPath.push(child.id);
@@ -866,7 +1033,22 @@ export default function ChessCoach() {
             <EvalBar evaluation={evaluation} isReady={isReady} />
           </div>
 
-          <div className="flex flex-col flex-1 min-w-0 p-4 gap-2">
+          <div className="flex flex-col flex-1 min-w-0 p-4 gap-1">
+            {/* Top player band (opponent) */}
+            {gameMeta && (
+              <div style={{ width: boardSize }} className="mx-auto shrink-0">
+                <PlayerBand
+                  name={boardOrientation === "white" ? gameMeta.black.name : gameMeta.white.name}
+                  rating={boardOrientation === "white" ? gameMeta.black.rating : gameMeta.white.rating}
+                  color={boardOrientation === "white" ? "black" : "white"}
+                  captured={boardOrientation === "white" ? blackCaptured : whiteCaptured}
+                  netAdvantage={boardOrientation === "white" ? blackAdv : whiteAdv}
+                  clock={boardOrientation === "white" ? blackClock : whiteClock}
+                  isBottom={false}
+                />
+              </div>
+            )}
+
             <div
               ref={boardContainerRef}
               className="flex items-center justify-center min-h-0"
@@ -926,6 +1108,21 @@ export default function ChessCoach() {
                 )}
               </div>
             </div>
+
+            {/* Bottom player band (user's side) */}
+            {gameMeta && (
+              <div style={{ width: boardSize }} className="mx-auto shrink-0">
+                <PlayerBand
+                  name={boardOrientation === "white" ? gameMeta.white.name : gameMeta.black.name}
+                  rating={boardOrientation === "white" ? gameMeta.white.rating : gameMeta.black.rating}
+                  color={boardOrientation === "white" ? "white" : "black"}
+                  captured={boardOrientation === "white" ? whiteCaptured : blackCaptured}
+                  netAdvantage={boardOrientation === "white" ? whiteAdv : blackAdv}
+                  clock={boardOrientation === "white" ? whiteClock : blackClock}
+                  isBottom={true}
+                />
+              </div>
+            )}
 
             <div className="flex items-center justify-center gap-1 shrink-0">
               <Button

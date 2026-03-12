@@ -24,7 +24,7 @@ interface GameSummary {
 interface ImportGamesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onLoadPgn: (pgn: string) => void;
+  onLoadPgn: (pgn: string, importedUsername?: string) => void;
 }
 
 const STORAGE_KEY_CHESSCOM = "import_chess_com_username";
@@ -148,7 +148,7 @@ export function ImportGamesDialog({ open, onOpenChange, onLoadPgn }: ImportGames
       toast({ title: "No PGN", description: "This game has no PGN data.", variant: "destructive" });
       return;
     }
-    onLoadPgn(game.pgn);
+    onLoadPgn(game.pgn, fetchedUser || undefined);
     onOpenChange(false);
   }
 
