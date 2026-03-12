@@ -1,16 +1,30 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { pool } from "./db";
+import { storage } from "./storage";
+import type { User } from "@shared/schema";
 
-const app = express();
-const httpServer = createServer(app);
+declare module "express-session" {
+  interface SessionData {
+    passport: { user: number };
+  }
+}
 
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
   }
 }
+
+const app = express();
+app.set("trust proxy", 1);
+const httpServer = createServer(app);
 
 app.use(
   express.json({
@@ -21,6 +35,73 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+const PgSession = connectPgSimple(session);
+
+app.use(
+  session({
+    store: new PgSession({
+      pool,
+      tableName: "session",
+      createTableIfMissing: true,
+    }),
+    secret: process.env.SESSION_SECRET!,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    },
+  }),
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.serializeUser((user: Express.User, done) => {
+  done(null, (user as User).id);
+});
+
+passport.deserializeUser(async (id: number, done) => {
+  try {
+    const user = await storage.findUserById(id);
+    done(null, user || undefined);
+  } catch (err) {
+    done(err);
+  }
+});
+
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  const domains = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN || "";
+  const primaryDomain = domains.split(",")[0]?.trim();
+  const callbackURL = primaryDomain
+    ? `https://${primaryDomain}/api/auth/google/callback`
+    : "/api/auth/google/callback";
+
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL,
+      },
+      async (_accessToken, _refreshToken, profile, done) => {
+        try {
+          const user = await storage.upsertUser({
+            googleId: profile.id,
+            email: profile.emails?.[0]?.value || "",
+            name: profile.displayName || "User",
+            avatarUrl: profile.photos?.[0]?.value || null,
+          });
+          done(null, user);
+        } catch (err) {
+          done(err as Error);
+        }
+      },
+    ),
+  );
+}
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -75,9 +156,6 @@ app.use((req, res, next) => {
     return res.status(status).json({ message });
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {
@@ -85,10 +163,6 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen(
     {

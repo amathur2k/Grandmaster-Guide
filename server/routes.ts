@@ -2,7 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import OpenAI from "openai";
 import { Chess } from "chess.js";
-import { analyzePositionSchema, coachChatSchema } from "@shared/schema";
+import passport from "passport";
+import { analyzePositionSchema, coachChatSchema, type User } from "@shared/schema";
 import { stockfishService } from "./stockfish-service";
 
 const openai = new OpenAI({
@@ -612,6 +613,51 @@ export async function registerRoutes(
     } catch {
       res.status(500).json({ error: "Failed to fetch games from Lichess" });
     }
+  });
+
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    app.get(
+      "/api/auth/google",
+      passport.authenticate("google", { scope: ["profile", "email"] }),
+    );
+
+    app.get(
+      "/api/auth/google/callback",
+      passport.authenticate("google", { failureRedirect: "/" }),
+      (_req, res) => {
+        res.redirect("/");
+      },
+    );
+  } else {
+    app.get("/api/auth/google", (_req, res) => {
+      res.status(503).json({ error: "Google OAuth not configured" });
+    });
+  }
+
+  app.get("/api/auth/me", (req, res) => {
+    if (req.isAuthenticated() && req.user) {
+      const user = req.user as User;
+      res.json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+      });
+    } else {
+      res.json(null);
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Failed to logout" });
+      }
+      req.session.destroy(() => {
+        res.clearCookie("connect.sid");
+        res.json({ ok: true });
+      });
+    });
   });
 
   return httpServer;

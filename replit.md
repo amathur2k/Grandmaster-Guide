@@ -91,5 +91,13 @@ AI coach responses contain interactive chess move tokens:
 - `isNavigatingRef` prevents stale eval scores from overwriting during navigation; resets when new eval starts
 - Board max size is 480px (reduced from 640px) to allow space for variation tree
 
-## No Database Required
-This app is stateless - all chess state is managed client-side. Only OpenAI GPT-5.2 calls (with Stockfish context injection and tool calling) go through the backend. Cancel button aborts in-flight requests via AbortController.
+## Database & Authentication
+- **PostgreSQL**: Used for user accounts and session storage
+- **Schema**: `shared/schema.ts` defines `users` table (id, googleId, email, name, avatarUrl, createdAt) with Drizzle ORM
+- **Database connection**: `server/db.ts` (pg Pool + drizzle)
+- **Storage**: `server/storage.ts` with `IStorage` interface (findUserByGoogleId, findUserById, upsertUser)
+- **Auth**: Google OAuth 2.0 via Passport.js with express-session + connect-pg-simple
+- **Auth routes**: GET `/api/auth/google`, GET `/api/auth/google/callback`, GET `/api/auth/me`, POST `/api/auth/logout`
+- **Frontend auth**: `client/src/hooks/use-auth.ts` (useAuth hook querying /api/auth/me)
+- **Freemium gate**: Anonymous users can load 5 games (tracked in localStorage `chess_games_loaded`); after that a full-screen fixed overlay with blur backdrop appears requiring Google Sign-In. Signed-in users get unlimited access.
+- **Secrets**: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, OPENAI_API_KEY

@@ -11,6 +11,7 @@ import { CoachConsole, type ChatMessageWithFen } from "@/components/coach-consol
 import { ImportGamesDialog } from "@/components/import-games-dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import {
   RotateCcw,
@@ -21,6 +22,7 @@ import {
   Upload,
   FlipVertical2,
   Loader2,
+  LogOut,
 } from "lucide-react";
 import logoPath from "@assets/logo_final.png";
 
@@ -235,6 +237,25 @@ function setNodeScore(
   };
 }
 
+const FREE_GAME_LIMIT = 5;
+const GAME_COUNT_KEY = "chess_games_loaded";
+
+function getGameCount(): number {
+  try {
+    return parseInt(localStorage.getItem(GAME_COUNT_KEY) || "0", 10) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function incrementGameCount(): number {
+  const next = getGameCount() + 1;
+  try {
+    localStorage.setItem(GAME_COUNT_KEY, String(next));
+  } catch {}
+  return next;
+}
+
 export default function ChessCoach() {
   const [game, setGame] = useState(new Chess());
   const [tree, setTree] = useState<VariationNode>(createRootNode);
@@ -254,7 +275,9 @@ export default function ChessCoach() {
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardSize, setBoardSize] = useState(400);
   const isNavigatingRef = useRef(false);
+  const [showPaywall, setShowPaywall] = useState(false);
 
+  const { user, isAuthenticated, logout } = useAuth();
   const { evaluation, isReady, hasError, evaluate, evaluateAsync, endBatch } = useStockfish();
   const { toast } = useToast();
 
@@ -505,6 +528,14 @@ export default function ChessCoach() {
       return;
     }
 
+    if (!isAuthenticated) {
+      const count = getGameCount();
+      if (count >= FREE_GAME_LIMIT) {
+        setShowPaywall(true);
+        return;
+      }
+    }
+
     try {
       const gameCopy = new Chess();
       gameCopy.loadPgn(pgn.trim());
@@ -587,6 +618,10 @@ export default function ChessCoach() {
       setCurrentPath(newPath);
       setGame(gameCopy);
 
+      if (!isAuthenticated) {
+        incrementGameCount();
+      }
+
       if (isReady) {
         setIsComputingScores(true);
         setComputeProgress({ current: 0, total: history.length });
@@ -619,7 +654,7 @@ export default function ChessCoach() {
         variant: "destructive",
       });
     }
-  }, [toast, isReady, evaluateAsync, evaluate, endBatch]);
+  }, [toast, isReady, evaluateAsync, evaluate, endBatch, isAuthenticated]);
 
   const cancelChat = useCallback(() => {
     if (abortControllerRef.current) {
@@ -1024,6 +1059,39 @@ export default function ChessCoach() {
           >
             {gameStatus}
           </span>
+          {isAuthenticated && user ? (
+            <div className="flex items-center gap-2 ml-auto">
+              {user.avatarUrl && (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name}
+                  className="w-7 h-7 rounded-full"
+                  data-testid="img-user-avatar"
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              <span className="text-sm font-medium text-foreground hidden sm:inline" data-testid="text-user-name">
+                {user.name}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={logout}
+                className="gap-1 text-muted-foreground"
+                data-testid="button-logout"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          ) : (
+            <a
+              href="/api/auth/google"
+              className="ml-auto text-xs font-medium text-primary hover:underline"
+              data-testid="link-sign-in"
+            >
+              Sign in with Google
+            </a>
+          )}
         </div>
       </header>
 
@@ -1262,6 +1330,47 @@ export default function ChessCoach() {
           </div>
         </div>
       </div>
+
+      {showPaywall && !isAuthenticated && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          style={{ backdropFilter: "blur(8px)", backgroundColor: "rgba(0,0,0,0.6)" }}
+          data-testid="paywall-overlay"
+        >
+          <div className="bg-background rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 text-center border border-border">
+            <img src={logoPath} alt="Chess Analyzer" className="w-16 h-16 mx-auto mb-4 object-contain" />
+            <h2 className="text-xl font-bold text-foreground mb-2">Free Limit Reached</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              You've analyzed {FREE_GAME_LIMIT} games as a guest. Sign in with Google to get unlimited access for free.
+            </p>
+            <a
+              href="/api/auth/google"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-foreground text-background px-6 py-3 text-sm font-semibold hover:opacity-90 transition-opacity w-full"
+              data-testid="button-paywall-sign-in"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
+                  fill="#4285F4"
+                />
+                <path
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  fill="#34A853"
+                />
+                <path
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                  fill="#FBBC05"
+                />
+                <path
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  fill="#EA4335"
+                />
+              </svg>
+              Sign in with Google
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
