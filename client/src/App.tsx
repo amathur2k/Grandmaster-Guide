@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import ChessCoach from "@/pages/chess-coach";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import TermsOfUse from "@/pages/terms-of-use";
+import AboutUs from "@/pages/about-us";
+import ContactUs from "@/pages/contact-us";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -14,6 +16,8 @@ function Router() {
       <Route path="/" component={ChessCoach} />
       <Route path="/privacy" component={PrivacyPolicy} />
       <Route path="/terms" component={TermsOfUse} />
+      <Route path="/about" component={AboutUs} />
+      <Route path="/contact" component={ContactUs} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -5,11 +5,9 @@ export default function TermsOfUse() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="flex items-center gap-3 px-6 py-4 border-b border-border">
-        <Link href="/">
-          <a className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <img src={logoPath} alt="Chess Analysis" className="w-8 h-8 object-contain" />
-            <span className="font-bold text-base">Chess Analysis</span>
-          </a>
+        <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+          <img src={logoPath} alt="Chess Analysis" className="w-8 h-8 object-contain" />
+          <span className="font-bold text-base">Chess Analysis</span>
         </Link>
       </header>
 
@@ -143,9 +141,11 @@ export default function TermsOfUse() {
       </main>
 
       <footer className="border-t border-border px-6 py-6 text-center text-sm text-muted-foreground">
-        <div className="flex items-center justify-center gap-4">
-          <Link href="/"><a className="hover:text-foreground transition-colors">Home</a></Link>
-          <Link href="/privacy"><a className="hover:text-foreground transition-colors">Privacy Policy</a></Link>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
+          <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+          <Link href="/about" className="hover:text-foreground transition-colors">About Us</Link>
+          <Link href="/contact" className="hover:text-foreground transition-colors">Contact Us</Link>
         </div>
       </footer>
     </div>

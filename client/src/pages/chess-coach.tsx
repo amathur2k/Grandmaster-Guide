@@ -1388,6 +1388,15 @@ export default function ChessCoach() {
           </div>
         </div>
       )}
+
+      <footer className="border-t border-border px-6 py-4 text-center text-xs text-muted-foreground mt-auto">
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
+          <a href="/terms" className="hover:text-foreground transition-colors">Terms of Use</a>
+          <a href="/about" className="hover:text-foreground transition-colors">About Us</a>
+          <a href="/contact" className="hover:text-foreground transition-colors">Contact Us</a>
+        </div>
+      </footer>
     </div>
   );
 }
