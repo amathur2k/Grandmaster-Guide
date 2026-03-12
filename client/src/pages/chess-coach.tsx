@@ -1389,7 +1389,7 @@ export default function ChessCoach() {
         </div>
       )}
 
-      <footer className="border-t border-border px-6 py-4 text-center text-xs text-muted-foreground mt-auto">
+      <footer className="border-t border-border px-4 py-1 text-center text-[10px] text-muted-foreground/40 mt-auto">
         <div className="flex flex-wrap items-center justify-center gap-4">
           <a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
           <a href="/terms" className="hover:text-foreground transition-colors">Terms of Use</a>
