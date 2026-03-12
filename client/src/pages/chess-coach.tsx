@@ -281,6 +281,12 @@ export default function ChessCoach() {
   const { evaluation, isReady, hasError, evaluate, evaluateAsync, endBatch } = useStockfish();
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      setShowPaywall(false);
+    }
+  }, [isAuthenticated]);
+
   const activeLine = useMemo(() => getActiveLine(tree, currentPath), [tree, currentPath]);
 
   const currentMoveIndex = currentPath.length - 2;
@@ -1339,9 +1345,9 @@ export default function ChessCoach() {
         >
           <div className="bg-background rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 text-center border border-border">
             <img src={logoPath} alt="Chess Analyzer" className="w-16 h-16 mx-auto mb-4 object-contain" />
-            <h2 className="text-xl font-bold text-foreground mb-2">Free Limit Reached</h2>
+            <h2 className="text-xl font-bold text-foreground mb-2">You've used your 5 free games</h2>
             <p className="text-sm text-muted-foreground mb-6">
-              You've analyzed {FREE_GAME_LIMIT} games as a guest. Sign in with Google to get unlimited access for free.
+              Sign in with Google to get unlimited access for free.
             </p>
             <a
               href="/api/auth/google"
@@ -1366,7 +1372,7 @@ export default function ChessCoach() {
                   fill="#EA4335"
                 />
               </svg>
-              Sign in with Google
+              Continue with Google
             </a>
           </div>
         </div>
