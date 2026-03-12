@@ -239,6 +239,7 @@ function setNodeScore(
 
 const FREE_GAME_LIMIT = 5;
 const GAME_COUNT_KEY = "chess_games_loaded";
+const isInIframe = window.self !== window.top;
 
 function getGameCount(): number {
   try {
@@ -284,7 +285,7 @@ export default function ChessCoach() {
   useEffect(() => {
     if (isAuthenticated) {
       setShowPaywall(false);
-    } else if (!isAuthenticated && getGameCount() >= FREE_GAME_LIMIT) {
+    } else if (!isAuthenticated && !isInIframe && getGameCount() >= FREE_GAME_LIMIT) {
       setShowPaywall(true);
     }
   }, [isAuthenticated]);
@@ -536,7 +537,7 @@ export default function ChessCoach() {
       return;
     }
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !isInIframe) {
       const count = getGameCount();
       if (count >= FREE_GAME_LIMIT) {
         setShowPaywall(true);
@@ -626,7 +627,7 @@ export default function ChessCoach() {
       setCurrentPath(newPath);
       setGame(gameCopy);
 
-      if (!isAuthenticated) {
+      if (!isAuthenticated && !isInIframe) {
         const newCount = incrementGameCount();
         if (newCount >= FREE_GAME_LIMIT) {
           setShowPaywall(true);
