@@ -232,6 +232,13 @@ ${engineLinesBlock}`;
 
 const MODEL = "gpt-5.2";
 
+function normalizeChessComResult(result: string): "win" | "loss" | "draw" {
+  if (result === "win") return "win";
+  const draws = ["agreed", "stalemate", "insufficient", "repetition", "50move", "timevsinsufficient", "kingofthehill", "threecheck", "bughousepartnerwin"];
+  if (draws.includes(result)) return "draw";
+  return "loss";
+}
+
 async function handleToolCall(
   tc: { id: string; function: { name: string; arguments: string } },
   fallbackFen: string,
@@ -487,6 +494,123 @@ export async function registerRoutes(
         res.write(`data: ${JSON.stringify({ type: "error", text: msg })}\n\n`);
         res.end();
       }
+    }
+  });
+
+  // ── Game import routes ────────────────────────────────────────────────────
+
+  app.get("/api/games/chess-com", async (req, res) => {
+    const username = ((req.query.username as string) || "").trim();
+    if (!username) return res.status(400).json({ error: "username required" });
+
+    try {
+      const archivesRes = await fetch(
+        `https://api.chess.com/pub/player/${encodeURIComponent(username)}/games/archives`,
+        { headers: { "User-Agent": "ChessAnalyzer/1.0" } }
+      );
+      if (!archivesRes.ok) {
+        const status = archivesRes.status;
+        return res.status(status === 404 ? 404 : 502).json({
+          error: status === 404 ? `User "${username}" not found on Chess.com` : "Chess.com API error",
+        });
+      }
+      const archivesData = (await archivesRes.json()) as { archives: string[] };
+      const archives = archivesData.archives || [];
+      if (archives.length === 0) return res.json({ games: [] });
+
+      const recentArchives = archives.slice(-2).reverse();
+      const allGames: unknown[] = [];
+
+      for (const archiveUrl of recentArchives) {
+        const monthRes = await fetch(archiveUrl, {
+          headers: { "User-Agent": "ChessAnalyzer/1.0" },
+        });
+        if (!monthRes.ok) continue;
+        const monthData = (await monthRes.json()) as { games: unknown[] };
+        const reversed = [...(monthData.games || [])].reverse();
+        allGames.push(...reversed);
+        if (allGames.length >= 30) break;
+      }
+
+      const normalized = allGames.slice(0, 30).map((g: unknown) => {
+        const game = g as Record<string, Record<string, unknown>>;
+        return {
+          id: (game.url as string) || String(game.end_time),
+          date: game.end_time
+            ? new Date((game.end_time as number) * 1000).toISOString()
+            : new Date().toISOString(),
+          white: { name: (game.white?.username as string) || "?", rating: game.white?.rating as number | undefined },
+          black: { name: (game.black?.username as string) || "?", rating: game.black?.rating as number | undefined },
+          whiteResult: normalizeChessComResult((game.white?.result as string) || ""),
+          blackResult: normalizeChessComResult((game.black?.result as string) || ""),
+          timeClass: (game.time_class as string) || "blitz",
+          timeControl: (game.time_control as string) || "",
+          pgn: (game.pgn as string) || "",
+        };
+      });
+
+      res.json({ games: normalized });
+    } catch {
+      res.status(500).json({ error: "Failed to fetch games from Chess.com" });
+    }
+  });
+
+  app.get("/api/games/lichess", async (req, res) => {
+    const username = ((req.query.username as string) || "").trim();
+    if (!username) return res.status(400).json({ error: "username required" });
+
+    try {
+      const response = await fetch(
+        `https://lichess.org/api/games/user/${encodeURIComponent(username)}?max=20&pgnInJson=true`,
+        { headers: { Accept: "application/x-ndjson" } }
+      );
+      if (!response.ok) {
+        const status = response.status;
+        return res.status(status === 404 ? 404 : 502).json({
+          error: status === 404 ? `User "${username}" not found on Lichess` : "Lichess API error",
+        });
+      }
+
+      const text = await response.text();
+      const lines = text.trim().split("\n").filter(Boolean);
+
+      const games = lines
+        .map((line: string) => {
+          try {
+            const g = JSON.parse(line) as Record<string, unknown>;
+            const players = g.players as Record<string, Record<string, Record<string, unknown>>>;
+            const clock = g.clock as Record<string, number> | undefined;
+            const winner = g.winner as string | undefined;
+            return {
+              id: g.id as string,
+              date: g.createdAt
+                ? new Date(g.createdAt as number).toISOString()
+                : new Date().toISOString(),
+              white: {
+                name: (players?.white?.user?.name as string) || "Anonymous",
+                rating: players?.white?.rating as number | undefined,
+              },
+              black: {
+                name: (players?.black?.user?.name as string) || "Anonymous",
+                rating: players?.black?.rating as number | undefined,
+              },
+              whiteResult: (winner === "white" ? "win" : winner === "black" ? "loss" : "draw") as "win" | "loss" | "draw",
+              blackResult: (winner === "black" ? "win" : winner === "white" ? "loss" : "draw") as "win" | "loss" | "draw",
+              timeClass: (g.perf as string) || "blitz",
+              timeControl: clock
+                ? `${Math.floor(clock.initial / 60)}+${clock.increment}`
+                : "?",
+              pgn: (g.pgn as string) || "",
+            };
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
+
+      res.json({ games });
+    } catch {
+      res.status(500).json({ error: "Failed to fetch games from Lichess" });
     }
   });
 

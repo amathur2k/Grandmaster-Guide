@@ -8,9 +8,8 @@ import { EngineLines } from "@/components/engine-lines";
 import { EvalGraph } from "@/components/eval-graph";
 import { VariationTree } from "@/components/variation-tree";
 import { CoachConsole, type ChatMessageWithFen } from "@/components/coach-console";
+import { ImportGamesDialog } from "@/components/import-games-dialog";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -148,8 +147,7 @@ export default function ChessCoach() {
   const [currentPath, setCurrentPath] = useState<string[]>(() => [tree.id]);
   const [playerColor, setPlayerColor] = useState<"white" | "black">("white");
   const [boardOrientation, setBoardOrientation] = useState<"white" | "black">("white");
-  const [pgnInput, setPgnInput] = useState("");
-  const [showPgnModal, setShowPgnModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessageWithFen[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [hoverArrows, setHoverArrows] = useState<Array<{ from: string; to: string; moveNum: number }>>([]);
@@ -356,7 +354,6 @@ export default function ChessCoach() {
     setTree(newRoot);
     setCurrentPath([newRoot.id]);
     setGame(new Chess());
-    setPgnInput("");
   }, []);
 
   const navigateToNode = useCallback((nodeId: string) => {
@@ -376,8 +373,8 @@ export default function ChessCoach() {
     setGame(gameCopy);
   }, [tree]);
 
-  const loadPgn = useCallback(async () => {
-    if (!pgnInput.trim()) {
+  const loadPgn = useCallback(async (pgn: string) => {
+    if (!pgn.trim()) {
       toast({
         title: "Empty PGN",
         description: "Please paste a PGN string first.",
@@ -388,7 +385,7 @@ export default function ChessCoach() {
 
     try {
       const gameCopy = new Chess();
-      gameCopy.loadPgn(pgnInput.trim());
+      gameCopy.loadPgn(pgn.trim());
       const history = gameCopy.history();
 
       if (history.length === 0) {
@@ -455,7 +452,7 @@ export default function ChessCoach() {
         variant: "destructive",
       });
     }
-  }, [pgnInput, toast, isReady, evaluateAsync, evaluate, endBatch]);
+  }, [toast, isReady, evaluateAsync, evaluate, endBatch]);
 
   const cancelChat = useCallback(() => {
     if (abortControllerRef.current) {
@@ -800,61 +797,21 @@ export default function ChessCoach() {
               LLMs fact checked by Stockfish
             </p>
           </div>
-          <Dialog open={showPgnModal} onOpenChange={setShowPgnModal}>
-            <DialogTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 ml-2"
-                data-testid="button-open-pgn"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                Load PGN
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Load PGN</DialogTitle>
-              </DialogHeader>
-              <div className="flex flex-col gap-3">
-                <Textarea
-                  value={pgnInput}
-                  onChange={(e) => setPgnInput(e.target.value)}
-                  placeholder="Paste PGN here...&#10;e.g. 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"
-                  className="resize-none text-sm font-mono min-h-[120px]"
-                  rows={5}
-                  data-testid="input-pgn"
-                />
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowPgnModal(false)}
-                    data-testid="button-cancel-pgn"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      loadPgn();
-                      setShowPgnModal(false);
-                    }}
-                    disabled={isComputingScores || !pgnInput.trim()}
-                    className="gap-1.5"
-                    data-testid="button-load-pgn"
-                  >
-                    {isComputingScores ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Upload className="w-3.5 h-3.5" />
-                    )}
-                    Load
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 ml-2"
+            onClick={() => setShowImportModal(true)}
+            data-testid="button-open-pgn"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            Import Games
+          </Button>
+          <ImportGamesDialog
+            open={showImportModal}
+            onOpenChange={setShowImportModal}
+            onLoadPgn={loadPgn}
+          />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-muted-foreground font-medium">Analyse as:</span>

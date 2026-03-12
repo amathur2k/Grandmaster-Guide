@@ -12,7 +12,8 @@ An interactive Chess Analyzer that lets users play chess on an interactive board
 - **AI**: OpenAI GPT-5.2 via direct OpenAI API (OPENAI_API_KEY secret) with real token streaming, function calling (validate_move + evaluate_position tools), and Stockfish context injection
 
 ## Key Files
-- `client/src/pages/chess-coach.tsx` - Main chess page with board, controls, variation tree state, PGN input, chat state management
+- `client/src/pages/chess-coach.tsx` - Main chess page with board, controls, variation tree state, import games, chat state management
+- `client/src/components/import-games-dialog.tsx` - Import Games dialog: source selector (Chess.com, Lichess, PGN), username fetch flow with game list, PGN paste flow
 - `client/src/components/variation-tree.tsx` - Visual tree component showing all move variations as a horizontal tree with connecting lines
 - `client/src/components/eval-bar.tsx` - Visual evaluation bar (vertical, left of board)
 - `client/src/components/eval-graph.tsx` - SVG evaluation graph showing scores across the active line (below board)
