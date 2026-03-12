@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { analytics } from "@/lib/analytics";
 
 interface AuthUser {
   id: number;
@@ -28,6 +29,7 @@ export function useAuth() {
       try {
         localStorage.removeItem(GAME_COUNT_KEY);
       } catch {}
+      analytics.signInCompleted("google");
     }
     prevAuth.current = !!user;
   }, [user]);

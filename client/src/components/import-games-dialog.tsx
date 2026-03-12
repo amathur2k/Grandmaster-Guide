@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Zap, Clock, FileText, Upload, X, RefreshCw, ChevronLeft } from "lucide-react";
 import { SiChessdotcom, SiLichess } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
+import { analytics } from "@/lib/analytics";
 
 type Source = "chess-com" | "lichess" | "pgn";
 
@@ -148,12 +149,14 @@ export function ImportGamesDialog({ open, onOpenChange, onLoadPgn }: ImportGames
       toast({ title: "No PGN", description: "This game has no PGN data.", variant: "destructive" });
       return;
     }
+    analytics.gameImported(source === "chess-com" ? "chesscom" : "lichess", game.pgn.split("\n").filter(l => /^\d+\./.test(l)).length || 1);
     onLoadPgn(game.pgn, fetchedUser || undefined);
     onOpenChange(false);
   }
 
   function handleLoadPgn() {
     if (!pgnText.trim()) return;
+    analytics.gameImported("pgn", pgnText.split("\n").filter(l => /^\d+\./.test(l)).length || 1);
     onLoadPgn(pgnText.trim());
     onOpenChange(false);
   }

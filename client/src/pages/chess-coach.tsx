@@ -12,6 +12,7 @@ import { ImportGamesDialog } from "@/components/import-games-dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { analytics } from "@/lib/analytics";
 import { apiRequest } from "@/lib/queryClient";
 import {
   RotateCcw,
@@ -541,6 +542,7 @@ export default function ChessCoach() {
       const count = getGameCount();
       if (count >= FREE_GAME_LIMIT) {
         setShowPaywall(true);
+        analytics.paywallShown(count);
         return;
       }
     }
@@ -676,6 +678,7 @@ export default function ChessCoach() {
   }, []);
 
   const sendChatMessage = useCallback(async (text: string) => {
+    analytics.chatMessageSent(isAuthenticated);
     const msgFen = game.fen();
     const msgNodeId = currentNodeId;
     const userMessage: ChatMessageWithFen = { role: "user", text, fen: msgFen, nodeId: msgNodeId };
@@ -1088,7 +1091,7 @@ export default function ChessCoach() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={logout}
+                onClick={() => { analytics.signedOut(); logout(); }}
                 className="gap-1 text-muted-foreground"
                 data-testid="button-logout"
               >
@@ -1098,6 +1101,7 @@ export default function ChessCoach() {
           ) : (
             <a
               href="/api/auth/google"
+              onClick={() => analytics.signInStarted()}
               className="ml-auto text-xs font-medium text-primary hover:underline"
               data-testid="link-sign-in"
             >
@@ -1357,6 +1361,7 @@ export default function ChessCoach() {
             </p>
             <a
               href="/api/auth/google"
+              onClick={() => analytics.paywallSignInClicked()}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-foreground text-background px-6 py-3 text-sm font-semibold hover:opacity-90 transition-opacity w-full"
               data-testid="button-paywall-sign-in"
             >

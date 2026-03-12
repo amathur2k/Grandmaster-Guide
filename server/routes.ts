@@ -5,6 +5,7 @@ import { Chess } from "chess.js";
 import passport from "passport";
 import { analyzePositionSchema, coachChatSchema, type User } from "@shared/schema";
 import { stockfishService } from "./stockfish-service";
+import { sendGA4Event } from "./analytics";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -244,6 +245,7 @@ async function handleToolCall(
   tc: { id: string; function: { name: string; arguments: string } },
   fallbackFen: string,
   tag: string,
+  clientId = "server",
 ): Promise<OpenAI.ChatCompletionToolMessageParam> {
   const name = tc.function.name;
   try {
@@ -256,13 +258,16 @@ async function handleToolCall(
         fen = fallbackFen;
         result = handleValidateMove(fen, move);
       }
-      console.log(`[${tag}] validate_move: move="${move}" => legal=${(result as any).legal}`);
+      const legal = (result as any).legal as boolean;
+      console.log(`[${tag}] validate_move: move="${move}" => legal=${legal}`);
+      sendGA4Event(clientId, "llm_validate_move", { move, legal, tag }).catch(() => {});
       return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
     }
     if (name === "evaluate_position") {
       const fen = args.fen || "";
       const result = await handleEvaluatePosition(fen, fallbackFen);
       console.log(`[${tag}] evaluate_position => ${JSON.stringify(result).slice(0, 120)}`);
+      sendGA4Event(clientId, "llm_evaluate_position", { tag }).catch(() => {});
       return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
     }
     return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: `Unknown tool: ${name}` }) };
@@ -304,8 +309,9 @@ export async function registerRoutes(
 
         if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
           msgs.push(choice.message);
+          const clientId = req.sessionID || "server";
           for (const tc of choice.message.tool_calls) {
-            msgs.push(await handleToolCall(tc, positionData.fen, "analyze"));
+            msgs.push(await handleToolCall(tc, positionData.fen, "analyze", clientId));
           }
           continue;
         }
@@ -453,6 +459,7 @@ export async function registerRoutes(
           };
           chatMessages.push(assistantMsg);
 
+          const clientId = req.sessionID || "server";
           const toolNames: string[] = [];
           for (const tc of toolCallAccum.values()) {
             toolNames.push(tc.name);
@@ -460,6 +467,7 @@ export async function registerRoutes(
               { id: tc.id, function: { name: tc.name, arguments: tc.args } },
               positionData.fen,
               "chat",
+              clientId,
             ));
           }
 
