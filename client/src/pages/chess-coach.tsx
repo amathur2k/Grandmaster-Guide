@@ -1113,11 +1113,11 @@ export default function ChessCoach() {
 
       <div className="flex-1 flex min-h-0 overflow-hidden">
         <div className="flex flex-1 min-h-0 min-w-0">
-          <div className="flex items-stretch py-4 pl-4">
+          <div className="flex items-stretch pt-4 pl-4 pb-0">
             <EvalBar evaluation={evaluation} isReady={isReady} />
           </div>
 
-          <div className="flex flex-col flex-1 min-w-0 p-4 gap-1">
+          <div className="flex flex-col flex-1 min-w-0 pt-4 px-4 pb-0 gap-1">
             {/* Top player band (opponent) */}
             {gameMeta && (
               <div style={{ width: boardSize }} className="mx-auto shrink-0">
