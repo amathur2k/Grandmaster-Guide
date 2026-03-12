@@ -284,6 +284,8 @@ export default function ChessCoach() {
   useEffect(() => {
     if (isAuthenticated) {
       setShowPaywall(false);
+    } else if (!isAuthenticated && getGameCount() >= FREE_GAME_LIMIT) {
+      setShowPaywall(true);
     }
   }, [isAuthenticated]);
 
