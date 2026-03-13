@@ -232,7 +232,7 @@ The student is playing as ${data.playerColor}.
 ${engineLinesBlock}`;
 }
 
-const MODEL = "gpt-5.2";
+const MODEL = "gpt-5.4";
 
 function normalizeChessComResult(result: string): "win" | "loss" | "draw" {
   if (result === "win") return "win";
