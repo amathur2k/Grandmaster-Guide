@@ -38,6 +38,20 @@ interface CoachConsoleProps {
   onClickSequence: (fen: string, nodeId: string | undefined, sanMoves: string[]) => void;
 }
 
+function StatusMessage({ text }: { text: string }) {
+  const label = text.startsWith("_") && text.endsWith("_") ? text.slice(1, -1) : text;
+  return (
+    <div className="flex items-center gap-2.5 text-sm text-muted-foreground py-0.5">
+      <div className="flex items-center gap-[3px]">
+        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:0ms]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:160ms]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce [animation-delay:320ms]" />
+      </div>
+      <span className="animate-pulse">{label}</span>
+    </div>
+  );
+}
+
 function renderText(content: string): (string | JSX.Element)[] {
   const parts: (string | JSX.Element)[] = [];
   const re = /(\*\*[^*]+\*\*)/g;
@@ -238,8 +252,13 @@ export function CoachConsole({
                 isChatLoading &&
                 i === messages.length - 1 &&
                 msg.role === "model";
+              const isStatus =
+                msg.role === "model" &&
+                msg.text.startsWith("_") &&
+                msg.text.endsWith("_") &&
+                !msg.text.slice(1, -1).includes("\n");
               const showInteractive =
-                msg.role === "model" && !isStreaming && !!msg.fen;
+                msg.role === "model" && !isStreaming && !isStatus && !!msg.fen;
 
               return (
                 <div
@@ -254,7 +273,9 @@ export function CoachConsole({
                         : "bg-muted border border-border/50 rounded-bl-sm"
                     }`}
                   >
-                    {showInteractive ? (
+                    {isStatus ? (
+                      <StatusMessage text={msg.text} />
+                    ) : showInteractive ? (
                       <InteractiveMessage
                         text={msg.text}
                         fen={msg.fen!}
