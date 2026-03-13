@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "child_process";
-import { createWriteStream, existsSync, mkdirSync, chmodSync, statSync, renameSync } from "fs";
+import { createWriteStream, existsSync, mkdirSync, chmodSync, statSync, renameSync, readFileSync } from "fs";
+import { createHash } from "crypto";
 import https from "https";
 import path from "path";
 
@@ -7,6 +8,7 @@ const THEORIA_DIR = path.join(process.cwd(), "engines");
 const THEORIA_BIN = path.join(THEORIA_DIR, "theoria");
 const DOWNLOAD_URL =
   "https://www.theoriachess.org/download/assets/v0.2/theoria-0.2-linux-avx2";
+const EXPECTED_SHA256: string | null = null;
 
 interface TheoriaEvalResult {
   score: number;
@@ -30,6 +32,7 @@ class TheoriaService {
   private process: ChildProcess | null = null;
   private ready = false;
   private downloadPromise: Promise<void> | null = null;
+  private startupPromise: Promise<void> | null = null;
   private downloading = false;
   private justDownloaded = false;
   private outputBuffer = "";
@@ -101,6 +104,17 @@ class TheoriaService {
             file.on("finish", () => {
               file.close(() => {
                 try {
+                  const hash = createHash("sha256");
+                  const fileData = readFileSync(tmpPath);
+                  hash.update(fileData);
+                  const computed = hash.digest("hex");
+                  console.log(`[theoria] Downloaded binary SHA-256: ${computed}`);
+                  if (EXPECTED_SHA256 && computed !== EXPECTED_SHA256) {
+                    this.downloading = false;
+                    this.downloadPromise = null;
+                    reject(new Error(`Theoria binary integrity check failed. Expected ${EXPECTED_SHA256}, got ${computed}`));
+                    return;
+                  }
                   renameSync(tmpPath, THEORIA_BIN);
                   chmodSync(THEORIA_BIN, 0o755);
                   console.log("[theoria] Download complete, binary ready");
@@ -142,7 +156,9 @@ class TheoriaService {
 
     if (this.process && this.ready) return;
 
-    return new Promise<void>((resolve, reject) => {
+    if (this.startupPromise) return this.startupPromise;
+
+    this.startupPromise = new Promise<void>((resolve, reject) => {
       this.process = spawn(THEORIA_BIN, [], {
         stdio: ["pipe", "pipe", "pipe"],
       });
@@ -159,6 +175,7 @@ class TheoriaService {
         }
         if (this.startupResolve) {
           this.startupResolve = null;
+          this.startupPromise = null;
           reject(new Error(`Theoria process exited during startup (code ${code})`));
         }
         this.processing = false;
@@ -168,6 +185,7 @@ class TheoriaService {
         console.error("[theoria] Process error:", err.message);
         if (this.startupResolve) {
           this.startupResolve = null;
+          this.startupPromise = null;
           reject(err);
         }
       });
@@ -186,6 +204,8 @@ class TheoriaService {
 
       this.send("uci");
     });
+
+    return this.startupPromise;
   }
 
   private handleStartupOutput() {
