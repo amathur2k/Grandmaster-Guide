@@ -177,13 +177,13 @@ class TheoriaService {
         console.log(`[theoria] Process exited (code ${code})`);
         this.ready = false;
         this.process = null;
+        this.startupPromise = null;
         if (this.currentCallback) {
           this.currentCallback.reject(new Error("Theoria process exited"));
           this.currentCallback = null;
         }
         if (this.startupResolve) {
           this.startupResolve = null;
-          this.startupPromise = null;
           reject(new Error(`Theoria process exited during startup (code ${code})`));
         }
         this.processing = false;
@@ -230,6 +230,7 @@ class TheoriaService {
       } else if (this.startupPhase === "isready" && trimmed === "readyok") {
         this.startupPhase = "done";
         this.ready = true;
+        this.startupPromise = null;
         console.log("[theoria] Engine ready");
         if (this.startupResolve) {
           const resolve = this.startupResolve;
