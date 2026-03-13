@@ -90,22 +90,6 @@ export default function FreeChessGameReview() {
           </p>
         </div>
 
-        {/* Video */}
-        <div className="mb-14">
-          <div className="rounded-xl overflow-hidden border border-border aspect-video w-full bg-black">
-            <iframe
-              src="https://www.youtube.com/embed/OCSbzArwB10"
-              title="Free Chess Game Review — Chess Analysis walkthrough"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className="w-full h-full"
-            />
-          </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            Watch a full walkthrough of the Chess Analysis tool
-          </p>
-        </div>
-
         {/* ── Feature 1: Hover Arrows ── */}
         <section className="mb-14">
           <h2 className="text-2xl font-bold mb-2">1. Hover Arrows — See Ideas, Not Just Notation</h2>
