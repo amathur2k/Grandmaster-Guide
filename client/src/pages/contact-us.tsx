@@ -30,9 +30,6 @@ export default function ContactUs() {
           >
             feedback@chessanalysis.co
           </a>
-          <p className="text-sm text-muted-foreground mt-4 leading-relaxed">
-            We aim to respond within 2–3 business days.
-          </p>
         </div>
       </main>
 
