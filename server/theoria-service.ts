@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "child_process";
-import { createWriteStream, existsSync, mkdirSync, chmodSync, statSync } from "fs";
+import { createWriteStream, existsSync, mkdirSync, chmodSync, statSync, renameSync } from "fs";
 import https from "https";
 import path from "path";
 
@@ -76,6 +76,8 @@ class TheoriaService {
             }
 
             if (res.statusCode !== 200) {
+              this.downloading = false;
+              this.downloadPromise = null;
               reject(new Error(`Download failed: HTTP ${res.statusCode}`));
               return;
             }
@@ -99,7 +101,6 @@ class TheoriaService {
             file.on("finish", () => {
               file.close(() => {
                 try {
-                  const { renameSync } = require("fs");
                   renameSync(tmpPath, THEORIA_BIN);
                   chmodSync(THEORIA_BIN, 0o755);
                   console.log("[theoria] Download complete, binary ready");
@@ -107,16 +108,22 @@ class TheoriaService {
                   this.justDownloaded = true;
                   resolve();
                 } catch (e) {
+                  this.downloading = false;
+                  this.downloadPromise = null;
                   reject(e);
                 }
               });
             });
 
             file.on("error", (err) => {
+              this.downloading = false;
+              this.downloadPromise = null;
               reject(err);
             });
           })
           .on("error", (err) => {
+            this.downloading = false;
+            this.downloadPromise = null;
             reject(err);
           });
       };
