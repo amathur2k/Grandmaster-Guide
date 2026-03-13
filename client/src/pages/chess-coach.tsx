@@ -269,6 +269,7 @@ export default function ChessCoach() {
   const [chatMessages, setChatMessages] = useState<ChatMessageWithFen[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [hoverArrows, setHoverArrows] = useState<Array<{ from: string; to: string; moveNum: number }>>([]);
+  const [hoveredSquare, setHoveredSquare] = useState<string | null>(null);
   const coachSequencePending = useRef(false);
   const [useToolCalling, setUseToolCalling] = useState(true);
   const [useFeatures, setUseFeatures] = useState(() => {
@@ -1170,6 +1171,7 @@ export default function ChessCoach() {
                   customDarkSquareStyle={{ backgroundColor: "#779952" }}
                   customLightSquareStyle={{ backgroundColor: "#edeed1" }}
                   customNotationStyle={{ fontSize: "14px", fontWeight: "bold", opacity: 0.8 }}
+                  customSquareStyles={hoveredSquare ? { [hoveredSquare]: { backgroundColor: "rgba(255, 215, 0, 0.5)" } } : {}}
                   customArrows={[
                     ...engineMoveArrows.filter(a => a.type === "second").map(a => [a.from as Square, a.to as Square, "rgba(100, 220, 100, 0.75)"] as [Square, Square, string]),
                     ...engineMoveArrows.filter(a => a.type === "best").map(a => [a.from as Square, a.to as Square, "rgba(0, 130, 0, 0.85)"] as [Square, Square, string]),
@@ -1397,6 +1399,7 @@ export default function ChessCoach() {
               fallbackFens={treeFallbackFens}
               onHoverMoves={handleHoverMoves}
               onClickSequence={playCoachSequence}
+              onHoverSquare={setHoveredSquare}
             />
           </div>
         </div>

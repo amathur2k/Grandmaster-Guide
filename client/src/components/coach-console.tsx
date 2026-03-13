@@ -38,6 +38,7 @@ interface CoachConsoleProps {
   fallbackFens?: FallbackFen[];
   onHoverMoves: (arrows: Array<{ from: string; to: string; moveNum: number }> | null) => void;
   onClickSequence: (fen: string, nodeId: string | undefined, sanMoves: string[]) => void;
+  onHoverSquare: (square: string | null) => void;
 }
 
 function StatusMessage({ text }: { text: string }) {
@@ -54,16 +55,44 @@ function StatusMessage({ text }: { text: string }) {
   );
 }
 
-function renderText(content: string): (string | JSX.Element)[] {
+function isSquareRef(content: string, matchIndex: number): boolean {
+  const before = content.slice(Math.max(0, matchIndex - 5), matchIndex);
+  if (/\d+\.{1,3}\s*$/.test(before)) return false;
+  if (/\d$/.test(before.trimEnd())) return false;
+  return true;
+}
+
+function renderTextWithSquares(
+  content: string,
+  onHoverSquare?: (square: string | null) => void
+): (string | JSX.Element)[] {
   const parts: (string | JSX.Element)[] = [];
-  const re = /(\*\*[^*]+\*\*)/g;
+  const re = /(\*\*[^*]+\*\*|\b[a-h][1-8]\b)/g;
   let last = 0;
   let key = 0;
   let match;
   while ((match = re.exec(content)) !== null) {
     if (match.index > last) parts.push(content.slice(last, match.index));
-    parts.push(<strong key={`b${key++}`}>{match[0].slice(2, -2)}</strong>);
-    last = match.index + match[0].length;
+    const token = match[0];
+    if (token.startsWith("**") && token.endsWith("**")) {
+      parts.push(<strong key={`b${key++}`}>{token.slice(2, -2)}</strong>);
+    } else if (onHoverSquare && isSquareRef(content, match.index)) {
+      const sq = token;
+      parts.push(
+        <span
+          key={`sq${key++}`}
+          data-testid={`square-ref-${sq}`}
+          className="font-semibold underline decoration-dotted decoration-amber-500 underline-offset-2 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-sm px-0.5 transition-colors cursor-default"
+          onMouseEnter={() => onHoverSquare(sq)}
+          onMouseLeave={() => onHoverSquare(null)}
+        >
+          {sq}
+        </span>
+      );
+    } else {
+      parts.push(token);
+    }
+    last = match.index + token.length;
   }
   if (last < content.length) parts.push(content.slice(last));
   return parts.length > 0 ? parts : [content];
@@ -94,6 +123,7 @@ function InteractiveMessage({
   currentBoardFen,
   onHover,
   onClick,
+  onHoverSquare,
 }: {
   text: string;
   fen: string;
@@ -102,6 +132,7 @@ function InteractiveMessage({
   currentBoardFen: string;
   onHover: (arrows: Array<{ from: string; to: string; moveNum: number }> | null) => void;
   onClick: (fen: string, nodeId: string | undefined, moves: string[]) => void;
+  onHoverSquare: (square: string | null) => void;
 }) {
   const { segments, sequences } = useMemo(
     () => parseMovesInText(text, fen, fallbackFens),
@@ -112,7 +143,7 @@ function InteractiveMessage({
     <div className="whitespace-pre-wrap">
       {segments.map((seg, i) => {
         if (seg.type === "text") {
-          return <span key={i}>{renderText(seg.content)}</span>;
+          return <span key={i}>{renderTextWithSquares(seg.content, onHoverSquare)}</span>;
         }
         const seq = sequences.find((s) => s.id === seg.seqId);
         const movesUpTo = seq ? seq.moves.slice(0, seg.orderInSeq + 1) : [];
@@ -187,6 +218,7 @@ export function CoachConsole({
   fallbackFens,
   onHoverMoves,
   onClickSequence,
+  onHoverSquare,
 }: CoachConsoleProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -288,10 +320,11 @@ export function CoachConsole({
                         currentBoardFen={gameFen}
                         onHover={onHoverMoves}
                         onClick={onClickSequence}
+                        onHoverSquare={onHoverSquare}
                       />
                     ) : (
                       <p className="whitespace-pre-wrap">
-                        {renderText(msg.text)}
+                        {renderTextWithSquares(msg.text, onHoverSquare)}
                       </p>
                     )}
                   </div>
