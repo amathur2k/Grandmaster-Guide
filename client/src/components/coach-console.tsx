@@ -227,6 +227,27 @@ export function CoachConsole({
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [theoriaStatus, setTheoriaStatus] = useState<{ ready: boolean; downloading: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!useTheoria) {
+      setTheoriaStatus(null);
+      return;
+    }
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/theoria-status");
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          setTheoriaStatus({ ready: data.ready, downloading: data.downloading });
+        }
+      } catch {}
+    };
+    poll();
+    const interval = setInterval(poll, 3000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [useTheoria]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -425,14 +446,28 @@ export function CoachConsole({
                   }`}
                   data-testid="toggle-theoria"
                 >
-                  <Lightbulb className="w-3 h-3" />
-                  {useTheoria ? "Theoria ON" : "Theoria OFF"}
+                  {useTheoria && theoriaStatus && !theoriaStatus.ready ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Lightbulb className="w-3 h-3" />
+                  )}
+                  {useTheoria
+                    ? theoriaStatus?.downloading
+                      ? "Downloading..."
+                      : theoriaStatus && !theoriaStatus.ready
+                      ? "Starting..."
+                      : "Theoria ON"
+                    : "Theoria OFF"}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-[220px]">
                 <p className="text-xs">
                   {useTheoria
-                    ? "Theoria engine active. AI receives Lc0-trained strategic assessment for richer positional explanations."
+                    ? theoriaStatus?.downloading
+                      ? "Downloading Theoria engine binary (~61 MB). This only happens once."
+                      : theoriaStatus && !theoriaStatus.ready
+                      ? "Theoria engine is starting up..."
+                      : "Theoria engine active. AI receives Lc0-trained strategic assessment for richer positional explanations."
                     : "Theoria engine disabled. AI uses only Stockfish analysis."}
                 </p>
               </TooltipContent>

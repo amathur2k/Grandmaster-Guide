@@ -127,12 +127,15 @@ class TheoriaService {
     return this.downloadPromise;
   }
 
+  private startupResolve: (() => void) | null = null;
+  private startupPhase: "uci" | "isready" | "done" = "done";
+
   private async ensureProcess(): Promise<void> {
     await this.ensureBinary();
 
     if (this.process && this.ready) return;
 
-    return new Promise<void>((resolve) => {
+    return new Promise<void>((resolve, reject) => {
       this.process = spawn(THEORIA_BIN, [], {
         stdio: ["pipe", "pipe", "pipe"],
       });
@@ -147,42 +150,59 @@ class TheoriaService {
           this.currentCallback.reject(new Error("Theoria process exited"));
           this.currentCallback = null;
         }
+        if (this.startupResolve) {
+          this.startupResolve = null;
+          reject(new Error(`Theoria process exited during startup (code ${code})`));
+        }
         this.processing = false;
       });
 
       this.process.on("error", (err) => {
         console.error("[theoria] Process error:", err.message);
+        if (this.startupResolve) {
+          this.startupResolve = null;
+          reject(err);
+        }
       });
+
+      this.startupResolve = resolve;
+      this.startupPhase = "uci";
 
       this.process.stdout?.on("data", (data: Buffer) => {
         this.outputBuffer += data.toString();
-        this.processOutput();
+        if (this.startupPhase !== "done") {
+          this.handleStartupOutput();
+        } else {
+          this.processOutput();
+        }
       });
 
       this.send("uci");
-
-      const checkReady = () => {
-        if (this.outputBuffer.includes("uciok")) {
-          this.outputBuffer = "";
-          this.send("isready");
-
-          const checkReady2 = () => {
-            if (this.outputBuffer.includes("readyok")) {
-              this.outputBuffer = "";
-              this.ready = true;
-              console.log("[theoria] Engine ready");
-              resolve();
-            } else {
-              setTimeout(checkReady2, 50);
-            }
-          };
-          checkReady2();
-        } else {
-          setTimeout(checkReady, 50);
-        }
-      };
-      checkReady();
     });
+  }
+
+  private handleStartupOutput() {
+    const lines = this.outputBuffer.split("\n");
+    this.outputBuffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      if (this.startupPhase === "uci" && trimmed === "uciok") {
+        this.startupPhase = "isready";
+        this.send("isready");
+      } else if (this.startupPhase === "isready" && trimmed === "readyok") {
+        this.startupPhase = "done";
+        this.ready = true;
+        console.log("[theoria] Engine ready");
+        if (this.startupResolve) {
+          const resolve = this.startupResolve;
+          this.startupResolve = null;
+          resolve();
+        }
+      }
+    }
   }
 
   private send(cmd: string) {
