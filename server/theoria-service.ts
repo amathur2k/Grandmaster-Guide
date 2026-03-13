@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "child_process";
-import { createWriteStream, existsSync, mkdirSync, chmodSync, statSync, renameSync, readFileSync } from "fs";
+import { createWriteStream, existsSync, mkdirSync, chmodSync, statSync, renameSync, readFileSync, unlinkSync } from "fs";
 import { createHash } from "crypto";
 import https from "https";
 import path from "path";
@@ -8,7 +8,7 @@ const THEORIA_DIR = path.join(process.cwd(), "engines");
 const THEORIA_BIN = path.join(THEORIA_DIR, "theoria");
 const DOWNLOAD_URL =
   "https://www.theoriachess.org/download/assets/v0.2/theoria-0.2-linux-avx2";
-const EXPECTED_SHA256: string | null = null;
+const EXPECTED_SHA256 = "eb296012a6b24869645fdf64d9cc43fcae545b3893245e2195795c50ab34eb07";
 
 interface TheoriaEvalResult {
   score: number;
@@ -74,7 +74,14 @@ class TheoriaService {
         https
           .get(url, (res) => {
             if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-              download(res.headers.location, redirects - 1);
+              const redirectUrl = res.headers.location;
+              if (!redirectUrl.startsWith("https://")) {
+                this.downloading = false;
+                this.downloadPromise = null;
+                reject(new Error(`Theoria download refused non-HTTPS redirect to: ${redirectUrl}`));
+                return;
+              }
+              download(redirectUrl, redirects - 1);
               return;
             }
 
@@ -109,7 +116,8 @@ class TheoriaService {
                   hash.update(fileData);
                   const computed = hash.digest("hex");
                   console.log(`[theoria] Downloaded binary SHA-256: ${computed}`);
-                  if (EXPECTED_SHA256 && computed !== EXPECTED_SHA256) {
+                  if (computed !== EXPECTED_SHA256) {
+                    try { unlinkSync(tmpPath); } catch {}
                     this.downloading = false;
                     this.downloadPromise = null;
                     reject(new Error(`Theoria binary integrity check failed. Expected ${EXPECTED_SHA256}, got ${computed}`));
