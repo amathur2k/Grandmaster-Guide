@@ -160,10 +160,9 @@ function getMobility(fen: string): { leastActive: PieceMobility[]; mostActive: P
     }
   }
 
-  const nonPawns = mobilityList.filter((m) => m.piece !== "Pawn");
-  const sorted = [...nonPawns].sort((a, b) => a.mobility - b.mobility);
-  const leastActive = sorted.slice(0, 3).filter((m) => m.mobility <= 3);
-  const mostActive = sorted.slice(-3).reverse().filter((m) => m.mobility >= 5);
+  const sorted = [...mobilityList].sort((a, b) => a.mobility - b.mobility);
+  const leastActive = sorted.slice(0, 3);
+  const mostActive = sorted.slice(-3).reverse();
 
   const descParts: string[] = [];
   for (const p of leastActive) {
@@ -202,27 +201,34 @@ function getKingSafety(board: Chess): { white: KingSafety; black: KingSafety; de
     }
 
     const kFile = squareFile(kingSquare);
-    const kRank = squareRank(kingSquare);
     const pawnRank = color === "w" ? 2 : 7;
-    const shieldRank = color === "w" ? kRank + 1 : kRank - 1;
-
-    const shieldFiles = [kFile - 1, kFile, kFile + 1].filter((f) => f >= 0 && f <= 7);
-    const missingPawns: string[] = [];
+    const advancedPawnRank = color === "w" ? 3 : 6;
 
     const isKingsideCastled = kFile >= 5;
     const isQueensideCastled = kFile <= 2;
 
+    const kingsideShieldFiles = [5, 6, 7]; // f, g, h
+    const queensideShieldFiles = [0, 1, 2]; // a, b, c
+
+    const shieldFiles = isKingsideCastled
+      ? kingsideShieldFiles
+      : isQueensideCastled
+      ? queensideShieldFiles
+      : [kFile - 1, kFile, kFile + 1].filter((f) => f >= 0 && f <= 7);
+
+    const missingPawns: string[] = [];
+
     if (isKingsideCastled || isQueensideCastled) {
       for (const f of shieldFiles) {
         const origSq = makeSquare(FILE_LETTERS[f], pawnRank);
-        const shieldSq = makeSquare(FILE_LETTERS[f], shieldRank);
+        const advSq = makeSquare(FILE_LETTERS[f], advancedPawnRank);
         const pieceOrig = board.get(origSq);
-        const pieceShield = (shieldRank >= 1 && shieldRank <= 8) ? board.get(shieldSq) : null;
+        const pieceAdv = board.get(advSq);
 
         const hasPawnOnOriginal = pieceOrig && pieceOrig.type === "p" && pieceOrig.color === color;
-        const hasPawnOnShield = pieceShield && pieceShield.type === "p" && pieceShield.color === color;
+        const hasPawnOnAdvanced = pieceAdv && pieceAdv.type === "p" && pieceAdv.color === color;
 
-        if (!hasPawnOnOriginal && !hasPawnOnShield) {
+        if (!hasPawnOnOriginal && !hasPawnOnAdvanced) {
           missingPawns.push(FILE_LETTERS[f]);
         }
       }
@@ -409,11 +415,35 @@ export function analyzePosition(fen: string): PositionFeatures {
 export function formatFeaturesForPrompt(features: PositionFeatures): string {
   const lines: string[] = [
     `[Position Features — computed facts about the current position]`,
-    `Material: ${features.material.description}`,
+    `Summary: ${features.summary}`,
+    ``,
+    `Material: ${features.material.description} (balance: ${features.material.balance > 0 ? "+" : ""}${features.material.balance.toFixed(1)})`,
     `Piece Activity: ${features.mobility.description}`,
-    `King Safety: ${features.kingSafety.description}`,
-    `Pawn Structure: ${features.pawnStructure.description}`,
-    `Open Files: ${features.openFiles.description}`,
   ];
+
+  if (features.mobility.leastActive.length > 0) {
+    const trapped = features.mobility.leastActive
+      .map((p) => `${p.color === "w" ? "W" : "B"} ${p.piece}/${p.square} (${p.mobility} moves)`)
+      .join(", ");
+    lines.push(`  Least mobile: ${trapped}`);
+  }
+  if (features.mobility.mostActive.length > 0) {
+    const active = features.mobility.mostActive
+      .map((p) => `${p.color === "w" ? "W" : "B"} ${p.piece}/${p.square} (${p.mobility} moves)`)
+      .join(", ");
+    lines.push(`  Most mobile: ${active}`);
+  }
+
+  lines.push(`King Safety: ${features.kingSafety.description}`);
+  if (features.kingSafety.white.shieldPawnsMissing.length > 0 || features.kingSafety.white.openFilesNearKing > 0) {
+    lines.push(`  White king warning: shield pawns missing on ${features.kingSafety.white.shieldPawnsMissing.join(",") || "none"}, ${features.kingSafety.white.openFilesNearKing} open file(s) nearby`);
+  }
+  if (features.kingSafety.black.shieldPawnsMissing.length > 0 || features.kingSafety.black.openFilesNearKing > 0) {
+    lines.push(`  Black king warning: shield pawns missing on ${features.kingSafety.black.shieldPawnsMissing.join(",") || "none"}, ${features.kingSafety.black.openFilesNearKing} open file(s) nearby`);
+  }
+
+  lines.push(`Pawn Structure: ${features.pawnStructure.description}`);
+  lines.push(`Open Files: ${features.openFiles.description}`);
+
   return lines.join("\n");
 }
