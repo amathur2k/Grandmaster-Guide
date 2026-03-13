@@ -1,9 +1,9 @@
-import { Chess } from "chess.js";
+import { Chess, SQUARES, type Square, type Color, type PieceSymbol } from "chess.js";
 
 interface PieceMobility {
   square: string;
   piece: string;
-  color: "w" | "b";
+  color: Color;
   mobility: number;
 }
 
@@ -17,7 +17,7 @@ interface MaterialInfo {
 }
 
 interface KingSafety {
-  color: "w" | "b";
+  color: Color;
   kingSquare: string;
   pawnShieldIntact: boolean;
   shieldPawnsMissing: string[];
@@ -28,6 +28,13 @@ interface KingSafety {
 interface PawnStructure {
   white: { doubled: number; isolated: number; passed: number; passedSquares: string[] };
   black: { doubled: number; isolated: number; passed: number; passedSquares: string[] };
+  description: string;
+}
+
+interface OpenFileInfo {
+  open: string[];
+  semiOpenWhite: string[];
+  semiOpenBlack: string[];
   description: string;
 }
 
@@ -44,45 +51,59 @@ export interface PositionFeatures {
     description: string;
   };
   pawnStructure: PawnStructure;
+  openFiles: OpenFileInfo;
   summary: string;
 }
 
-const KAUFMAN_WEIGHTS: Record<string, number> = {
+const KAUFMAN_WEIGHTS: Record<PieceSymbol, number> = {
   p: 1,
   n: 3.25,
   b: 3.33,
   r: 5.1,
   q: 9.4,
+  k: 0,
 };
 
-const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
-const RANKS = [1, 2, 3, 4, 5, 6, 7, 8];
-type Square = string;
+const FILE_LETTERS = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
+const RANK_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
-function squareToFileRank(sq: string): { file: number; rank: number } {
-  return { file: sq.charCodeAt(0) - 97, rank: parseInt(sq[1]) };
+function makeSquare(file: string, rank: number): Square {
+  return `${file}${rank}` as Square;
 }
 
-function getMaterial(fen: string): MaterialInfo {
-  const board = new Chess(fen);
+function squareFile(sq: string): number {
+  return sq.charCodeAt(0) - 97;
+}
+
+function squareRank(sq: string): number {
+  return parseInt(sq[1]);
+}
+
+const PIECE_LABELS: Record<PieceSymbol, string> = {
+  p: "Pawn",
+  n: "Knight",
+  b: "Bishop",
+  r: "Rook",
+  q: "Queen",
+  k: "King",
+};
+
+function getMaterial(board: Chess): MaterialInfo {
   let whiteScore = 0;
   let blackScore = 0;
   let whiteBishops = 0;
   let blackBishops = 0;
 
-  for (const file of FILES) {
-    for (const rank of RANKS) {
-      const sq = `${file}${rank}` as Square;
-      const piece = board.get(sq as any);
-      if (!piece) continue;
-      const w = KAUFMAN_WEIGHTS[piece.type] || 0;
-      if (piece.color === "w") {
-        whiteScore += w;
-        if (piece.type === "b") whiteBishops++;
-      } else {
-        blackScore += w;
-        if (piece.type === "b") blackBishops++;
-      }
+  for (const sq of SQUARES) {
+    const piece = board.get(sq);
+    if (!piece) continue;
+    const w = KAUFMAN_WEIGHTS[piece.type];
+    if (piece.color === "w") {
+      whiteScore += w;
+      if (piece.type === "b") whiteBishops++;
+    } else {
+      blackScore += w;
+      if (piece.type === "b") blackBishops++;
     }
   }
 
@@ -110,8 +131,6 @@ function getMaterial(fen: string): MaterialInfo {
 
 function getMobility(fen: string): { leastActive: PieceMobility[]; mostActive: PieceMobility[]; description: string } {
   const parts = fen.split(" ");
-  const originalTurn = parts[1];
-
   const mobilityList: PieceMobility[] = [];
 
   for (const color of ["w", "b"] as const) {
@@ -124,27 +143,17 @@ function getMobility(fen: string): { leastActive: PieceMobility[]; mostActive: P
 
     try {
       const board = new Chess(modifiedFen);
-      for (const file of FILES) {
-        for (const rank of RANKS) {
-          const sq = `${file}${rank}`;
-          const piece = board.get(sq as any);
-          if (!piece || piece.color !== color || piece.type === "k") continue;
+      for (const sq of SQUARES) {
+        const piece = board.get(sq);
+        if (!piece || piece.color !== color || piece.type === "k") continue;
 
-          const moves = board.moves({ square: sq as any, verbose: true });
-          const pieceLabel =
-            piece.type === "p" ? "Pawn" :
-            piece.type === "n" ? "Knight" :
-            piece.type === "b" ? "Bishop" :
-            piece.type === "r" ? "Rook" :
-            piece.type === "q" ? "Queen" : piece.type;
-
-          mobilityList.push({
-            square: sq,
-            piece: pieceLabel,
-            color,
-            mobility: moves.length,
-          });
-        }
+        const moves = board.moves({ square: sq, verbose: true });
+        mobilityList.push({
+          square: sq,
+          piece: PIECE_LABELS[piece.type],
+          color,
+          mobility: moves.length,
+        });
       }
     } catch {
       continue;
@@ -177,18 +186,14 @@ function getMobility(fen: string): { leastActive: PieceMobility[]; mostActive: P
   };
 }
 
-function getKingSafety(fen: string): { white: KingSafety; black: KingSafety; description: string } {
-  const board = new Chess(fen);
-
-  function analyzeKing(color: "w" | "b"): KingSafety {
-    let kingSquare = "";
-    for (const file of FILES) {
-      for (const rank of RANKS) {
-        const sq = `${file}${rank}`;
-        const piece = board.get(sq as any);
-        if (piece && piece.type === "k" && piece.color === color) {
-          kingSquare = sq;
-        }
+function getKingSafety(board: Chess): { white: KingSafety; black: KingSafety; description: string } {
+  function analyzeKing(color: Color): KingSafety {
+    let kingSquare: Square | null = null;
+    for (const sq of SQUARES) {
+      const piece = board.get(sq);
+      if (piece && piece.type === "k" && piece.color === color) {
+        kingSquare = sq;
+        break;
       }
     }
 
@@ -196,28 +201,29 @@ function getKingSafety(fen: string): { white: KingSafety; black: KingSafety; des
       return { color, kingSquare: "?", pawnShieldIntact: false, shieldPawnsMissing: [], openFilesNearKing: 0, description: "King not found." };
     }
 
-    const { file: kFile, rank: kRank } = squareToFileRank(kingSquare);
+    const kFile = squareFile(kingSquare);
+    const kRank = squareRank(kingSquare);
     const pawnRank = color === "w" ? 2 : 7;
     const shieldRank = color === "w" ? kRank + 1 : kRank - 1;
 
     const shieldFiles = [kFile - 1, kFile, kFile + 1].filter((f) => f >= 0 && f <= 7);
     const missingPawns: string[] = [];
 
-    const isKingsideCastled = color === "w" ? kFile >= 5 : kFile >= 5;
-    const isQueensideCastled = color === "w" ? kFile <= 2 : kFile <= 2;
+    const isKingsideCastled = kFile >= 5;
+    const isQueensideCastled = kFile <= 2;
 
     if (isKingsideCastled || isQueensideCastled) {
       for (const f of shieldFiles) {
-        const sq2 = `${FILES[f]}${pawnRank}`;
-        const sq3 = `${FILES[f]}${shieldRank}`;
-        const piece2 = board.get(sq2 as any);
-        const piece3 = board.get(sq3 as any);
+        const origSq = makeSquare(FILE_LETTERS[f], pawnRank);
+        const shieldSq = makeSquare(FILE_LETTERS[f], shieldRank);
+        const pieceOrig = board.get(origSq);
+        const pieceShield = (shieldRank >= 1 && shieldRank <= 8) ? board.get(shieldSq) : null;
 
-        const hasPawnOnOriginal = piece2 && piece2.type === "p" && piece2.color === color;
-        const hasPawnOnShield = piece3 && piece3.type === "p" && piece3.color === color;
+        const hasPawnOnOriginal = pieceOrig && pieceOrig.type === "p" && pieceOrig.color === color;
+        const hasPawnOnShield = pieceShield && pieceShield.type === "p" && pieceShield.color === color;
 
         if (!hasPawnOnOriginal && !hasPawnOnShield) {
-          missingPawns.push(FILES[f]);
+          missingPawns.push(FILE_LETTERS[f]);
         }
       }
     }
@@ -226,9 +232,9 @@ function getKingSafety(fen: string): { white: KingSafety; black: KingSafety; des
     for (const f of shieldFiles) {
       let hasWhitePawn = false;
       let hasBlackPawn = false;
-      for (const r of RANKS) {
-        const sq = `${FILES[f]}${r}`;
-        const piece = board.get(sq as any);
+      for (const r of RANK_NUMBERS) {
+        const sq = makeSquare(FILE_LETTERS[f], r);
+        const piece = board.get(sq);
         if (piece && piece.type === "p") {
           if (piece.color === "w") hasWhitePawn = true;
           else hasBlackPawn = true;
@@ -266,28 +272,22 @@ function getKingSafety(fen: string): { white: KingSafety; black: KingSafety; des
   return { white, black, description: descParts.join(" ") };
 }
 
-function getPawnStructure(fen: string): PawnStructure {
-  const board = new Chess(fen);
-
-  function analyzePawns(color: "w" | "b"): { doubled: number; isolated: number; passed: number; passedSquares: string[] } {
+function getPawnStructure(board: Chess): PawnStructure {
+  function analyzePawns(color: Color): { doubled: number; isolated: number; passed: number; passedSquares: string[] } {
     const pawnsByFile: Map<number, number[]> = new Map();
     const enemyPawnsByFile: Map<number, number[]> = new Map();
-    const enemyColor = color === "w" ? "b" : "w";
 
-    for (const file of FILES) {
-      for (const rank of RANKS) {
-        const sq = `${file}${rank}`;
-        const piece = board.get(sq as any);
-        if (piece && piece.type === "p") {
-          const f = file.charCodeAt(0) - 97;
-          if (piece.color === color) {
-            if (!pawnsByFile.has(f)) pawnsByFile.set(f, []);
-            pawnsByFile.get(f)!.push(rank);
-          } else {
-            if (!enemyPawnsByFile.has(f)) enemyPawnsByFile.set(f, []);
-            enemyPawnsByFile.get(f)!.push(rank);
-          }
-        }
+    for (const sq of SQUARES) {
+      const piece = board.get(sq);
+      if (!piece || piece.type !== "p") continue;
+      const f = squareFile(sq);
+      const r = squareRank(sq);
+      if (piece.color === color) {
+        if (!pawnsByFile.has(f)) pawnsByFile.set(f, []);
+        pawnsByFile.get(f)!.push(r);
+      } else {
+        if (!enemyPawnsByFile.has(f)) enemyPawnsByFile.set(f, []);
+        enemyPawnsByFile.get(f)!.push(r);
       }
     }
 
@@ -317,7 +317,7 @@ function getPawnStructure(fen: string): PawnStructure {
         }
         if (isPassed) {
           passed++;
-          passedSquares.push(`${FILES[file]}${rank}`);
+          passedSquares.push(`${FILE_LETTERS[file]}${rank}`);
         }
       }
     }
@@ -343,23 +343,65 @@ function getPawnStructure(fen: string): PawnStructure {
   };
 }
 
+function getOpenFiles(board: Chess): OpenFileInfo {
+  const open: string[] = [];
+  const semiOpenWhite: string[] = [];
+  const semiOpenBlack: string[] = [];
+
+  for (const file of FILE_LETTERS) {
+    let hasWhitePawn = false;
+    let hasBlackPawn = false;
+    for (const rank of RANK_NUMBERS) {
+      const sq = makeSquare(file, rank);
+      const piece = board.get(sq);
+      if (piece && piece.type === "p") {
+        if (piece.color === "w") hasWhitePawn = true;
+        else hasBlackPawn = true;
+      }
+    }
+    if (!hasWhitePawn && !hasBlackPawn) {
+      open.push(file);
+    } else if (!hasWhitePawn && hasBlackPawn) {
+      semiOpenWhite.push(file);
+    } else if (hasWhitePawn && !hasBlackPawn) {
+      semiOpenBlack.push(file);
+    }
+  }
+
+  const descParts: string[] = [];
+  if (open.length > 0) descParts.push(`Open file(s): ${open.join(", ")}.`);
+  if (semiOpenWhite.length > 0) descParts.push(`Semi-open for White: ${semiOpenWhite.join(", ")}-file(s).`);
+  if (semiOpenBlack.length > 0) descParts.push(`Semi-open for Black: ${semiOpenBlack.join(", ")}-file(s).`);
+
+  return {
+    open,
+    semiOpenWhite,
+    semiOpenBlack,
+    description: descParts.length > 0 ? descParts.join(" ") : "No open or semi-open files.",
+  };
+}
+
 export function analyzePosition(fen: string): PositionFeatures {
-  const material = getMaterial(fen);
+  const board = new Chess(fen);
+  const material = getMaterial(board);
   const mobility = getMobility(fen);
-  const kingSafety = getKingSafety(fen);
-  const pawnStructure = getPawnStructure(fen);
+  const kingSafety = getKingSafety(board);
+  const pawnStructure = getPawnStructure(board);
+  const openFiles = getOpenFiles(board);
 
   const summaryParts: string[] = [];
   if (material.description !== "Material is equal.") summaryParts.push(material.description);
   if (mobility.description !== "Piece activity is balanced.") summaryParts.push(mobility.description);
   if (kingSafety.description) summaryParts.push(kingSafety.description);
   if (pawnStructure.description !== "Pawn structure is symmetrical.") summaryParts.push(pawnStructure.description);
+  if (openFiles.description !== "No open or semi-open files.") summaryParts.push(openFiles.description);
 
   return {
     material,
     mobility,
     kingSafety,
     pawnStructure,
+    openFiles,
     summary: summaryParts.length > 0 ? summaryParts.join(" ") : "Position is balanced with no notable imbalances.",
   };
 }
@@ -371,6 +413,7 @@ export function formatFeaturesForPrompt(features: PositionFeatures): string {
     `Piece Activity: ${features.mobility.description}`,
     `King Safety: ${features.kingSafety.description}`,
     `Pawn Structure: ${features.pawnStructure.description}`,
+    `Open Files: ${features.openFiles.description}`,
   ];
   return lines.join("\n");
 }
