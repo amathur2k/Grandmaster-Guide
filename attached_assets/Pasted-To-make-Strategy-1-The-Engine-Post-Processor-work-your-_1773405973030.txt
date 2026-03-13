@@ -1,0 +1,24 @@
+To make Strategy 1 (The Engine Post-Processor) work, your app needs a "Feature Extraction" layer. Instead of sending raw FEN strings to GPT-5.4, your backend (likely Python) will calculate specific chess metrics to give the LLM "eyes."Here is how you can compute these fields programmatically using the python-chess library and Stockfish.1. Material Imbalance (More than just points)Standard points (P=1, N=3...) are too simple. To get better analysis, you should compute the Kaufman Imbalance.How to compute: Use python-chess to count pieces, then apply weights.The Logic: A Bishop pair is worth an extra +0.5. A Rook is worth more if the opponent has a minor piece.Pythonimport chess
+
+def get_material_info(board):
+    # Standard values
+    weights = {chess.PAWN: 1, chess.KNIGHT: 3.25, chess.BISHOP: 3.33, chess.ROOK: 5.1, chess.QUEEN: 9.4}
+    
+    white_score = sum(len(board.pieces(pt, chess.WHITE)) * val for pt, val in weights.items())
+    black_score = sum(len(board.pieces(pt, chess.BLACK)) * val for pt, val in weights.items())
+    
+    # Bonus for Bishop Pair
+    if len(board.pieces(chess.BISHOP, chess.WHITE)) >= 2: white_score += 0.5
+    if len(board.pieces(chess.BISHOP, chess.BLACK)) >= 2: black_score += 0.5
+    
+    return {"balance": white_score - black_score, "description": f"White is up {abs(white_score-black_score):.1f} in value."}
+2. Piece Activity & MobilityThe LLM needs to know if a piece is "trapped" or "dominating."How to compute: Calculate the number of legal moves available to each piece.The Feature: If a Knight on the rim (h1) has 2 moves while a centralized Knight (d4) has 8, the LLM should know the latter is "highly active."Pythondef get_activity_metrics(board):
+    metrics = {}
+    for square in chess.SQUARES:
+        piece = board.piece_at(square)
+        if piece:
+            # Count how many squares this specific piece attacks/can move to
+            mobility = len(board.attacks(square))
+            metrics[chess.square_name(square)] = {"piece": piece.symbol(), "mobility": mobility}
+    return metrics
+3. King Safety (The "Pawn Shield")Stockfish knows a king is unsafe, but GPT-5.4 doesn't see the "holes" in the defense.How to compute: Check the squares immediately in front of the King.The Feature: Check if the f, g, and h pawns (for a kingside castle) have moved. If they aren't on their original squares, tell the LLM: "King's pawn shield is broken."4. Extracting "Engine Comments"Modern Stockfish (NNUE) has internal "static evaluation" terms. You can force Stockfish to output its internal breakdown using the eval command in the UCI console.TermWhat it tells the LLMMobility"Your pieces have no room to move."Pawn Structure"You have an isolated pawn on d4 that is a long-term weakness."Threats"Black is threatening a fork on c2."The "Pro" Prompt StructureOnce you've computed these, your prompt to GPT-5.4 should look like this:System: You are a Grandmaster Coach.Context Data:Move: 18. Bxe6 (Blunder)Engine Eval: From +1.5 to -2.1Material: Equal.Mobility: White's Rook on a1 is trapped; Black's Queen on h4 is highly active (12 legal moves).King Safety: White's g-pawn is missing; the King is exposed to checks.User Question: Why was my move a mistake?Expected Output: Explain the tactical reason (The exposed king) and the positional consequence (The inactive rook).Should you switch to a pedagogical engine?There is a new engine called Theoria (released early 2026) which is a fork of Stockfish. Unlike Stockfish, which is optimized for winning, Theoria is optimized for transparency. It outputs "Strategic Themes" (e.g., “White is playing for a minority attack on the queenside”) directly in its UCI output.
