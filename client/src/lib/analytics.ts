@@ -64,4 +64,20 @@ export const analytics = {
   moveExplained() {
     trackEvent("move_explained");
   },
+
+  theoriaToggled(enabled: boolean) {
+    trackEvent("theoria_toggled", { enabled });
+  },
+
+  theoriaContextLoaded() {
+    trackEvent("theoria_context_loaded");
+  },
+
+  theoriaToolCalled() {
+    trackEvent("theoria_tool_called");
+  },
+
+  theoriaBinaryDownloaded() {
+    trackEvent("theoria_binary_downloaded");
+  },
 };

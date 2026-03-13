@@ -276,6 +276,10 @@ export default function ChessCoach() {
     const stored = localStorage.getItem("chess-coach-useFeatures");
     return stored !== null ? stored === "true" : true;
   });
+  const [useTheoria, setUseTheoria] = useState(() => {
+    const stored = localStorage.getItem("chess-coach-useTheoria");
+    return stored === "true";
+  });
   const abortControllerRef = useRef<AbortController | null>(null);
   const [isComputingScores, setIsComputingScores] = useState(false);
   const [computeProgress, setComputeProgress] = useState({ current: 0, total: 0 });
@@ -718,6 +722,7 @@ export default function ChessCoach() {
           messages: currentMessages,
           useToolCalling,
           useFeatures,
+          useTheoria,
         }),
         signal: controller.signal,
       });
@@ -771,6 +776,9 @@ export default function ChessCoach() {
                   return updated;
                 });
               }
+            } else if (event.type === "done") {
+              if (useTheoria) analytics.theoriaContextLoaded();
+              if (event.theoriaToolUsed) analytics.theoriaToolCalled();
             } else if (event.type === "error") {
               throw new Error(event.text);
             }
@@ -797,7 +805,7 @@ export default function ChessCoach() {
       abortControllerRef.current = null;
       setIsChatLoading(false);
     }
-  }, [chatMessages, getPositionContext, toast, useToolCalling, useFeatures, game, currentNodeId]);
+  }, [chatMessages, getPositionContext, toast, useToolCalling, useFeatures, useTheoria, game, currentNodeId]);
 
   const explainMove = useCallback((moveUci: string, moveSan: string, score: string, pvSan: string) => {
     const turnLabel = game.turn() === "w" ? "White" : "Black";
@@ -1394,6 +1402,12 @@ export default function ChessCoach() {
               onToggleFeatures={(val: boolean) => {
                 setUseFeatures(val);
                 localStorage.setItem("chess-coach-useFeatures", String(val));
+              }}
+              useTheoria={useTheoria}
+              onToggleTheoria={(val: boolean) => {
+                setUseTheoria(val);
+                localStorage.setItem("chess-coach-useTheoria", String(val));
+                analytics.theoriaToggled(val);
               }}
               gameFen={game.fen()}
               fallbackFens={treeFallbackFens}

@@ -9,8 +9,9 @@ An interactive Chess Analysis that lets users play chess on an interactive board
 - **Chess Logic**: chess.js for rules/FEN/PGN, react-chessboard@4.7.2 for the interactive board (React 18 compatible)
 - **Client Engine**: Stockfish 18 lite-single WASM (`client/public/stockfish.js` + `client/public/stockfish.wasm`) loaded as a Web Worker with MultiPV 3
 - **Server Engine**: Server-side Stockfish via `stockfish` npm package (`server/stockfish-service.ts`), spawned as a child process for LLM tool calling
-- **AI**: OpenAI GPT-5.4 via direct OpenAI API (OPENAI_API_KEY secret) with real token streaming, function calling (validate_move + evaluate_position + get_position_features tools), and Stockfish context injection
+- **AI**: OpenAI GPT-5.4 via direct OpenAI API (OPENAI_API_KEY secret) with real token streaming, function calling (validate_move + evaluate_position + get_position_features + get_theoria_insights tools), and Stockfish context injection
 - **Position Analyzer**: `server/position-analyzer.ts` — Pure TypeScript feature extraction: material balance (Kaufman values), piece mobility, king safety (pawn shield), pawn structure (doubled/isolated/passed). Injected into prompts when Features toggle is ON.
+- **Theoria Engine**: `server/theoria-service.ts` — Optional second engine (Theoria 0.2, Stockfish fork with Lc0-trained NNUE). Downloaded on first use to `engines/theoria` (~61 MB). Provides strategic eval text breakdown and LLM tool for positional analysis. Toggled via "Theoria ON/OFF" button.
 
 ## Key Files
 - `client/src/pages/chess-coach.tsx` - Main chess page with board, controls, variation tree state, import games, chat state management
@@ -27,6 +28,7 @@ An interactive Chess Analysis that lets users play chess on an interactive board
 - `server/routes.ts` - Backend routes for OpenAI GPT-5.4 analysis and chat with streaming, tool calling (validate_move + evaluate_position + get_position_features)
 - `server/position-analyzer.ts` - Position feature extraction service (material, mobility, king safety, pawn structure)
 - `server/stockfish-service.ts` - Server-side Stockfish engine service (spawns child process, queued evaluation)
+- `server/theoria-service.ts` - Theoria 0.2 engine service (auto-downloads binary, UCI eval + strategic text breakdown)
 - `shared/schema.ts` - Shared types and Zod validation schemas (includes EngineLine, ChatMessage types)
 
 ## Variation Tree Data Model
@@ -63,6 +65,7 @@ AI coach responses contain interactive chess move tokens:
 11. All chat goes through `/api/chat` which maintains full conversation history
 12. "Verify ON/OFF" toggle controls whether Stockfish deep analysis is injected into the LLM context before generating
 13. "Features ON/OFF" toggle controls whether position features (material, mobility, king safety, pawn structure) are injected into the prompt and available as a tool call
+14. "Theoria ON/OFF" toggle controls whether Theoria engine's strategic assessment is injected into the prompt and the `get_theoria_insights` tool is available to the LLM
 
 ## Server-Side Stockfish Integration
 - `server/stockfish-service.ts` spawns the `stockfish` npm package binary (`node_modules/stockfish/bin/stockfish.js`) as a child process using `spawn(process.execPath, [enginePath])`
@@ -81,8 +84,11 @@ AI coach responses contain interactive chess move tokens:
 - **`get_position_features`** (available when Features ON): LLM calls this to compute positional features for any FEN
   - Returns material balance (Kaufman values), piece mobility (trapped/active pieces), king safety (pawn shield), pawn structure (doubled/isolated/passed)
   - Used by the LLM to ground explanations in computed facts rather than hallucinating
-- Streaming + tool calling loop: up to 15 rounds; model can chain calls (validate → evaluate → features → ...)
-- `getTools(useVerify, useFeatures)` controls which tools are available based on the Verify and Features toggles
+- **`get_theoria_insights`** (available when Theoria ON): LLM calls this to get Theoria engine's strategic eval and top lines for any FEN
+  - Returns `{ strategicAssessment, theoriaTopLines, depth }` with Theoria's Lc0-trained evaluation breakdown
+  - Theoria finds more positionally coherent, "narrative" lines than Stockfish — better for explaining strategic ideas
+- Streaming + tool calling loop: up to 15 rounds; model can chain calls (validate → evaluate → features → theoria → ...)
+- `getTools(useVerify, useFeatures, useTheoria)` controls which tools are available based on the Verify, Features, and Theoria toggles
 - All engine lines and Stockfish PVs are converted from UCI to SAN server-side before injection into the prompt
 - Shared `handleToolCall()` dispatcher handles both tools for both `/api/chat` and `/api/analyze` endpoints
 

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { Chess } from "chess.js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Brain, Send, Trash2, Wrench, Sparkles, Square, Microscope } from "lucide-react";
+import { Loader2, Brain, Send, Trash2, Wrench, Sparkles, Square, Microscope, Lightbulb } from "lucide-react";
 import type { StockfishEvaluation } from "@shared/schema";
 import {
   parseMovesInText,
@@ -34,6 +34,8 @@ interface CoachConsoleProps {
   onToggleToolCalling: (value: boolean) => void;
   useFeatures: boolean;
   onToggleFeatures: (value: boolean) => void;
+  useTheoria: boolean;
+  onToggleTheoria: (value: boolean) => void;
   gameFen: string;
   fallbackFens?: FallbackFen[];
   onHoverMoves: (arrows: Array<{ from: string; to: string; moveNum: number }> | null) => void;
@@ -214,6 +216,8 @@ export function CoachConsole({
   onToggleToolCalling,
   useFeatures,
   onToggleFeatures,
+  useTheoria,
+  onToggleTheoria,
   gameFen,
   fallbackFens,
   onHoverMoves,
@@ -404,6 +408,32 @@ export function CoachConsole({
                   {useFeatures
                     ? "AI receives computed position features (material, mobility, king safety, pawn structure)."
                     : "Position features disabled. AI sees only engine lines."}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => onToggleTheoria(!useTheoria)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                    useTheoria
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : "bg-muted text-muted-foreground border border-border"
+                  }`}
+                  data-testid="toggle-theoria"
+                >
+                  <Lightbulb className="w-3 h-3" />
+                  {useTheoria ? "Theoria ON" : "Theoria OFF"}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[220px]">
+                <p className="text-xs">
+                  {useTheoria
+                    ? "Theoria engine active. AI receives Lc0-trained strategic assessment for richer positional explanations."
+                    : "Theoria engine disabled. AI uses only Stockfish analysis."}
                 </p>
               </TooltipContent>
             </Tooltip>

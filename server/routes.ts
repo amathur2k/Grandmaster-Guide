@@ -5,6 +5,7 @@ import { Chess } from "chess.js";
 import passport from "passport";
 import { analyzePositionSchema, coachChatSchema, type User } from "@shared/schema";
 import { stockfishService } from "./stockfish-service";
+import { theoriaService } from "./theoria-service";
 import { sendGA4Event } from "./analytics";
 import { analyzePosition, formatFeaturesForPrompt } from "./position-analyzer";
 
@@ -56,7 +57,8 @@ const SYSTEM_PROMPT = `You are a chess coach. Be brief and direct — no filler,
 8. Identify the opening precisely.
 9. Never end your response with a question.
 10. Trust engine data completely — prefer it over your own calculation.
-11. When [Position Features] data is provided, reference it when explaining material imbalances, pawn weaknesses, piece activity, or king safety. Ground your explanations in the computed facts. When get_position_features is available, call it before discussing alternative lines that significantly change the position.`;
+11. When [Position Features] data is provided, reference it when explaining material imbalances, pawn weaknesses, piece activity, or king safety. Ground your explanations in the computed facts. When get_position_features is available, call it before discussing alternative lines that significantly change the position.
+12. When [Theoria Strategic Assessment] data is present, use it to enrich your positional explanations — it reflects an Lc0-trained evaluation that emphasises strategic themes over tactical complexity. When get_theoria_insights is available, call it to analyse any alternative line you want to explain.`;
 
 const validateMoveTool: OpenAI.ChatCompletionTool = {
   type: "function",
@@ -120,12 +122,32 @@ const getPositionFeaturesTool: OpenAI.ChatCompletionTool = {
   },
 };
 
+const getTheoriaInsightsTool: OpenAI.ChatCompletionTool = {
+  type: "function",
+  function: {
+    name: "get_theoria_insights",
+    description:
+      "Get Theoria engine's strategic evaluation and top lines for a position. Theoria is an Lc0-trained engine that finds more positionally coherent lines than Stockfish — better for explaining strategic ideas. Use when exploring alternative lines to understand positional themes.",
+    parameters: {
+      type: "object",
+      properties: {
+        fen: {
+          type: "string",
+          description: "The COMPLETE FEN string with all 6 fields to analyze.",
+        },
+      },
+      required: ["fen"],
+    },
+  },
+};
+
 const MAX_TOOL_ROUNDS = 15;
 
-function getTools(useVerify: boolean, useFeatures: boolean): OpenAI.ChatCompletionTool[] {
+function getTools(useVerify: boolean, useFeatures: boolean, useTheoria: boolean = false): OpenAI.ChatCompletionTool[] {
   const t: OpenAI.ChatCompletionTool[] = [validateMoveTool];
   if (useVerify) t.push(evaluatePositionTool);
   if (useFeatures) t.push(getPositionFeaturesTool);
+  if (useTheoria) t.push(getTheoriaInsightsTool);
   return t;
 }
 
@@ -230,6 +252,7 @@ function buildContextMessage(data: {
   turn: string;
   playerColor: string;
   useFeatures?: boolean;
+  theoriaText?: string;
 }) {
   const turnLabel = data.turn === "w" ? "White" : "Black";
 
@@ -262,7 +285,7 @@ It is ${turnLabel}'s turn to move.
 The student is playing as ${data.playerColor}.
 
 [Top Engine Moves — use these for your suggestions]
-${engineLinesBlock}${featuresBlock}`;
+${engineLinesBlock}${featuresBlock}${data.theoriaText ? "\n\n" + data.theoriaText : ""}`;
 }
 
 const MODEL = "gpt-5.4";
@@ -314,6 +337,36 @@ async function handleToolCall(
       sendGA4Event(clientId, "llm_get_position_features", { tag }).catch(() => {});
       return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
     }
+    if (name === "get_theoria_insights") {
+      const fen = args.fen || "";
+      const cleanFen = sanitizeFen(fen) || sanitizeFen(fallbackFen);
+      if (!cleanFen) {
+        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Invalid FEN string" }) };
+      }
+      try {
+        const [evalResults, evalText] = await Promise.all([
+          theoriaService.evaluate(cleanFen, 16, 3),
+          theoriaService.getEvalText(cleanFen),
+        ]);
+        const linesFormatted = evalResults.map((r, i) => {
+          const moveSan = uciToSan(cleanFen, r.bestMove);
+          const pvSan = pvToSan(cleanFen, r.pv.slice(0, 8));
+          const scoreStr = formatScore(r.score, r.mate);
+          return `  ${i + 1}. ${moveSan} (eval: ${scoreStr}) — ${pvSan.join(" ")}`;
+        }).join("\n");
+        const result = {
+          strategicAssessment: evalText.formatted,
+          theoriaTopLines: linesFormatted,
+          depth: evalResults[0]?.depth || 0,
+        };
+        console.log(`[${tag}] get_theoria_insights => ${evalText.formatted.slice(0, 120)}`);
+        sendGA4Event(clientId, "llm_get_theoria_insights", { tag }).catch(() => {});
+        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
+      } catch (e) {
+        console.error(`[${tag}] get_theoria_insights error:`, e);
+        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Theoria evaluation failed" }) };
+      }
+    }
     return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: `Unknown tool: ${name}` }) };
   } catch {
     return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Failed to parse arguments" }) };
@@ -331,9 +384,20 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid request data" });
       }
 
-      const { useToolCalling, useFeatures, ...positionData } = parsed.data;
-      const contextMessage = buildContextMessage({ ...positionData, useFeatures });
-      const activeTools = getTools(useToolCalling, useFeatures);
+      const { useToolCalling, useFeatures, useTheoria, ...positionData } = parsed.data;
+
+      let theoriaText: string | undefined;
+      if (useTheoria) {
+        try {
+          const evalResult = await theoriaService.getEvalText(positionData.fen);
+          theoriaText = evalResult.formatted;
+        } catch (e) {
+          console.error("[analyze] Theoria eval failed:", e);
+        }
+      }
+
+      const contextMessage = buildContextMessage({ ...positionData, useFeatures, theoriaText });
+      const activeTools = getTools(useToolCalling, useFeatures, useTheoria);
 
       const msgs: OpenAI.ChatCompletionMessageParam[] = [
         { role: "system", content: SYSTEM_PROMPT },
@@ -386,9 +450,21 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid request data" });
       }
 
-      const { messages, useToolCalling, useFeatures, ...positionData } = parsed.data;
-      const contextMessage = buildContextMessage({ ...positionData, useFeatures });
-      const activeTools = getTools(useToolCalling, useFeatures);
+      const { messages, useToolCalling, useFeatures, useTheoria, ...positionData } = parsed.data;
+
+      let theoriaText: string | undefined;
+      let theoriaToolUsed = false;
+      if (useTheoria) {
+        try {
+          const evalResult = await theoriaService.getEvalText(positionData.fen);
+          theoriaText = evalResult.formatted;
+        } catch (e) {
+          console.error("[chat] Theoria eval failed:", e);
+        }
+      }
+
+      const contextMessage = buildContextMessage({ ...positionData, useFeatures, theoriaText });
+      const activeTools = getTools(useToolCalling, useFeatures, useTheoria);
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
@@ -515,7 +591,12 @@ export async function registerRoutes(
             ));
           }
 
-          const statusText = toolNames.includes("evaluate_position")
+          if (toolNames.includes("get_theoria_insights")) {
+            theoriaToolUsed = true;
+          }
+          const statusText = toolNames.includes("get_theoria_insights")
+            ? "Consulting Theoria engine..."
+            : toolNames.includes("evaluate_position")
             ? "Running Stockfish verification..."
             : toolNames.includes("get_position_features")
             ? "Analyzing position features..."
@@ -527,7 +608,7 @@ export async function registerRoutes(
 
         clearInterval(heartbeat);
         if (!clientDisconnected) {
-          res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+          res.write(`data: ${JSON.stringify({ type: "done", theoriaToolUsed })}\n\n`);
           res.end();
         }
       } catch (innerError) {
@@ -667,6 +748,15 @@ export async function registerRoutes(
     } catch {
       res.status(500).json({ error: "Failed to fetch games from Lichess" });
     }
+  });
+
+  app.get("/api/theoria-status", (_req, res) => {
+    res.json({
+      ready: theoriaService.isReady(),
+      downloading: theoriaService.isDownloading(),
+      hasBinary: theoriaService.hasBinary(),
+      justDownloaded: theoriaService.consumeJustDownloaded(),
+    });
   });
 
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {

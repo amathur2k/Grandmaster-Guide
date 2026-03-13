@@ -36,6 +36,7 @@ export const analyzePositionSchema = z.object({
   playerColor: z.enum(["white", "black"]),
   useToolCalling: z.boolean().optional().default(true),
   useFeatures: z.boolean().optional().default(true),
+  useTheoria: z.boolean().optional().default(false),
 });
 
 export type AnalyzePositionRequest = z.infer<typeof analyzePositionSchema>;
@@ -56,6 +57,7 @@ export const coachChatSchema = z.object({
   messages: z.array(chatMessageSchema).min(1),
   useToolCalling: z.boolean().optional().default(true),
   useFeatures: z.boolean().optional().default(true),
+  useTheoria: z.boolean().optional().default(false),
 });
 
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
