@@ -287,6 +287,19 @@ export default function ChessCoach() {
   const { evaluation, isReady, hasError, evaluate, evaluateAsync, endBatch } = useStockfish();
   const { toast } = useToast();
 
+  const engineMoveArrows = useMemo(() => {
+    const isPlayerTurn = game.turn() === (playerColor === "white" ? "w" : "b");
+    if (!isPlayerTurn || evaluation.lines.length === 0) return [];
+    const result: Array<{ from: string; to: string; type: "best" | "second" }> = [];
+    if (evaluation.lines[0]?.move?.length >= 4) {
+      result.push({ from: evaluation.lines[0].move.slice(0, 2), to: evaluation.lines[0].move.slice(2, 4), type: "best" });
+    }
+    if (evaluation.lines[1]?.move?.length >= 4) {
+      result.push({ from: evaluation.lines[1].move.slice(0, 2), to: evaluation.lines[1].move.slice(2, 4), type: "second" });
+    }
+    return result;
+  }, [game, playerColor, evaluation.lines]);
+
   useEffect(() => {
     if (isAuthenticated) {
       setShowPaywall(false);
@@ -1158,41 +1171,18 @@ export default function ChessCoach() {
                   customLightSquareStyle={{ backgroundColor: "#edeed1" }}
                   customNotationStyle={{ fontSize: "14px", fontWeight: "bold", opacity: 0.8 }}
                   customArrows={[
-                    ...(() => {
-                      const isPlayerTurn = game.turn() === (playerColor === "white" ? "w" : "b");
-                      if (!isPlayerTurn || evaluation.lines.length === 0) return [];
-                      const arrows: Array<[Square, Square, string]> = [];
-                      if (evaluation.lines[1]?.move?.length >= 4) {
-                        const m = evaluation.lines[1].move;
-                        arrows.push([m.slice(0, 2) as Square, m.slice(2, 4) as Square, "rgba(100, 220, 100, 0.75)"]);
-                      }
-                      if (evaluation.lines[0]?.move?.length >= 4) {
-                        const m = evaluation.lines[0].move;
-                        arrows.push([m.slice(0, 2) as Square, m.slice(2, 4) as Square, "rgba(0, 130, 0, 0.85)"]);
-                      }
-                      return arrows;
-                    })(),
+                    ...engineMoveArrows.filter(a => a.type === "second").map(a => [a.from as Square, a.to as Square, "rgba(100, 220, 100, 0.75)"] as [Square, Square, string]),
+                    ...engineMoveArrows.filter(a => a.type === "best").map(a => [a.from as Square, a.to as Square, "rgba(0, 130, 0, 0.85)"] as [Square, Square, string]),
                     ...hoverArrows.map(a => [a.from as Square, a.to as Square, "rgba(255, 170, 0, 0.75)"] as [Square, Square, string]),
                   ]}
                   animationDuration={200}
                 />
-                {(() => {
-                  const isPlayerTurn = game.turn() === (playerColor === "white" ? "w" : "b");
-                  const engineArrows: Array<{ from: string; to: string; type: "best" | "second" }> = [];
-                  if (isPlayerTurn && evaluation.lines.length > 0) {
-                    if (evaluation.lines[0]?.move?.length >= 4) {
-                      engineArrows.push({ from: evaluation.lines[0].move.slice(0, 2), to: evaluation.lines[0].move.slice(2, 4), type: "best" });
-                    }
-                    if (evaluation.lines[1]?.move?.length >= 4) {
-                      engineArrows.push({ from: evaluation.lines[1].move.slice(0, 2), to: evaluation.lines[1].move.slice(2, 4), type: "second" });
-                    }
-                  }
-                  return (engineArrows.length > 0 || hoverArrows.length > 0) ? (
+                {(engineMoveArrows.length > 0 || hoverArrows.length > 0) ? (
                     <div
                       style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 10 }}
                       data-testid="arrow-overlay"
                     >
-                      {engineArrows.map((ea, i) => {
+                      {engineMoveArrows.map((ea, i) => {
                         const pos = getArrowMidpoint(ea.from, ea.to, boardSize, boardOrientation);
                         return (
                           <div
@@ -1249,8 +1239,7 @@ export default function ChessCoach() {
                         );
                       })}
                     </div>
-                  ) : null;
-                })()}
+                  ) : null}
               </div>
             </div>
 
