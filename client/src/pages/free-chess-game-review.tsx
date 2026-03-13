@@ -52,9 +52,20 @@ export default function FreeChessGameReview() {
         <div className="mb-3">
           <span className="text-xs font-semibold uppercase tracking-wider text-primary">Feature Guide</span>
         </div>
-        <h1 className="text-4xl font-extrabold leading-tight mb-4">
+        <h1 className="text-4xl font-extrabold leading-tight mb-6">
           Free Chess Game Review
         </h1>
+
+        {/* YouTube demo video */}
+        <div className="mb-8 rounded-xl overflow-hidden shadow-lg border border-border" style={{ position: "relative", paddingBottom: "56.25%" }}>
+          <iframe
+            src="https://www.youtube.com/embed/ZYuJPuZCV3o"
+            title="Chess Analysis — Free Chess Game Review Demo"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+          />
+        </div>
 
         {/* Rewritten curiosity-building intro */}
         <div className="space-y-4 text-lg text-muted-foreground leading-relaxed mb-6">
