@@ -55,11 +55,40 @@ export default function FreeChessGameReview() {
         <h1 className="text-4xl font-extrabold leading-tight mb-4">
           Free Chess Game Review
         </h1>
-        <p className="text-lg text-muted-foreground leading-relaxed mb-10">
-          Chess Analysis gives you a completely free chess game review — import any game from Chess.com,
-          Lichess, or PGN, and instantly get Stockfish engine evaluations alongside AI coaching
-          explanations written in plain English. No sign-up needed for your first 5 games.
-        </p>
+
+        {/* Rewritten curiosity-building intro */}
+        <div className="space-y-4 text-lg text-muted-foreground leading-relaxed mb-6">
+          <p>
+            Most chess analysis tools hand you a list of blunders and a best-move arrow. That's where
+            they stop. <strong className="text-foreground">Chess Analysis goes further</strong> — and
+            three things set it apart from anything else you've used.
+          </p>
+          <p>
+            First: <strong className="text-foreground">every engine line lights up the board</strong>.
+            Hover over any Stockfish suggestion or AI coaching move and numbered orange arrows appear
+            on the board instantly — so you see the idea, not just the notation. No more squinting
+            at "Nf3-d4-e6" and trying to visualise it in your head.
+          </p>
+          <p>
+            Second: <strong className="text-foreground">you can play "what if" on any move</strong>.
+            Click a piece, try the move you wish you'd played, and the board responds with a live
+            Stockfish evaluation. Every variation you explore branches off the{" "}
+            <strong className="text-foreground">Gameline Tree</strong> — a visual diagram of your
+            entire decision path — so you can jump between the real game and your alternatives at
+            any point without losing your place.
+          </p>
+          <p>
+            Third: <strong className="text-foreground">the AI Coach is fact-checked in real time</strong>.
+            Unlike a plain ChatGPT, every move the coach mentions is validated for legality and
+            cross-referenced against the engine before it reaches you. You get grandmaster-level
+            explanations — pawn structure, king safety, tactical threats — that are guaranteed to
+            be grounded in what Stockfish actually sees on the board.
+          </p>
+          <p className="text-base">
+            Import your first game from Chess.com, Lichess, or PGN below — no account needed
+            for your first 5 games.
+          </p>
+        </div>
 
         {/* Video */}
         <div className="mb-14">
@@ -77,180 +106,176 @@ export default function FreeChessGameReview() {
           </p>
         </div>
 
-        {/* ── Feature 1: Import Games ── */}
+        {/* ── Feature 1: Hover Arrows ── */}
         <section className="mb-14">
-          <h2 className="text-2xl font-bold mb-2">1. Import Your Game</h2>
+          <h2 className="text-2xl font-bold mb-2">1. Hover Arrows — See Ideas, Not Just Notation</h2>
           <p className="text-muted-foreground leading-relaxed mb-4">
-            Start by clicking <strong className="text-foreground">Import Games</strong> in the top bar. You can
-            paste your <strong className="text-foreground">username</strong> from{" "}
-            <strong className="text-foreground">Chess.com</strong> or{" "}
-            <strong className="text-foreground">Lichess</strong> to fetch your recent games automatically,
-            or paste raw <strong className="text-foreground">PGN</strong> text directly.
-            The importer shows the date, event, result, and time control for each game so you can
-            pick the right one to review.
+            Hover over any move in the <strong className="text-foreground">Engine Lines</strong> or
+            the <strong className="text-foreground">AI Coach</strong> response and numbered orange
+            arrows appear on the board, showing exactly which piece goes where across a multi-move
+            continuation. Move 1 is labelled <em>①</em>, move 2 is <em>②</em>, and so on — so you
+            can follow a five-move combination at a glance without memorising a single letter of notation.
+            Move the cursor away and the arrows disappear, leaving the board clean.
+          </p>
+          <ScreenshotPlaceholder label="Screenshot: Orange numbered arrows drawn on the board while hovering an engine line" tall />
+          <ul className="mt-4 space-y-1.5 text-sm text-muted-foreground list-disc list-inside">
+            <li>Works on both engine lines and AI coach suggestions</li>
+            <li>Arrows are numbered in move order for multi-move continuations</li>
+            <li>Zero clicks needed — just hover to preview, move away to reset</li>
+          </ul>
+        </section>
+
+        {/* ── Feature 2: Click to Play + Gameline Tree ── */}
+        <section className="mb-14">
+          <h2 className="text-2xl font-bold mb-2">2. "What If" Explorations + Gameline Tree</h2>
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            This is the feature that turns a passive review into active learning. At any point in the
+            game, click a piece and play the move you <em>wish</em> you had made. The board updates
+            instantly with a live Stockfish evaluation and you can immediately ask the AI Coach
+            whether your alternative was better — and why.
+          </p>
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            Every alternative you explore is saved as a branch in the{" "}
+            <strong className="text-foreground">Gameline Tree</strong> — a visual diagram in the
+            bottom-left panel. The main game runs left to right; your "what if" branches hang
+            below it. Click any node in the tree to jump instantly between the real game and your
+            explored variations. Nothing is ever lost — you can always navigate back to the main line.
+          </p>
+          <ScreenshotPlaceholder label="Screenshot: Gameline Tree with a branching variation and the board showing the alternative position" tall />
+          <ul className="mt-4 space-y-1.5 text-sm text-muted-foreground list-disc list-inside">
+            <li>Play any legal move directly on the board to start a variation</li>
+            <li>Stockfish re-evaluates instantly for every new position</li>
+            <li>Gameline Tree keeps every branch — main line and all alternatives</li>
+            <li>Click any tree node to teleport to that exact position</li>
+          </ul>
+        </section>
+
+        {/* ── Feature 3: AI Chess Coach ── */}
+        <section className="mb-14">
+          <h2 className="text-2xl font-bold mb-2">3. AI Chess Coach — Fact-Checked by Stockfish</h2>
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            The <strong className="text-foreground">AI Coach</strong> panel answers any question about
+            the current position in plain English. Ask{" "}
+            <em>"Why was my last move a mistake?"</em>,{" "}
+            <em>"What's the long-term plan for Black here?"</em>, or{" "}
+            <em>"How should I punish this pawn structure?"</em> and get a grandmaster-style
+            explanation covering piece activity, open files, weak squares, king safety, and
+            tactical patterns.
+          </p>
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            What makes it different from just asking ChatGPT: the coach operates with full
+            knowledge of the current position, and{" "}
+            <strong className="text-foreground">every move it mentions is checked against
+            Stockfish</strong> for legality and engine evaluation before you see it. No hallucinated
+            pieces, no illegal moves, no made-up continuations — just honest, grounded chess advice
+            that streams in as it's generated.
+          </p>
+          <ScreenshotPlaceholder label="Screenshot: AI Coach panel with a coaching question and a detailed multi-paragraph response" tall />
+          <ul className="mt-4 space-y-1.5 text-sm text-muted-foreground list-disc list-inside">
+            <li>Ask anything — positions, plans, mistakes, openings, endgames</li>
+            <li>Coach understands the full game history, not just the current position</li>
+            <li>All suggested moves verified for legality by the engine</li>
+            <li>Hover the coach's suggested moves to see them as arrows on the board</li>
+            <li>Streaming responses — answers appear word by word as they generate</li>
+          </ul>
+        </section>
+
+        {/* ── Feature 4: Import Games ── */}
+        <section className="mb-14">
+          <h2 className="text-2xl font-bold mb-2">4. Import Your Game</h2>
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            Start by clicking <strong className="text-foreground">Import Games</strong> in the top bar.
+            Enter your <strong className="text-foreground">Chess.com</strong> or{" "}
+            <strong className="text-foreground">Lichess</strong> username to fetch your recent games
+            automatically, or paste raw <strong className="text-foreground">PGN</strong> text directly.
+            The importer shows the date, opponent, result, and time control for each game so you can
+            pick the exact one you want to review.
           </p>
           <ScreenshotPlaceholder label="Screenshot: Import Games dialog — Chess.com / Lichess / PGN tabs" tall />
           <ul className="mt-4 space-y-1.5 text-sm text-muted-foreground list-disc list-inside">
-            <li>Fetch up to 10 recent games per import</li>
-            <li>Supports standard PGN including variations and annotations</li>
+            <li>Fetch your most recent games by username — no copy-paste needed</li>
+            <li>Supports standard PGN including existing variations and annotations</li>
             <li>No account needed for your first 5 imports</li>
           </ul>
         </section>
 
-        {/* ── Feature 2: Eval Bar ── */}
+        {/* ── Feature 5: Engine Lines ── */}
         <section className="mb-14">
-          <h2 className="text-2xl font-bold mb-2">2. Evaluation Bar</h2>
+          <h2 className="text-2xl font-bold mb-2">5. Engine Lines (Stockfish)</h2>
           <p className="text-muted-foreground leading-relaxed mb-4">
-            The tall vertical bar on the left of the board is the{" "}
-            <strong className="text-foreground">Evaluation Bar</strong>. It shows Stockfish's assessment
-            of the current position — white at the top means White is better, black means Black is
-            better. The number displayed is the{" "}
-            <strong className="text-foreground">centipawn score</strong>: 100 centipawns equals roughly
-            one pawn of advantage. A score of +3.2 means White is up about three pawns' worth of material
-            or positional advantage.
+            The <strong className="text-foreground">Engine Lines</strong> panel shows Stockfish's top
+            candidate moves for the current position — the score in centipawns, the best first move,
+            and the full continuation the engine expects. The depth of search is shown so you know
+            how deeply the engine has calculated.
           </p>
-          <ScreenshotPlaceholder label="Screenshot: Vertical eval bar with score display" />
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            Hover over any line to see the moves drawn as arrows on the board (see feature 1 above).
+            Click a line to play it out on the board and explore it as a variation.
+          </p>
+          <ScreenshotPlaceholder label="Screenshot: Engine Lines panel showing top 3 Stockfish candidates with scores and continuations" tall />
+        </section>
+
+        {/* ── Feature 6: Eval Bar ── */}
+        <section className="mb-14">
+          <h2 className="text-2xl font-bold mb-2">6. Evaluation Bar</h2>
+          <p className="text-muted-foreground leading-relaxed mb-4">
+            The tall vertical bar on the left of the board shows Stockfish's assessment at a glance.
+            White rising to the top means White is better; black filling upward means Black is better.
+            The <strong className="text-foreground">centipawn score</strong> is displayed numerically —
+            100 centipawns equals roughly one pawn of advantage. A score of +3.2 means White is up
+            about three pawns' worth of material or positional edge. Forced mates show as{" "}
+            <strong className="text-foreground">M4</strong>, <strong className="text-foreground">M3</strong>, etc.
+          </p>
+          <ScreenshotPlaceholder label="Screenshot: Vertical eval bar showing White advantage with centipawn score" />
           <ul className="mt-4 space-y-1.5 text-sm text-muted-foreground list-disc list-inside">
-            <li>Updates in real time as you step through moves</li>
-            <li>Shows mate countdowns (e.g. M4 = forced mate in 4)</li>
-            <li>Colour shifts from white to black as advantage changes sides</li>
+            <li>Updates in real time as you step through every move</li>
+            <li>Shows mate-in-N countdowns for forced mates</li>
+            <li>Colour shifts fluidly as advantage changes sides</li>
           </ul>
         </section>
 
-        {/* ── Feature 3: Eval Graph ── */}
+        {/* ── Feature 7: Eval Graph ── */}
         <section className="mb-14">
-          <h2 className="text-2xl font-bold mb-2">3. Evaluation Graph</h2>
+          <h2 className="text-2xl font-bold mb-2">7. Evaluation Graph</h2>
           <p className="text-muted-foreground leading-relaxed mb-4">
-            Below the board sits the <strong className="text-foreground">Evaluation Graph</strong> — a
-            chart of the engine score at every move of the game. Peaks above the centre line are moments
-            where White was better; dips below show Black's advantage. Sharp drops in the graph pinpoint{" "}
-            <strong className="text-foreground">blunders</strong> — moves where one side threw away a
-            big advantage. Click any point on the graph to jump directly to that position on the board.
+            The <strong className="text-foreground">Evaluation Graph</strong> below the board plots
+            the engine score at every move of the game. Peaks above the centre line show White's
+            advantage; dips below show Black's. A sudden sharp drop marks a{" "}
+            <strong className="text-foreground">blunder</strong> — the exact moment where someone
+            threw away a winning position. Click any point on the graph to jump straight to that
+            move on the board.
           </p>
-          <ScreenshotPlaceholder label="Screenshot: Eval graph with a visible blunder drop" />
+          <ScreenshotPlaceholder label="Screenshot: Evaluation graph spanning the full game with a visible blunder drop" />
           <ul className="mt-4 space-y-1.5 text-sm text-muted-foreground list-disc list-inside">
-            <li>Click any point on the graph to jump to that move</li>
-            <li>Useful for quickly spotting where the game turned</li>
-            <li>Smooth curve across all moves of the game</li>
+            <li>Spans the full game — spot turning points at a glance</li>
+            <li>Click any point to jump to that position instantly</li>
+            <li>Sharp drops = blunders; smooth lines = solid play</li>
           </ul>
         </section>
 
-        {/* ── Feature 4: Engine Lines ── */}
+        {/* ── Feature 8: Move History ── */}
         <section className="mb-14">
-          <h2 className="text-2xl font-bold mb-2">4. Engine Lines (Stockfish)</h2>
-          <p className="text-muted-foreground leading-relaxed mb-4">
-            On the right panel, the <strong className="text-foreground">Engine Lines</strong> section
-            shows Stockfish's top candidate moves for the current position. Each line includes:
-          </p>
-          <ul className="mb-4 space-y-1.5 text-sm text-muted-foreground list-disc list-inside">
-            <li>The <strong className="text-foreground">score</strong> (centipawns or mate count)</li>
-            <li>The <strong className="text-foreground">best move</strong> and the continuation the engine expects</li>
-            <li>The <strong className="text-foreground">depth</strong> the engine has searched to</li>
-          </ul>
-          <p className="text-muted-foreground leading-relaxed mb-4">
-            Hover over any engine line to see the suggested moves drawn as{" "}
-            <strong className="text-foreground">arrows</strong> on the board. This makes it easy to
-            visualise what the engine is proposing without memorising move notation.
-          </p>
-          <ScreenshotPlaceholder label="Screenshot: Engine Lines panel with score and moves, hover arrows on board" tall />
-        </section>
-
-        {/* ── Feature 5: Hover Arrows ── */}
-        <section className="mb-14">
-          <h2 className="text-2xl font-bold mb-2">5. Hover Arrows</h2>
-          <p className="text-muted-foreground leading-relaxed mb-4">
-            Hover over any move in the <strong className="text-foreground">Move History</strong> panel or
-            the <strong className="text-foreground">Engine Lines</strong> to see orange arrows appear on
-            the board, highlighting exactly which piece moves where. Each arrow is numbered to show the
-            move order in a multi-move continuation. This lets you preview a line without clicking into it.
-          </p>
-          <ScreenshotPlaceholder label="Screenshot: Orange numbered arrows drawn on the board on hover" />
-        </section>
-
-        {/* ── Feature 6: Click to Play ── */}
-        <section className="mb-14">
-          <h2 className="text-2xl font-bold mb-2">6. Click to Play — Explore Variations</h2>
-          <p className="text-muted-foreground leading-relaxed mb-4">
-            You're not limited to the moves in the imported game. Click any piece on the board and click
-            a destination square to <strong className="text-foreground">play a move yourself</strong>.
-            This is great for testing "what if I had played this instead?" The position updates
-            instantly with a fresh Stockfish evaluation, and the AI Coach can explain whether your
-            move was good or bad.
-          </p>
-          <p className="text-muted-foreground leading-relaxed mb-4">
-            Any moves you play are added to the{" "}
-            <strong className="text-foreground">Gameline Tree</strong> as a new branch, so you can
-            always navigate back to the main game line.
-          </p>
-          <ScreenshotPlaceholder label="Screenshot: Board with user-clicked variation highlighted in the gameline tree" />
-        </section>
-
-        {/* ── Feature 7: Gameline / Variation Tree ── */}
-        <section className="mb-14">
-          <h2 className="text-2xl font-bold mb-2">7. Gameline Tree</h2>
-          <p className="text-muted-foreground leading-relaxed mb-4">
-            The <strong className="text-foreground">Gameline Tree</strong> in the bottom-left panel
-            shows every move played — both the main game line and any alternative variations you've
-            explored. It works like a branching diagram:
-          </p>
-          <ul className="mb-4 space-y-1.5 text-sm text-muted-foreground list-disc list-inside">
-            <li>The <strong className="text-foreground">main line</strong> runs from left to right</li>
-            <li>Branches drop down when you explore alternative moves</li>
-            <li>Click any node to jump instantly to that position</li>
-            <li>The <strong className="text-foreground">current position</strong> is highlighted</li>
-          </ul>
-          <ScreenshotPlaceholder label="Screenshot: Gameline tree with main line and a visible branching variation" tall />
-        </section>
-
-        {/* ── Feature 8: AI Chess Coach ── */}
-        <section className="mb-14">
-          <h2 className="text-2xl font-bold mb-2">8. AI Chess Coach</h2>
-          <p className="text-muted-foreground leading-relaxed mb-4">
-            The <strong className="text-foreground">AI Coach</strong> panel on the right gives you
-            natural language explanations of any position. Type a question like{" "}
-            <em>"Why was my last move a mistake?"</em> or{" "}
-            <em>"What's the plan for White here?"</em> and the coach responds with a grandmaster-style
-            explanation — discussing piece activity, pawn structure, king safety, and tactical threats.
-          </p>
-          <p className="text-muted-foreground leading-relaxed mb-4">
-            Unlike a standalone ChatGPT, the AI Coach is{" "}
-            <strong className="text-foreground">fact-checked by Stockfish</strong>. Every move the
-            coach mentions is verified for legality and cross-checked against engine evaluations before
-            being shown to you, preventing hallucinated or illegal moves.
-          </p>
-          <ScreenshotPlaceholder label="Screenshot: AI Coach chat panel with a question and a detailed coaching response" tall />
-          <ul className="mt-4 space-y-1.5 text-sm text-muted-foreground list-disc list-inside">
-            <li>Ask anything about the current position</li>
-            <li>Understands the full game context</li>
-            <li>Responses grounded in Stockfish evaluations</li>
-            <li>Streaming responses — answers appear as they are generated</li>
-          </ul>
-        </section>
-
-        {/* ── Feature 9: Move History ── */}
-        <section className="mb-14">
-          <h2 className="text-2xl font-bold mb-2">9. Move History</h2>
+          <h2 className="text-2xl font-bold mb-2">8. Move History</h2>
           <p className="text-muted-foreground leading-relaxed mb-4">
             The <strong className="text-foreground">Move History</strong> panel lists every move in
             standard algebraic notation. Click any move to jump to that position. The current move is
             highlighted so you always know where you are in the game. Use the{" "}
-            <strong className="text-foreground">← →</strong> keyboard arrow keys or the navigation
-            buttons to step backwards and forwards one move at a time.
+            <strong className="text-foreground">← →</strong> keyboard arrow keys or the on-screen
+            navigation buttons to step one move at a time.
           </p>
           <ScreenshotPlaceholder label="Screenshot: Move history panel with moves listed and current move highlighted" />
         </section>
 
-        {/* ── Feature 10: Player Bands ── */}
+        {/* ── Feature 9: Player Bands ── */}
         <section className="mb-14">
-          <h2 className="text-2xl font-bold mb-2">10. Player Information Bands</h2>
+          <h2 className="text-2xl font-bold mb-2">9. Player Information Bands</h2>
           <p className="text-muted-foreground leading-relaxed mb-4">
-            When you import a game, the{" "}
-            <strong className="text-foreground">player information bands</strong> appear above and below
-            the board, showing each player's name, rating, and captured material. The captured pieces
-            are shown as icons so you can quickly see who has the material advantage at any point in
-            the game.
+            When you import a game, <strong className="text-foreground">player bands</strong> appear
+            above and below the board showing each player's name, rating, and captured material as
+            piece icons. At any point in the game you can see exactly who has the material advantage
+            and by how much.
           </p>
-          <ScreenshotPlaceholder label="Screenshot: Player bands above and below the board showing names, ratings, and captured pieces" />
+          <ScreenshotPlaceholder label="Screenshot: Player bands above and below the board with names, ratings, and captured pieces" />
         </section>
 
         {/* CTA */}
