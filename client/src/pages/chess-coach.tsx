@@ -1157,44 +1157,100 @@ export default function ChessCoach() {
                   customDarkSquareStyle={{ backgroundColor: "#779952" }}
                   customLightSquareStyle={{ backgroundColor: "#edeed1" }}
                   customNotationStyle={{ fontSize: "14px", fontWeight: "bold", opacity: 0.8 }}
-                  customArrows={hoverArrows.map(a => [a.from as Square, a.to as Square, "rgba(255, 170, 0, 0.75)"])}
+                  customArrows={[
+                    ...(() => {
+                      const isPlayerTurn = game.turn() === (playerColor === "white" ? "w" : "b");
+                      if (!isPlayerTurn || evaluation.lines.length === 0) return [];
+                      const arrows: Array<[Square, Square, string]> = [];
+                      if (evaluation.lines[1]?.move?.length >= 4) {
+                        const m = evaluation.lines[1].move;
+                        arrows.push([m.slice(0, 2) as Square, m.slice(2, 4) as Square, "rgba(100, 220, 100, 0.75)"]);
+                      }
+                      if (evaluation.lines[0]?.move?.length >= 4) {
+                        const m = evaluation.lines[0].move;
+                        arrows.push([m.slice(0, 2) as Square, m.slice(2, 4) as Square, "rgba(0, 130, 0, 0.85)"]);
+                      }
+                      return arrows;
+                    })(),
+                    ...hoverArrows.map(a => [a.from as Square, a.to as Square, "rgba(255, 170, 0, 0.75)"] as [Square, Square, string]),
+                  ]}
                   animationDuration={200}
                 />
-                {hoverArrows.length > 0 && (
-                  <div
-                    style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 10 }}
-                    data-testid="arrow-overlay"
-                  >
-                    {hoverArrows.map((arrow, i) => {
-                      const pos = getArrowMidpoint(arrow.from, arrow.to, boardSize, boardOrientation);
-                      return (
-                        <div
-                          key={i}
-                          data-testid={`arrow-badge-${i}`}
-                          style={{
-                            position: "absolute",
-                            left: pos.x - 11,
-                            top: pos.y - 11,
-                            width: 22,
-                            height: 22,
-                            borderRadius: "50%",
-                            backgroundColor: "rgba(255, 170, 0, 0.95)",
-                            color: "#fff",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "12px",
-                            fontWeight: 700,
-                            border: "2px solid rgba(255,255,255,0.85)",
-                            boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
-                          }}
-                        >
-                          {arrow.moveNum}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                {(() => {
+                  const isPlayerTurn = game.turn() === (playerColor === "white" ? "w" : "b");
+                  const engineArrows: Array<{ from: string; to: string; type: "best" | "second" }> = [];
+                  if (isPlayerTurn && evaluation.lines.length > 0) {
+                    if (evaluation.lines[0]?.move?.length >= 4) {
+                      engineArrows.push({ from: evaluation.lines[0].move.slice(0, 2), to: evaluation.lines[0].move.slice(2, 4), type: "best" });
+                    }
+                    if (evaluation.lines[1]?.move?.length >= 4) {
+                      engineArrows.push({ from: evaluation.lines[1].move.slice(0, 2), to: evaluation.lines[1].move.slice(2, 4), type: "second" });
+                    }
+                  }
+                  return (engineArrows.length > 0 || hoverArrows.length > 0) ? (
+                    <div
+                      style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 10 }}
+                      data-testid="arrow-overlay"
+                    >
+                      {engineArrows.map((ea, i) => {
+                        const pos = getArrowMidpoint(ea.from, ea.to, boardSize, boardOrientation);
+                        return (
+                          <div
+                            key={`engine-${i}`}
+                            data-testid={`engine-arrow-badge-${ea.type}`}
+                            style={{
+                              position: "absolute",
+                              left: pos.x - 11,
+                              top: pos.y - 11,
+                              width: 22,
+                              height: 22,
+                              borderRadius: "50%",
+                              backgroundColor: ea.type === "best" ? "#006400" : "#3a9a3a",
+                              color: "#fff",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: ea.type === "best" ? "13px" : "16px",
+                              fontWeight: 700,
+                              border: "2px solid rgba(255,255,255,0.85)",
+                              boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
+                            }}
+                          >
+                            {ea.type === "best" ? "★" : "~"}
+                          </div>
+                        );
+                      })}
+                      {hoverArrows.map((arrow, i) => {
+                        const pos = getArrowMidpoint(arrow.from, arrow.to, boardSize, boardOrientation);
+                        return (
+                          <div
+                            key={`hover-${i}`}
+                            data-testid={`arrow-badge-${i}`}
+                            style={{
+                              position: "absolute",
+                              left: pos.x - 11,
+                              top: pos.y - 11,
+                              width: 22,
+                              height: 22,
+                              borderRadius: "50%",
+                              backgroundColor: "rgba(255, 170, 0, 0.95)",
+                              color: "#fff",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "12px",
+                              fontWeight: 700,
+                              border: "2px solid rgba(255,255,255,0.85)",
+                              boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
+                            }}
+                          >
+                            {arrow.moveNum}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null;
+                })()}
               </div>
             </div>
 
