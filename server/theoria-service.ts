@@ -257,7 +257,8 @@ class TheoriaService {
 
       this.collectingLines.push(trimmed);
 
-      if (this.waitForToken && trimmed.startsWith(this.waitForToken)) {
+      const tokenMatches = this.waitForToken && this.waitForToken.split("|").some(tok => trimmed.startsWith(tok));
+      if (tokenMatches) {
         if (this.timeout) {
           clearTimeout(this.timeout);
           this.timeout = null;
@@ -358,7 +359,7 @@ class TheoriaService {
 
     await this.runCommand([`position fen ${fen}`, `go depth 12`], "bestmove");
 
-    const evalLines = await this.runCommand(["eval"], "Final evaluation");
+    const evalLines = await this.runCommand(["eval"], "Final evaluation|Total evaluation");
 
     const raw = evalLines.join("\n");
     const formatted = this.parseEvalOutput(evalLines, fen);
@@ -417,7 +418,7 @@ class TheoriaService {
       const nnueMatch = line.match(/NNUE evaluation\s+(-?[\d.]+)/);
       if (nnueMatch) nnueScore = nnueMatch[1];
 
-      const finalMatch = line.match(/Final evaluation\s+(-?[\d.]+)\s+\((\w+) side\)/);
+      const finalMatch = line.match(/(?:Final|Total) evaluation\s+(-?[\d.]+)\s+\((\w+) side\)/);
       if (finalMatch) {
         const val = parseFloat(finalMatch[1]);
         const side = finalMatch[2];
