@@ -271,6 +271,10 @@ export default function ChessCoach() {
   const [hoverArrows, setHoverArrows] = useState<Array<{ from: string; to: string; moveNum: number }>>([]);
   const coachSequencePending = useRef(false);
   const [useToolCalling, setUseToolCalling] = useState(true);
+  const [useFeatures, setUseFeatures] = useState(() => {
+    const stored = localStorage.getItem("chess-coach-useFeatures");
+    return stored !== null ? stored === "true" : true;
+  });
   const abortControllerRef = useRef<AbortController | null>(null);
   const [isComputingScores, setIsComputingScores] = useState(false);
   const [computeProgress, setComputeProgress] = useState({ current: 0, total: 0 });
@@ -699,6 +703,7 @@ export default function ChessCoach() {
           ...context,
           messages: currentMessages,
           useToolCalling,
+          useFeatures,
         }),
         signal: controller.signal,
       });
@@ -778,7 +783,7 @@ export default function ChessCoach() {
       abortControllerRef.current = null;
       setIsChatLoading(false);
     }
-  }, [chatMessages, getPositionContext, toast, useToolCalling, game, currentNodeId]);
+  }, [chatMessages, getPositionContext, toast, useToolCalling, useFeatures, game, currentNodeId]);
 
   const explainMove = useCallback((moveUci: string, moveSan: string, score: string, pvSan: string) => {
     const turnLabel = game.turn() === "w" ? "White" : "Black";
@@ -1338,6 +1343,11 @@ export default function ChessCoach() {
               onCancelChat={cancelChat}
               useToolCalling={useToolCalling}
               onToggleToolCalling={setUseToolCalling}
+              useFeatures={useFeatures}
+              onToggleFeatures={(val: boolean) => {
+                setUseFeatures(val);
+                localStorage.setItem("chess-coach-useFeatures", String(val));
+              }}
               gameFen={game.fen()}
               fallbackFens={treeFallbackFens}
               onHoverMoves={handleHoverMoves}

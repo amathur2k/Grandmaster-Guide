@@ -6,6 +6,7 @@ import passport from "passport";
 import { analyzePositionSchema, coachChatSchema, type User } from "@shared/schema";
 import { stockfishService } from "./stockfish-service";
 import { sendGA4Event } from "./analytics";
+import { analyzePosition, formatFeaturesForPrompt } from "./position-analyzer";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -54,7 +55,8 @@ const SYSTEM_PROMPT = `You are a chess coach. Be brief and direct — no filler,
 7. When the evaluate_position tool is available, call it to verify your ideas — especially when suggesting plans that deviate from the engine's top line. If Stockfish disagrees, defer to the engine.
 8. Identify the opening precisely.
 9. Never end your response with a question.
-10. Trust engine data completely — prefer it over your own calculation.`;
+10. Trust engine data completely — prefer it over your own calculation.
+11. When [Position Features] data is provided, reference it when explaining material imbalances, pawn weaknesses, piece activity, or king safety. Ground your explanations in the computed facts. When get_position_features is available, call it before discussing alternative lines that significantly change the position.`;
 
 const validateMoveTool: OpenAI.ChatCompletionTool = {
   type: "function",
@@ -99,11 +101,31 @@ const evaluatePositionTool: OpenAI.ChatCompletionTool = {
   },
 };
 
+const getPositionFeaturesTool: OpenAI.ChatCompletionTool = {
+  type: "function",
+  function: {
+    name: "get_position_features",
+    description:
+      "Compute positional features for a chess position: material balance (Kaufman values), piece mobility, king safety (pawn shield), and pawn structure (doubled/isolated/passed). Use before discussing plans that change the position significantly.",
+    parameters: {
+      type: "object",
+      properties: {
+        fen: {
+          type: "string",
+          description: "The COMPLETE FEN string with all 6 fields to analyze.",
+        },
+      },
+      required: ["fen"],
+    },
+  },
+};
+
 const MAX_TOOL_ROUNDS = 15;
 
-function getTools(useVerify: boolean): OpenAI.ChatCompletionTool[] {
+function getTools(useVerify: boolean, useFeatures: boolean): OpenAI.ChatCompletionTool[] {
   const t: OpenAI.ChatCompletionTool[] = [validateMoveTool];
   if (useVerify) t.push(evaluatePositionTool);
+  if (useFeatures) t.push(getPositionFeaturesTool);
   return t;
 }
 
@@ -207,6 +229,7 @@ function buildContextMessage(data: {
   engineLines?: { move: string; score: number; mate: number | null; pv: string[] }[];
   turn: string;
   playerColor: string;
+  useFeatures?: boolean;
 }) {
   const turnLabel = data.turn === "w" ? "White" : "Black";
 
@@ -221,6 +244,16 @@ function buildContextMessage(data: {
     engineLinesBlock = lines.join("\n");
   }
 
+  let featuresBlock = "";
+  if (data.useFeatures) {
+    try {
+      const features = analyzePosition(data.fen);
+      featuresBlock = "\n\n" + formatFeaturesForPrompt(features);
+    } catch (e) {
+      console.error("[position-analyzer] Error computing features:", e);
+    }
+  }
+
   return `[Chess Position Context]
 Full PGN of the game: ${data.pgn || "No moves yet (starting position)"}
 Current position (FEN): ${data.fen}
@@ -229,7 +262,7 @@ It is ${turnLabel}'s turn to move.
 The student is playing as ${data.playerColor}.
 
 [Top Engine Moves — use these for your suggestions]
-${engineLinesBlock}`;
+${engineLinesBlock}${featuresBlock}`;
 }
 
 const MODEL = "gpt-5.4";
@@ -270,6 +303,17 @@ async function handleToolCall(
       sendGA4Event(clientId, "llm_evaluate_position", { tag }).catch(() => {});
       return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
     }
+    if (name === "get_position_features") {
+      const fen = args.fen || "";
+      const cleanFen = sanitizeFen(fen) || sanitizeFen(fallbackFen);
+      if (!cleanFen) {
+        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Invalid FEN string" }) };
+      }
+      const result = analyzePosition(cleanFen);
+      console.log(`[${tag}] get_position_features => summary="${result.summary.slice(0, 120)}"`);
+      sendGA4Event(clientId, "llm_get_position_features", { tag }).catch(() => {});
+      return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
+    }
     return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: `Unknown tool: ${name}` }) };
   } catch {
     return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Failed to parse arguments" }) };
@@ -287,9 +331,9 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid request data" });
       }
 
-      const { useToolCalling, ...positionData } = parsed.data;
-      const contextMessage = buildContextMessage(positionData);
-      const activeTools = getTools(useToolCalling);
+      const { useToolCalling, useFeatures, ...positionData } = parsed.data;
+      const contextMessage = buildContextMessage({ ...positionData, useFeatures });
+      const activeTools = getTools(useToolCalling, useFeatures);
 
       const msgs: OpenAI.ChatCompletionMessageParam[] = [
         { role: "system", content: SYSTEM_PROMPT },
@@ -342,9 +386,9 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid request data" });
       }
 
-      const { messages, useToolCalling, ...positionData } = parsed.data;
-      const contextMessage = buildContextMessage(positionData);
-      const activeTools = getTools(useToolCalling);
+      const { messages, useToolCalling, useFeatures, ...positionData } = parsed.data;
+      const contextMessage = buildContextMessage({ ...positionData, useFeatures });
+      const activeTools = getTools(useToolCalling, useFeatures);
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
@@ -473,6 +517,8 @@ export async function registerRoutes(
 
           const statusText = toolNames.includes("evaluate_position")
             ? "Running Stockfish verification..."
+            : toolNames.includes("get_position_features")
+            ? "Analyzing position features..."
             : "Validating moves...";
           res.write(`data: ${JSON.stringify({ type: "status", text: statusText })}\n\n`);
         }
