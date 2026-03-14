@@ -25,7 +25,7 @@ export function EvalBar({ evaluation, isReady }: EvalBarProps) {
     <div className="flex flex-col items-center gap-2" data-testid="eval-bar">
       <div
         className="relative w-8 rounded-md overflow-hidden border border-border"
-        style={{ height: "calc(100% - 2rem)" }}
+        style={{ height: "calc(100% - 20px)" }}
       >
         <div
           className="absolute bottom-0 left-0 right-0 bg-white transition-all duration-500 ease-out"
