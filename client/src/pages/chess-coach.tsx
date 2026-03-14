@@ -1213,7 +1213,7 @@ export default function ChessCoach() {
         <div className="flex flex-col flex-1 min-h-0 min-w-0">
 
           {/* ── Board row: EvalBar + Findings + Board col ── */}
-          <div className="flex items-stretch gap-2 pt-4 px-4 shrink-0">
+          <div className="flex items-stretch gap-[10px] pt-4 px-4 shrink-0">
 
             <EvalBar evaluation={evaluation} isReady={isReady} />
 
@@ -1416,7 +1416,7 @@ export default function ChessCoach() {
 
             </div>{/* end board-col */}
 
-            <div className="flex-1 min-w-0 border border-border rounded-md overflow-hidden" style={{ height: boardColHeight }}>
+            <div className="shrink-0 border border-border rounded-md overflow-hidden" style={{ width: 158, height: boardColHeight }}>
               <MoveHistory
                 moves={allMoves}
                 currentMoveIndex={currentMoveIndex}
