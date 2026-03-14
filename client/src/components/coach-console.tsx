@@ -227,7 +227,7 @@ export function CoachConsole({
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [theoriaStatus, setTheoriaStatus] = useState<{ ready: boolean; downloading: boolean } | null>(null);
+  const [theoriaStatus, setTheoriaStatus] = useState<{ ready: boolean; downloading: boolean; hasBinary: boolean } | null>(null);
 
   useEffect(() => {
     if (!useTheoria) {
@@ -240,7 +240,7 @@ export function CoachConsole({
         const res = await fetch("/api/theoria-status");
         if (!cancelled && res.ok) {
           const data = await res.json();
-          setTheoriaStatus({ ready: data.ready, downloading: data.downloading });
+          setTheoriaStatus({ ready: data.ready, downloading: data.downloading, hasBinary: data.hasBinary });
         }
       } catch {}
     };
@@ -446,7 +446,7 @@ export function CoachConsole({
                   }`}
                   data-testid="toggle-theoria"
                 >
-                  {useTheoria && theoriaStatus && !theoriaStatus.ready ? (
+                  {useTheoria && theoriaStatus && (theoriaStatus.downloading || (theoriaStatus.hasBinary && !theoriaStatus.ready)) ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
                   ) : (
                     <Lightbulb className="w-3 h-3" />
@@ -454,7 +454,7 @@ export function CoachConsole({
                   {useTheoria
                     ? theoriaStatus?.downloading
                       ? "Downloading..."
-                      : theoriaStatus && !theoriaStatus.ready
+                      : theoriaStatus?.hasBinary && !theoriaStatus.ready
                       ? "Starting..."
                       : "Theoria ON"
                     : "Theoria OFF"}
@@ -465,7 +465,7 @@ export function CoachConsole({
                   {useTheoria
                     ? theoriaStatus?.downloading
                       ? "Downloading Theoria engine binary (~61 MB). This only happens once."
-                      : theoriaStatus && !theoriaStatus.ready
+                      : theoriaStatus?.hasBinary && !theoriaStatus.ready
                       ? "Theoria engine is starting up..."
                       : "Theoria engine active. AI receives Lc0-trained strategic assessment for richer positional explanations."
                     : "Theoria engine disabled. AI uses only Stockfish analysis."}

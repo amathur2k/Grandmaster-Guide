@@ -444,6 +444,16 @@ class TheoriaService {
     return result;
   }
 
+  async warmup(): Promise<void> {
+    try {
+      console.log("[theoria] Starting background warmup...");
+      await this.ensureProcess();
+      console.log("[theoria] Background warmup complete — engine ready");
+    } catch (err: any) {
+      console.error("[theoria] Background warmup failed:", err?.message ?? err);
+    }
+  }
+
   isReady(): boolean {
     return this.ready;
   }
