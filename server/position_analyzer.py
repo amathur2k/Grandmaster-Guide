@@ -222,6 +222,91 @@ def detect_pins(board):
     return results
 
 
+def detect_pin_relative(board):
+    results = []
+    for color in [chess.WHITE, chess.BLACK]:
+        enemy = not color
+        for sq in chess.SQUARES:
+            piece = board.piece_at(sq)
+            if not piece or piece.color != color or piece.piece_type in (chess.KING, chess.PAWN):
+                continue
+            for attacker_sq in chess.SQUARES:
+                att = board.piece_at(attacker_sq)
+                if not att or att.color != enemy:
+                    continue
+                if att.piece_type not in (chess.BISHOP, chess.ROOK, chess.QUEEN):
+                    continue
+                attacks = board.attacks(attacker_sq)
+                if sq not in attacks:
+                    continue
+                af, ar_ = chess.square_file(attacker_sq), chess.square_rank(attacker_sq)
+                pf, pr_ = chess.square_file(sq), chess.square_rank(sq)
+                df = pf - af
+                dr = pr_ - ar_
+                if df == 0:
+                    direction = (0, 1 if dr > 0 else -1)
+                elif dr == 0:
+                    direction = (1 if df > 0 else -1, 0)
+                elif abs(df) == abs(dr):
+                    direction = (1 if df > 0 else -1, 1 if dr > 0 else -1)
+                else:
+                    continue
+                bf, br_ = pf + direction[0], pr_ + direction[1]
+                while 0 <= bf <= 7 and 0 <= br_ <= 7:
+                    behind_sq = chess.square(bf, br_)
+                    behind_piece = board.piece_at(behind_sq)
+                    if behind_piece:
+                        if (behind_piece.color == color and
+                            behind_piece.piece_type != chess.KING and
+                            piece_value(behind_piece.piece_type) > piece_value(piece.piece_type)):
+                            results.append({
+                                "type": "pin_relative",
+                                "side": side_name(enemy),
+                                "description": f"{side_name(enemy)}'s {piece_label(att.piece_type)} on {sq_name(attacker_sq)} pins {side_name(color)}'s {piece_label(piece.piece_type)} on {sq_name(sq)} to the {piece_label(behind_piece.piece_type)} on {sq_name(behind_sq)}.",
+                                "squares": [sq_name(attacker_sq), sq_name(sq), sq_name(behind_sq)],
+                            })
+                        break
+                    bf += direction[0]
+                    br_ += direction[1]
+    return results
+
+
+def detect_direct_material_loss(board):
+    results = []
+    turn = board.turn
+    for move in board.legal_moves:
+        if not board.is_capture(move):
+            continue
+        captured = board.piece_at(move.to_square)
+        attacker = board.piece_at(move.from_square)
+        if not captured or not attacker:
+            continue
+        board.push(move)
+        recapture_value = 0
+        for resp in board.legal_moves:
+            if resp.to_square == move.to_square:
+                resp_attacker = board.piece_at(resp.from_square)
+                if resp_attacker:
+                    recapture_value = max(recapture_value, piece_value(attacker.piece_type))
+        board.pop()
+        net_gain = piece_value(captured.piece_type) - recapture_value
+        if net_gain >= 2.0:
+            results.append({
+                "type": "direct_material_loss",
+                "side": side_name(not turn),
+                "description": f"{side_name(not turn)}'s {piece_label(captured.piece_type)} on {sq_name(move.to_square)} can be captured by {side_name(turn)}'s {piece_label(attacker.piece_type)} for a net gain of ~{net_gain:.0f} points.",
+                "squares": [sq_name(move.from_square), sq_name(move.to_square)],
+            })
+    seen = set()
+    deduped = []
+    for r in results:
+        key = r["squares"][1]
+        if key not in seen:
+            seen.add(key)
+            deduped.append(r)
+    return deduped
+
+
 def detect_skewers(board):
     results = []
     for color in [chess.WHITE, chess.BLACK]:
@@ -462,6 +547,24 @@ def detect_tactical_refutation(board):
                         "squares": [sq_name(move.from_square), sq_name(move.to_square)],
                     })
                     return results
+
+    dest_sq = last_move.to_square
+    attacks_from_dest = board.attacks(dest_sq)
+    attacked_valuable = []
+    for tsq in attacks_from_dest:
+        target = board.piece_at(tsq)
+        if target and target.color == board.turn:
+            attacked_valuable.append((tsq, target))
+    if len(attacked_valuable) >= 2:
+        attacked_valuable.sort(key=lambda x: piece_value(x[1].piece_type), reverse=True)
+        t1_sq, t1_p = attacked_valuable[0]
+        t2_sq, t2_p = attacked_valuable[1]
+        results.append({
+            "type": "tactical_refutation",
+            "side": side_name(not board.turn),
+            "description": f"The last move ({sq_name(last_move.from_square)}-{sq_name(dest_sq)}) created a fork: {side_name(not board.turn)}'s {piece_label(moved_piece.piece_type)} attacks {side_name(board.turn)}'s {piece_label(t1_p.piece_type)} on {sq_name(t1_sq)} and {piece_label(t2_p.piece_type)} on {sq_name(t2_sq)}.",
+            "squares": [sq_name(dest_sq), sq_name(t1_sq), sq_name(t2_sq)],
+        })
     return results
 
 
@@ -623,6 +726,18 @@ def detect_outposts(board):
                         "description": f"{side_name(color)}'s {piece_label(occupant.piece_type)} on {sq_name(sq)} occupies a strong outpost (cannot be challenged by enemy pawns).",
                         "squares": [sq_name(sq)],
                     })
+                elif not occupant or (occupant and occupant.color != color):
+                    for piece_sq in chess.SQUARES:
+                        p = board.piece_at(piece_sq)
+                        if p and p.color == color and p.piece_type in (chess.KNIGHT, chess.BISHOP):
+                            if sq in board.attacks(piece_sq):
+                                results.append({
+                                    "type": "outpost",
+                                    "side": side_name(color),
+                                    "description": f"{sq_name(sq)} is a reachable outpost for {side_name(color)}'s {piece_label(p.piece_type)} on {sq_name(piece_sq)} (cannot be challenged by enemy pawns).",
+                                    "squares": [sq_name(piece_sq), sq_name(sq)],
+                                })
+                                break
     return results
 
 
@@ -1130,6 +1245,8 @@ def analyze_position(fen):
     tactical.extend(detect_hanging_pieces(board))
     tactical.extend(detect_forks(board))
     tactical.extend(detect_pins(board))
+    tactical.extend(detect_pin_relative(board))
+    tactical.extend(detect_direct_material_loss(board))
     tactical.extend(detect_skewers(board))
     tactical.extend(detect_overloaded_defenders(board))
     tactical.extend(detect_trapped_pieces(board))
