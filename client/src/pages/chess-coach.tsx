@@ -406,8 +406,7 @@ export default function ChessCoach() {
       if (boardContainerRef.current) {
         const container = boardContainerRef.current;
         const width = container.clientWidth;
-        const height = container.clientHeight;
-        const size = Math.min(width, height, 480);
+        const size = Math.min(width, 560);
         setBoardSize(size);
       }
     };
@@ -1230,7 +1229,7 @@ export default function ChessCoach() {
             )}
 
             {/* Board col: player bands + board + nav */}
-            <div ref={boardColRef} className="flex flex-col gap-1 items-center shrink-0">
+            <div ref={boardColRef} className="flex-1 flex flex-col gap-1 items-center">
 
               {/* Top player band (opponent) */}
               {gameMeta && (
@@ -1250,7 +1249,7 @@ export default function ChessCoach() {
               <div
                 ref={boardContainerRef}
                 className="flex items-center justify-center min-h-0"
-                style={{ flex: "0 0 auto" }}
+                style={{ width: "100%" }}
               >
                 <div style={{ width: boardSize, height: boardSize, position: "relative" }}>
                 <Chessboard
