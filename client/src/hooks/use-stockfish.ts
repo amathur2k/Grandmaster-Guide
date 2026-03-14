@@ -219,7 +219,14 @@ export function useStockfish() {
         const id = ++requestIdRef.current;
         currentRequestIdRef.current = id;
         turnRef.current = turn;
+        const timeout = setTimeout(() => {
+          if (readyResolveRef.current) {
+            readyResolveRef.current = null;
+            resolve({ score: 0, mate: null });
+          }
+        }, 5000);
         readyResolveRef.current = () => {
+          clearTimeout(timeout);
           evalResolveRef.current = resolve;
           workerRef.current!.postMessage("position fen " + fen);
           workerRef.current!.postMessage("go depth " + depth);
