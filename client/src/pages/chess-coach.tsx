@@ -1206,7 +1206,7 @@ export default function ChessCoach() {
             <EvalBar evaluation={evaluation} isReady={isReady} />
 
             {useFeatures && analyzerReady && (
-              <div className="self-start shrink-0" style={{ height: boardSize }}>
+              <div className="shrink-0" style={{ height: "100%" }}>
                 <PositionFindings
                   findings={positionFindings}
                   loading={findingsLoading}
