@@ -17,6 +17,7 @@ export function useStockfish() {
   const batchModeRef = useRef(false);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seenInfoForCurrentReqRef = useRef(false);
   const [evaluation, setEvaluation] = useState<StockfishEvaluation>({
     score: 0,
     bestMove: "",
@@ -79,6 +80,8 @@ export function useStockfish() {
 
             const lineData = { move: pv[0] || "", score, mate, pv };
 
+            seenInfoForCurrentReqRef.current = true;
+
             if (multipv === 1) {
               currentEval.score = score;
               currentEval.depth = depth;
@@ -114,7 +117,7 @@ export function useStockfish() {
               setEvaluation({ ...currentEval });
             }
           }
-          if (evalResolveRef.current) {
+          if (evalResolveRef.current && seenInfoForCurrentReqRef.current) {
             evalResolveRef.current({ score: currentEval.score, mate: currentEval.mate });
             evalResolveRef.current = null;
           }
@@ -209,6 +212,7 @@ export function useStockfish() {
         }
         batchModeRef.current = true;
         evalResolveRef.current = resolve;
+        seenInfoForCurrentReqRef.current = false;
         const id = ++requestIdRef.current;
         currentRequestIdRef.current = id;
         turnRef.current = turn;
