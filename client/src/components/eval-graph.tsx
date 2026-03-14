@@ -136,7 +136,7 @@ export function EvalGraph({ scores, currentMoveIndex, onMoveClick }: EvalGraphPr
         style={{ height: HEIGHT }}
         data-testid="eval-graph-empty"
       >
-        <p className="text-xs text-muted-foreground italic">Play moves or load a PGN to see the evaluation graph</p>
+        <p className="text-xs text-muted-foreground italic">Play moves or import a game to see the advantage chart</p>
       </div>
     );
   }

@@ -274,7 +274,7 @@ export function CoachConsole({
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Brain className="w-4 h-4 text-primary" />
-          AI Coach
+          Chess Coach
         </h3>
         <div className="flex items-center gap-1">
           {hasMessages && (
@@ -299,7 +299,7 @@ export function CoachConsole({
             </div>
             <div>
               <p className="text-sm font-medium text-foreground mb-1">
-                Your AI Chess Coach
+                Your Chess Coach
               </p>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Ask about the current position, strategy, tactics, or any chess question.
@@ -421,14 +421,14 @@ export function CoachConsole({
                   data-testid="toggle-features"
                 >
                   <Microscope className="w-3 h-3" />
-                  {useFeatures ? "Features ON" : "Features OFF"}
+                  {useFeatures ? "Position Detail ON" : "Position Detail OFF"}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-[220px]">
                 <p className="text-xs">
                   {useFeatures
-                    ? "AI receives computed position features (material, mobility, king safety, pawn structure)."
-                    : "Position features disabled. AI sees only engine lines."}
+                    ? "The coach receives extra detail about the position — material balance, piece activity, king safety, and pawn structure."
+                    : "Extra position detail is off. The coach uses only the best-move lines."}
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -457,22 +457,22 @@ export function CoachConsole({
                       : theoriaStatus?.hasBinary && !theoriaStatus.ready
                       ? "Starting..."
                       : theoriaStatus?.ready
-                      ? "Theoria ON"
-                      : "Theoria OFF"
-                    : "Theoria OFF"}
+                      ? "Deep Insights ON"
+                      : "Deep Insights OFF"
+                    : "Deep Insights OFF"}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-[220px]">
                 <p className="text-xs">
                   {useTheoria
                     ? theoriaStatus?.downloading
-                      ? "Downloading Theoria engine binary (~61 MB). This only happens once."
+                      ? "Downloading the deep insights module (~61 MB). This only happens once."
                       : theoriaStatus?.hasBinary && !theoriaStatus.ready
-                      ? "Theoria engine is starting up..."
+                      ? "Deep insights module is starting up..."
                       : theoriaStatus?.ready
-                      ? "Theoria engine active. AI receives Lc0-trained strategic assessment for richer positional explanations."
-                      : "Theoria engine is not yet available. It will start automatically."
-                    : "Theoria engine disabled. AI uses only Stockfish analysis."}
+                      ? "Deep insights active. The coach receives richer positional understanding for more detailed explanations."
+                      : "Deep insights module is not yet available. It will start automatically."
+                    : "Deep insights off. The coach uses standard computer analysis only."}
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -491,14 +491,14 @@ export function CoachConsole({
                   data-testid="toggle-tool-calling"
                 >
                   <Wrench className="w-3 h-3" />
-                  {useToolCalling ? "Verify ON" : "Verify OFF"}
+                  {useToolCalling ? "Accuracy Check ON" : "Accuracy Check OFF"}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-[220px]">
                 <p className="text-xs">
                   {useToolCalling
-                    ? "AI calls Stockfish to verify analysis. Slower but accurate."
-                    : "AI responds without engine verification. Faster."}
+                    ? "The coach double-checks every move against the chess computer before showing it to you. Slower but more accurate."
+                    : "The coach responds without double-checking moves. Faster but occasionally less precise."}
                 </p>
               </TooltipContent>
             </Tooltip>

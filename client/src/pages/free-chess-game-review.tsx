@@ -28,12 +28,12 @@ const FOOTER_LINKS = [
 
 export default function FreeChessGameReview() {
   useEffect(() => {
-    document.title = "Free Chess Game Review — Analyse Any Game with AI + Stockfish | Chess Analysis";
+    document.title = "Free Chess Game Review — Analyse Any Game with Computer Analysis | Chess Analysis";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) {
       meta.setAttribute(
         "content",
-        "Get a free chess game review powered by Stockfish engine evaluations and AI coaching. Import from Chess.com or Lichess, step through every move, and understand your mistakes with grandmaster-style explanations."
+        "Get a free chess game review powered by computer analysis and chess coaching. Import from Chess.com or Lichess, step through every move, and understand your mistakes with grandmaster-style explanations."
       );
     }
   }, []);
@@ -90,11 +90,11 @@ export default function FreeChessGameReview() {
             any point without losing your place.
           </p>
           <p>
-            Third: <strong className="text-foreground">the AI Coach is fact-checked in real time</strong>.
-            Unlike a plain ChatGPT, every move the coach mentions is validated for legality and
-            cross-referenced against the engine before it reaches you. You get grandmaster-level
-            explanations — pawn structure, king safety, tactical threats — that are guaranteed to
-            be grounded in what Stockfish actually sees on the board.
+            Third: <strong className="text-foreground">the Chess Coach is fact-checked in real time</strong>.
+            Unlike a basic chatbot, every move the coach mentions is checked to make sure it's a
+            real, legal move and cross-referenced against the chess computer before it reaches you.
+            You get grandmaster-level explanations — pawn structure, king safety, tactical threats
+            — that are guaranteed to be grounded in what the computer actually sees on the board.
           </p>
           <p className="text-base">
             Import your first game from Chess.com, Lichess, or PGN below — no account needed
@@ -106,8 +106,8 @@ export default function FreeChessGameReview() {
         <section className="mb-14">
           <h2 className="text-2xl font-bold mb-2">1. Hover Arrows — See Ideas, Not Just Notation</h2>
           <p className="text-muted-foreground leading-relaxed mb-4">
-            Hover over any move in the <strong className="text-foreground">Engine Lines</strong> or
-            the <strong className="text-foreground">AI Coach</strong> response and numbered orange
+            Hover over any move in the <strong className="text-foreground">Best Moves</strong> panel or
+            the <strong className="text-foreground">Chess Coach</strong> response and numbered orange
             arrows appear on the board, showing exactly which piece goes where across a multi-move
             continuation. Move 1 is labelled <em>①</em>, move 2 is <em>②</em>, and so on — so you
             can follow a five-move combination at a glance without memorising a single letter of notation.
@@ -197,12 +197,12 @@ export default function FreeChessGameReview() {
 
         {/* ── Feature 5: Engine Lines ── */}
         <section className="mb-14">
-          <h2 className="text-2xl font-bold mb-2">5. Engine Lines (Stockfish)</h2>
+          <h2 className="text-2xl font-bold mb-2">5. Best Moves</h2>
           <p className="text-muted-foreground leading-relaxed mb-4">
-            The <strong className="text-foreground">Engine Lines</strong> panel shows Stockfish's top
-            candidate moves for the current position — the score in centipawns, the best first move,
-            and the full continuation the engine expects. The depth of search is shown so you know
-            how deeply the engine has calculated.
+            The <strong className="text-foreground">Best Moves</strong> panel shows the chess computer's
+            top choices for the current position — a score showing who is ahead, the best first move,
+            and the full sequence the computer expects to follow. Higher scores mean White is better;
+            lower scores mean Black is better.
           </p>
           <p className="text-muted-foreground leading-relaxed mb-4">
             Hover over any line to see the moves drawn as arrows on the board (see feature 1 above).
@@ -213,13 +213,13 @@ export default function FreeChessGameReview() {
 
         {/* ── Feature 6: Eval Bar ── */}
         <section className="mb-14">
-          <h2 className="text-2xl font-bold mb-2">6. Evaluation Bar</h2>
+          <h2 className="text-2xl font-bold mb-2">6. Advantage Bar</h2>
           <p className="text-muted-foreground leading-relaxed mb-4">
-            The tall vertical bar on the left of the board shows Stockfish's assessment at a glance.
+            The tall vertical bar on the left of the board shows the computer's assessment at a glance.
             White rising to the top means White is better; black filling upward means Black is better.
-            The <strong className="text-foreground">centipawn score</strong> is displayed numerically —
-            100 centipawns equals roughly one pawn of advantage. A score of +3.2 means White is up
-            about three pawns' worth of material or positional edge. Forced mates show as{" "}
+            The <strong className="text-foreground">score</strong> is measured in pawns — +1.0 means
+            White is roughly one pawn ahead, +3.2 means roughly three pawns ahead in material or
+            positional terms. Forced mates show as{" "}
             <strong className="text-foreground">M4</strong>, <strong className="text-foreground">M3</strong>, etc.
           </p>
           <ScreenshotPlaceholder label="Screenshot: Vertical eval bar showing White advantage with centipawn score" />
@@ -232,13 +232,13 @@ export default function FreeChessGameReview() {
 
         {/* ── Feature 7: Eval Graph ── */}
         <section className="mb-14">
-          <h2 className="text-2xl font-bold mb-2">7. Evaluation Graph</h2>
+          <h2 className="text-2xl font-bold mb-2">7. Advantage Chart</h2>
           <p className="text-muted-foreground leading-relaxed mb-4">
-            The <strong className="text-foreground">Evaluation Graph</strong> below the board plots
-            the engine score at every move of the game. Peaks above the centre line show White's
+            The <strong className="text-foreground">Advantage Chart</strong> below the board plots
+            the advantage score at every move of the game. Peaks above the centre line show White's
             advantage; dips below show Black's. A sudden sharp drop marks a{" "}
             <strong className="text-foreground">blunder</strong> — the exact moment where someone
-            threw away a winning position. Click any point on the graph to jump straight to that
+            threw away a winning position. Click any point on the chart to jump straight to that
             move on the board.
           </p>
           <ScreenshotPlaceholder label="Screenshot: Evaluation graph spanning the full game with a visible blunder drop" />
@@ -279,7 +279,7 @@ export default function FreeChessGameReview() {
           <h2 className="text-2xl font-bold mb-3">Ready for your free chess game review?</h2>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
             No account needed. Import your first game from Chess.com, Lichess, or PGN and get
-            instant Stockfish + AI coaching analysis.
+            instant computer + chess coaching analysis.
           </p>
           <Link
             href="/"

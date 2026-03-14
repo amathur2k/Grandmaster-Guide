@@ -112,7 +112,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
   if (!isReady) {
     return (
       <div className="px-4 py-3">
-        <p className="text-xs text-muted-foreground italic">Engine loading...</p>
+        <p className="text-xs text-muted-foreground italic">Loading...</p>
       </div>
     );
   }
@@ -120,7 +120,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
   if (displayLines.length === 0) {
     return (
       <div className="px-4 py-3">
-        <p className="text-xs text-muted-foreground italic">Waiting for evaluation...</p>
+        <p className="text-xs text-muted-foreground italic">Calculating best moves...</p>
       </div>
     );
   }

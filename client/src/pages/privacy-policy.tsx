@@ -45,8 +45,8 @@ export default function PrivacyPolicy() {
             <div>
               <h3 className="font-medium text-foreground mb-1">Chess Games and Positions</h3>
               <p>
-                PGN data and board positions you submit are sent to our servers to generate AI coaching
-                responses and engine evaluations. We do not permanently store the content of your games
+                Chess games and board positions you submit are sent to our servers to generate coaching
+                responses and computer evaluations. We do not permanently store the content of your games
                 or coaching conversations. Data is processed in memory and discarded after the response
                 is returned.
               </p>

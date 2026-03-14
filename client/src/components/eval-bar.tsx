@@ -52,11 +52,6 @@ export function EvalBar({ evaluation, isReady }: EvalBarProps) {
           </span>
         </div>
       </div>
-      {isReady && (
-        <span className="text-[9px] text-muted-foreground font-mono" data-testid="text-eval-depth">
-          d{depth}
-        </span>
-      )}
     </div>
   );
 }

@@ -18,10 +18,10 @@ export default function AboutUs() {
         <section className="mb-10">
           <h2 className="text-xl font-semibold mb-3">What is Chess Analysis?</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Chess Analysis is an AI-powered chess coaching tool that combines the raw calculation power
-            of the Stockfish engine with the explanatory ability of large language models. Our tagline
-            — "LLMs fact checked by Stockfish" — captures exactly what we do: every AI coaching
-            suggestion is grounded in and verified against engine evaluations, so you get explanations
+            Chess Analysis is a personal chess coaching tool that combines the raw calculation power
+            of a world-class chess computer with a coach that explains positions in plain English. Our
+            approach — chess coaching, computer verified — captures exactly what we do: every coaching
+            suggestion is grounded in and verified against computer analysis, so you get explanations
             that are both understandable and accurate.
           </p>
         </section>
@@ -29,14 +29,14 @@ export default function AboutUs() {
         <section className="mb-10">
           <h2 className="text-xl font-semibold mb-3">The Problem We Solve</h2>
           <p className="text-muted-foreground leading-relaxed mb-4">
-            Traditional chess engines tell you the best move but rarely explain <em>why</em> it is best.
-            Pure language models can explain strategy fluently but sometimes suggest illegal or
+            Traditional chess computers tell you the best move but rarely explain <em>why</em> it is best.
+            A basic chatbot can describe strategy fluently but sometimes suggests illegal or
             suboptimal moves. Chess Analysis bridges that gap.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            When you import a game or explore a position, our AI coach gives you grandmaster-style
-            explanations — the plans, the ideas, the mistakes — while Stockfish keeps the AI honest
-            by validating every move and evaluation in real time.
+            When you import a game or explore a position, your chess coach gives you grandmaster-style
+            explanations — the plans, the ideas, the mistakes — while the chess computer keeps the
+            coach honest by validating every move and evaluation in real time.
           </p>
         </section>
 
@@ -48,8 +48,8 @@ export default function AboutUs() {
               <span>— step through any game move by move, or explore your own variations</span>
             </li>
             <li className="flex gap-2">
-              <span className="text-foreground font-medium shrink-0">Engine evaluation</span>
-              <span>— real-time Stockfish depth analysis with a visual eval graph</span>
+              <span className="text-foreground font-medium shrink-0">Computer analysis</span>
+              <span>— live move-by-move assessment with a visual advantage chart</span>
             </li>
             <li className="flex gap-2">
               <span className="text-foreground font-medium shrink-0">AI coaching</span>
@@ -74,8 +74,8 @@ export default function AboutUs() {
             the principle it violates — weak squares, open files, king safety, pawn structure.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            By combining engine precision with AI explanation, we aim to give every player — from
-            beginner to advanced — the kind of coaching insight that was previously only available
+            By combining computer precision with coaching explanation, we aim to give every player —
+            from beginner to advanced — the kind of coaching insight that was previously only available
             from expensive human coaches or years of study.
           </p>
         </section>
@@ -83,10 +83,10 @@ export default function AboutUs() {
         <section className="mb-10">
           <h2 className="text-xl font-semibold mb-3">Technology</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Chess Analysis is built on the open-source Stockfish engine (one of the strongest chess
-            engines in the world), OpenAI's language models for coaching explanations, and
-            chess.js for move validation. The interactive board uses react-chessboard. Our backend
-            validates all AI-suggested moves for legality before presenting them to you.
+            Chess Analysis is built on three core components: a world-class chess computer that
+            analyses every position in real time, a coaching system that explains positions in plain
+            English, and a move validator that checks every suggestion before you see it. The
+            interactive board lets you explore any position with full drag-and-drop play.
           </p>
         </section>
 

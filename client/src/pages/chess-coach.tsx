@@ -807,11 +807,10 @@ export default function ChessCoach() {
     }
   }, [chatMessages, getPositionContext, toast, useToolCalling, useFeatures, useTheoria, game, currentNodeId]);
 
-  const explainMove = useCallback((moveUci: string, moveSan: string, score: string, pvSan: string) => {
-    const turnLabel = game.turn() === "w" ? "White" : "Black";
-    const question = `Why is ${moveSan} (${score}) the engine's recommended move for ${turnLabel}? The continuation is: ${pvSan}. Explain the idea behind this move.`;
+  const explainMove = useCallback((_moveUci: string, moveSan: string, _score: string, pvSan: string) => {
+    const question = `What is the idea behind ${moveSan}? The continuation is: ${pvSan}. Explain why this is the top suggested move.`;
     sendChatMessage(question);
-  }, [game, sendChatMessage]);
+  }, [sendChatMessage]);
 
   const playCoachSequence = useCallback(async (startFen: string, startNodeId: string | undefined, sanMoves: string[]) => {
     if (sanMoves.length === 0) return;
@@ -948,7 +947,7 @@ export default function ChessCoach() {
     }
 
     if (newNodes.length === 0) {
-      toast({ title: "Could not load line", description: "No valid moves in engine PV.", variant: "destructive" });
+      toast({ title: "Could not load moves", description: "No valid moves found.", variant: "destructive" });
       return;
     }
 
@@ -976,7 +975,7 @@ export default function ChessCoach() {
     setGame(new Chess(pvGame.fen()));
 
     toast({
-      title: "Engine Line Loaded",
+      title: "Moves loaded",
       description: `Loaded ${newNodes.length} moves as branch. Computing evaluations...`,
     });
 
@@ -1038,7 +1037,7 @@ export default function ChessCoach() {
               Chess Analysis
             </h1>
             <p className="text-xs text-muted-foreground leading-tight">
-              LLMs fact checked by Stockfish
+              Your personal chess coach
             </p>
           </div>
           <Button
@@ -1093,7 +1092,7 @@ export default function ChessCoach() {
             }`}
             data-testid="status-engine"
           >
-            {hasError ? "Engine Error" : isReady ? "Engine Ready" : "Loading Engine..."}
+            {hasError ? "Unavailable" : isReady ? "Ready" : "Loading..."}
           </span>
           <span
             className="text-xs font-medium px-2 py-1 rounded-md bg-muted text-muted-foreground"
@@ -1368,13 +1367,8 @@ export default function ChessCoach() {
           <div className="border-b border-border shrink-0">
             <div className="flex items-center px-4 pt-2 pb-1">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Engine Lines
+                Best Moves
               </h3>
-              {evaluation.depth > 0 && (
-                <span className="text-[10px] text-muted-foreground ml-auto font-mono">
-                  depth {evaluation.depth}
-                </span>
-              )}
             </div>
             <EngineLines
               lines={evaluation.lines}
