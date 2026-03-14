@@ -11,6 +11,7 @@ An interactive Chess Analysis that lets users play chess on an interactive board
 - **Server Engine**: Server-side Stockfish via `stockfish` npm package (`server/stockfish-service.ts`), spawned as a child process for LLM tool calling
 - **AI**: OpenAI GPT-5.4 via direct OpenAI API (OPENAI_API_KEY secret) with real token streaming, function calling (validate_move + evaluate_position + get_position_features + get_theoria_insights tools), and Stockfish context injection
 - **Position Analyzer**: `server/position-analyzer.ts` — Pure TypeScript feature extraction: material balance (Kaufman values), piece mobility, king safety (pawn shield), pawn structure (doubled/isolated/passed). Injected into prompts when Features toggle is ON.
+- **Python Position Analyzer**: `server/position_analyzer.py` — Python/python-chess daemon with 30+ tactical, strategic, and endgame detectors. Includes **Lichess Tablebase API** lookup for positions with ≤5 pieces (returns win/loss/draw verdict with DTM/DTZ). Tablebase results are injected into the LLM prompt and surfaced in the position features response. API failures are silently ignored (no user-facing error).
 - **Theoria Engine**: `server/theoria-service.ts` — Optional second engine (Theoria 0.2, Stockfish fork with Lc0-trained NNUE). Downloaded on first use to `engines/theoria` (~61 MB). Provides strategic eval text breakdown and LLM tool for positional analysis. Toggled via "Theoria ON/OFF" button.
 
 ## Key Files

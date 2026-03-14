@@ -3,6 +3,8 @@ import sys
 import json
 import signal
 import chess
+import urllib.request
+import urllib.parse
 
 PIECE_VALUES = {chess.PAWN: 1, chess.KNIGHT: 3.25, chess.BISHOP: 3.33, chess.ROOK: 5.1, chess.QUEEN: 9.4, chess.KING: 0}
 PIECE_NAMES = {chess.PAWN: "Pawn", chess.KNIGHT: "Knight", chess.BISHOP: "Bishop", chess.ROOK: "Rook", chess.QUEEN: "Queen", chess.KING: "King"}
@@ -1235,6 +1237,45 @@ def detect_king_cutoff(board):
     return results
 
 
+def lookup_tablebase(fen):
+    board = chess.Board(fen)
+    piece_count = len(board.piece_map())
+    if piece_count > 5:
+        return None
+    try:
+        encoded = urllib.parse.quote(fen, safe="")
+        url = f"https://tablebase.lichess.ovh/standard?fen={encoded}"
+        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read().decode())
+        category = data.get("category", "unknown")
+        dtm = data.get("dtm")
+        dtz = data.get("dtz")
+        if category == "unknown":
+            return None
+        turn = "White" if board.turn == chess.WHITE else "Black"
+        if category in ("win", "maybe-win"):
+            verdict = f"{turn} has a forced win"
+        elif category in ("loss", "maybe-loss"):
+            winner = "Black" if board.turn == chess.WHITE else "White"
+            verdict = f"{winner} has a forced win"
+        elif category in ("draw", "blessed-loss", "cursed-win"):
+            verdict = "This position is a theoretical draw"
+        else:
+            verdict = f"Tablebase result: {category}"
+        dtm_text = f" (mate in {abs(dtm)})" if dtm is not None and dtm != 0 else ""
+        description = f"{verdict}{dtm_text}."
+        return {
+            "category": category,
+            "dtm": dtm,
+            "dtz": dtz,
+            "piece_count": piece_count,
+            "description": description,
+        }
+    except Exception:
+        return None
+
+
 def analyze_position(fen, last_move_uci=None):
     try:
         board = chess.Board(fen)
@@ -1291,7 +1332,11 @@ def analyze_position(fen, last_move_uci=None):
         endgame.extend(detect_pawn_majority(board))
         endgame.extend(detect_king_cutoff(board))
 
+    tablebase = lookup_tablebase(fen)
+
     summary_parts = []
+    if tablebase:
+        summary_parts.append(tablebase["description"])
     if material["description"] != "Material is equal.":
         summary_parts.append(material["description"])
     if len(tactical) > 0:
@@ -1308,7 +1353,7 @@ def analyze_position(fen, last_move_uci=None):
         eg_types = set(e["type"] for e in endgame)
         summary_parts.append(f"Endgame factors: {', '.join(t.replace('_', ' ') for t in eg_types)}.")
 
-    return {
+    result = {
         "material": material,
         "king_safety": king_safety,
         "pawn_structure": pawn_structure,
@@ -1320,6 +1365,9 @@ def analyze_position(fen, last_move_uci=None):
         "is_endgame": endgame_active,
         "summary": " ".join(summary_parts) if summary_parts else "Position is balanced with no notable imbalances.",
     }
+    if tablebase:
+        result["tablebase"] = tablebase
+    return result
 
 
 def main():

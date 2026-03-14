@@ -64,6 +64,14 @@ export interface SpaceInfo {
   description: string;
 }
 
+export interface TablebaseResult {
+  category: string;
+  dtm: number | null;
+  dtz: number | null;
+  piece_count: number;
+  description: string;
+}
+
 export interface RichPositionFeatures {
   material: MaterialInfo;
   king_safety: KingSafetyInfo;
@@ -75,6 +83,7 @@ export interface RichPositionFeatures {
   endgame: StrategicItem[];
   is_endgame: boolean;
   summary: string;
+  tablebase?: TablebaseResult;
 }
 
 interface PendingRequest {
@@ -256,6 +265,18 @@ export function formatFeaturesForPrompt(features: RichPositionFeatures): string 
     lines.push(`Endgame Factors:`);
     for (const e of features.endgame) {
       lines.push(`  ▸ ${e.description}`);
+    }
+  }
+
+  if (features.tablebase) {
+    lines.push(``);
+    lines.push(`Tablebase (ground truth for ≤${features.tablebase.piece_count}-piece endgame):`);
+    lines.push(`  ${features.tablebase.description}`);
+    if (features.tablebase.dtm !== null && features.tablebase.dtm !== 0) {
+      lines.push(`  Distance to mate: ${Math.abs(features.tablebase.dtm)} moves`);
+    }
+    if (features.tablebase.dtz !== null && features.tablebase.dtz !== 0) {
+      lines.push(`  Distance to zeroing (50-move rule): ${Math.abs(features.tablebase.dtz)} half-moves`);
     }
   }
 
