@@ -17,7 +17,7 @@ export function useStockfish() {
   const batchModeRef = useRef(false);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const seenInfoForCurrentReqRef = useRef(false);
+  const readyResolveRef = useRef<(() => void) | null>(null);
   const [evaluation, setEvaluation] = useState<StockfishEvaluation>({
     score: 0,
     bestMove: "",
@@ -52,9 +52,15 @@ export function useStockfish() {
         if (!line) return;
 
         if (line === "readyok") {
-          setIsReady(true);
-          setHasError(false);
-          retryCountRef.current = 0;
+          if (readyResolveRef.current) {
+            const cb = readyResolveRef.current;
+            readyResolveRef.current = null;
+            cb();
+          } else {
+            setIsReady(true);
+            setHasError(false);
+            retryCountRef.current = 0;
+          }
           return;
         }
 
@@ -79,8 +85,6 @@ export function useStockfish() {
             const pv = pvMatch ? pvMatch[1].split(" ") : [];
 
             const lineData = { move: pv[0] || "", score, mate, pv };
-
-            seenInfoForCurrentReqRef.current = true;
 
             if (multipv === 1) {
               currentEval.score = score;
@@ -117,7 +121,7 @@ export function useStockfish() {
               setEvaluation({ ...currentEval });
             }
           }
-          if (evalResolveRef.current && seenInfoForCurrentReqRef.current) {
+          if (evalResolveRef.current) {
             evalResolveRef.current({ score: currentEval.score, mate: currentEval.mate });
             evalResolveRef.current = null;
           }
@@ -210,15 +214,18 @@ export function useStockfish() {
         if (evalResolveRef.current) {
           evalResolveRef.current({ score: 0, mate: null });
         }
+        evalResolveRef.current = null;
         batchModeRef.current = true;
-        evalResolveRef.current = resolve;
-        seenInfoForCurrentReqRef.current = false;
         const id = ++requestIdRef.current;
         currentRequestIdRef.current = id;
         turnRef.current = turn;
+        readyResolveRef.current = () => {
+          evalResolveRef.current = resolve;
+          workerRef.current!.postMessage("position fen " + fen);
+          workerRef.current!.postMessage("go depth " + depth);
+        };
         workerRef.current.postMessage("stop");
-        workerRef.current.postMessage("position fen " + fen);
-        workerRef.current.postMessage("go depth " + depth);
+        workerRef.current.postMessage("isready");
       } catch {
         batchModeRef.current = false;
         resolve({ score: 0, mate: null });
