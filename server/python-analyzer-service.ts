@@ -121,11 +121,11 @@ class PythonAnalyzerService {
         this.ready = false;
         this.process = null;
 
-        for (const [id, req] of this.pending) {
+        this.pending.forEach((req, id) => {
           clearTimeout(req.timer);
           req.reject(new Error("Python analyzer process exited"));
-          this.pending.delete(id);
-        }
+        });
+        this.pending.clear();
 
         const delay = Math.min(1000 * Math.pow(2, this.spawnAttempts - 1), 30000);
         console.log(`[python-analyzer] Restarting in ${delay}ms...`);
