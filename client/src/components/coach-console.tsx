@@ -456,7 +456,9 @@ export function CoachConsole({
                       ? "Downloading..."
                       : theoriaStatus?.hasBinary && !theoriaStatus.ready
                       ? "Starting..."
-                      : "Theoria ON"
+                      : theoriaStatus?.ready
+                      ? "Theoria ON"
+                      : "Theoria OFF"
                     : "Theoria OFF"}
                 </button>
               </TooltipTrigger>
@@ -467,7 +469,9 @@ export function CoachConsole({
                       ? "Downloading Theoria engine binary (~61 MB). This only happens once."
                       : theoriaStatus?.hasBinary && !theoriaStatus.ready
                       ? "Theoria engine is starting up..."
-                      : "Theoria engine active. AI receives Lc0-trained strategic assessment for richer positional explanations."
+                      : theoriaStatus?.ready
+                      ? "Theoria engine active. AI receives Lc0-trained strategic assessment for richer positional explanations."
+                      : "Theoria engine is not yet available. It will start automatically."
                     : "Theoria engine disabled. AI uses only Stockfish analysis."}
                 </p>
               </TooltipContent>
