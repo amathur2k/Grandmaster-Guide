@@ -80,7 +80,7 @@ function FindingRow({ item, category, onMouseEnter, onMouseLeave }: FindingRowPr
   return (
     <div
       className={`px-2 py-1.5 rounded border cursor-default transition-colors ${colorClasses}`}
-      onMouseEnter={() => onMouseEnter(item.squares)}
+      onMouseEnter={() => onMouseEnter(item.squares ?? [])}
       onMouseLeave={onMouseLeave}
       data-testid={`finding-${item.type}`}
     >

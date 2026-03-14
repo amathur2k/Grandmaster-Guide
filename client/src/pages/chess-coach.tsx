@@ -1256,21 +1256,21 @@ export default function ChessCoach() {
                   customNotationStyle={{ fontSize: "14px", fontWeight: "bold", opacity: 0.8 }}
                   customSquareStyles={{
                     ...(hoveredSquare ? { [hoveredSquare]: { backgroundColor: "rgba(255, 215, 0, 0.5)" } } : {}),
-                    ...Object.fromEntries(hoveredFindingSquares.map(sq => [sq, { backgroundColor: "rgba(100, 160, 255, 0.45)" }])),
+                    ...Object.fromEntries((hoveredFindingSquares ?? []).map(sq => [sq, { backgroundColor: "rgba(100, 160, 255, 0.45)" }])),
                   }}
                   customArrows={[
-                    ...engineMoveArrows.filter(a => a.type === "second").map(a => [a.from as Square, a.to as Square, "rgba(100, 220, 100, 0.75)"] as [Square, Square, string]),
-                    ...engineMoveArrows.filter(a => a.type === "best").map(a => [a.from as Square, a.to as Square, "rgba(0, 130, 0, 0.85)"] as [Square, Square, string]),
-                    ...hoverArrows.map(a => [a.from as Square, a.to as Square, "rgba(255, 170, 0, 0.75)"] as [Square, Square, string]),
+                    ...(engineMoveArrows ?? []).filter(a => a.type === "second").map(a => [a.from as Square, a.to as Square, "rgba(100, 220, 100, 0.75)"] as [Square, Square, string]),
+                    ...(engineMoveArrows ?? []).filter(a => a.type === "best").map(a => [a.from as Square, a.to as Square, "rgba(0, 130, 0, 0.85)"] as [Square, Square, string]),
+                    ...(hoverArrows ?? []).map(a => [a.from as Square, a.to as Square, "rgba(255, 170, 0, 0.75)"] as [Square, Square, string]),
                   ]}
                   animationDuration={200}
                 />
-                {(engineMoveArrows.length > 0 || hoverArrows.length > 0) ? (
+                {((engineMoveArrows ?? []).length > 0 || (hoverArrows ?? []).length > 0) ? (
                     <div
                       style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 10 }}
                       data-testid="arrow-overlay"
                     >
-                      {engineMoveArrows.map((ea, i) => {
+                      {(engineMoveArrows ?? []).map((ea, i) => {
                         const pos = getArrowMidpoint(ea.from, ea.to, boardSize, boardOrientation);
                         return (
                           <div
@@ -1298,7 +1298,7 @@ export default function ChessCoach() {
                           </div>
                         );
                       })}
-                      {hoverArrows.map((arrow, i) => {
+                      {(hoverArrows ?? []).map((arrow, i) => {
                         const pos = getArrowMidpoint(arrow.from, arrow.to, boardSize, boardOrientation);
                         return (
                           <div
