@@ -270,7 +270,7 @@ export function formatFeaturesForPrompt(features: RichPositionFeatures): string 
 
   if (features.tablebase) {
     lines.push(``);
-    lines.push(`Tablebase (ground truth for ≤${features.tablebase.piece_count}-piece endgame):`);
+    lines.push(`Tablebase (ground truth, ${features.tablebase.piece_count}-piece position):`);
     lines.push(`  ${features.tablebase.description}`);
     if (features.tablebase.dtm !== null && features.tablebase.dtm !== 0) {
       lines.push(`  Distance to mate: ${Math.abs(features.tablebase.dtm)} moves`);
