@@ -292,7 +292,7 @@ export default function ChessCoach() {
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardSize, setBoardSize] = useState(400);
   const boardColRef = useRef<HTMLDivElement>(null);
-  const [boardColHeight, setBoardColHeight] = useState(400);
+  const [boardColHeight, setBoardColHeight] = useState(boardSize);
   const isNavigatingRef = useRef(false);
   const [showPaywall, setShowPaywall] = useState(false);
 
