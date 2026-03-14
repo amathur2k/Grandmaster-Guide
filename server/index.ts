@@ -6,6 +6,7 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { theoriaService } from "./theoria-service";
+import { classicalStockfishService } from "./classical-stockfish-service";
 import { createServer } from "http";
 import { pool } from "./db";
 import { storage } from "./storage";
@@ -169,6 +170,7 @@ app.use((req, res, next) => {
     () => {
       log(`serving on port ${port}`);
       theoriaService.warmup();
+      classicalStockfishService.warmup();
     },
   );
 })();

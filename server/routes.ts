@@ -8,6 +8,7 @@ import { stockfishService } from "./stockfish-service";
 import { theoriaService } from "./theoria-service";
 import { sendGA4Event } from "./analytics";
 import { pythonAnalyzerService, formatFeaturesForPrompt } from "./python-analyzer-service";
+import { classicalStockfishService, formatClassicalEvalForPrompt } from "./classical-stockfish-service";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -58,7 +59,8 @@ const SYSTEM_PROMPT = `You are a chess coach. Be brief and direct — no filler,
 9. Never end your response with a question.
 10. Trust engine data completely — prefer it over your own calculation.
 11. When [Position Features] data is provided, reference it when explaining material imbalances, pawn weaknesses, piece activity, or king safety. Ground your explanations in the computed facts. When get_position_features is available, call it before discussing alternative lines that significantly change the position.
-12. When [Theoria Strategic Assessment] data is present, use it to enrich your positional explanations — it reflects an Lc0-trained evaluation that emphasises strategic themes over tactical complexity. When get_theoria_insights is available, call it to analyse any alternative line you want to explain.`;
+12. When [Theoria Strategic Assessment] data is present, use it to enrich your positional explanations — it reflects an Lc0-trained evaluation that emphasises strategic themes over tactical complexity. When get_theoria_insights is available, call it to analyse any alternative line you want to explain.
+13. When get_classical_eval is available, call it whenever you want hard numerical engine data to back up your explanation of king safety, mobility, threats, passed pawns, or space. Reference the term scores directly in your response (e.g. "Stockfish scores King safety −11 MG for White").`;
 
 const validateMoveTool: OpenAI.ChatCompletionTool = {
   type: "function",
@@ -141,12 +143,38 @@ const getTheoriaInsightsTool: OpenAI.ChatCompletionTool = {
   },
 };
 
+const getClassicalEvalTool: OpenAI.ChatCompletionTool = {
+  type: "function",
+  function: {
+    name: "get_classical_eval",
+    description:
+      "Get Stockfish 12's classical (hand-crafted) evaluation breakdown for a position. " +
+      "Returns centipawn scores for each evaluation term: Material, Imbalance, Pawns, Mobility, " +
+      "King safety, Threats, Passed pawns, Space, and Winnable — split by White/Black and " +
+      "middlegame/endgame phase. Use when you want hard numerical engine data to ground your " +
+      "explanation of king safety, piece activity, pawn structure, threats, or space in a position.",
+    parameters: {
+      type: "object",
+      properties: {
+        fen: {
+          type: "string",
+          description: "The COMPLETE FEN string with all 6 fields for the position to evaluate.",
+        },
+      },
+      required: ["fen"],
+    },
+  },
+};
+
 const MAX_TOOL_ROUNDS = 15;
 
 function getTools(useVerify: boolean, useFeatures: boolean, useTheoria: boolean = false): OpenAI.ChatCompletionTool[] {
   const t: OpenAI.ChatCompletionTool[] = [validateMoveTool];
   if (useVerify) t.push(evaluatePositionTool);
-  if (useFeatures) t.push(getPositionFeaturesTool);
+  if (useFeatures) {
+    t.push(getPositionFeaturesTool);
+    t.push(getClassicalEvalTool);
+  }
   if (useTheoria) t.push(getTheoriaInsightsTool);
   return t;
 }
@@ -210,6 +238,19 @@ function sanitizeFen(fen: string): string | null {
   const cleaned = fen.replace(/[\r\n\x00-\x1f]/g, "").trim();
   if (!/^[rnbqkpRNBQKP1-8/]+ [wb] [KQkq-]+ [a-h1-8-]+ \d+ \d+$/.test(cleaned)) return null;
   return cleaned;
+}
+
+async function executeGetClassicalEval(fen: string, fallbackFen: string): Promise<string> {
+  const cleanFen = sanitizeFen(fen) || sanitizeFen(fallbackFen);
+  if (!cleanFen) return "";
+  if (!classicalStockfishService.isReady()) return "";
+  try {
+    const result = await classicalStockfishService.getEvalFeatures(cleanFen);
+    return formatClassicalEvalForPrompt(result);
+  } catch (e) {
+    console.error("[classical-sf] executeGetClassicalEval error:", e instanceof Error ? e.message : String(e));
+    return "";
+  }
 }
 
 async function callOpenAIWithRetry(
@@ -278,6 +319,14 @@ async function buildContextMessage(data: {
     }
   }
 
+  let classicalEvalBlock = "";
+  try {
+    const text = await executeGetClassicalEval(data.fen, "");
+    if (text) classicalEvalBlock = "\n\n" + text;
+  } catch (e) {
+    console.error("[classical-sf] buildContextMessage error:", e instanceof Error ? e.message : String(e));
+  }
+
   return `[Chess Position Context]
 Full PGN of the game: ${data.pgn || "No moves yet (starting position)"}
 Current position (FEN): ${data.fen}
@@ -286,7 +335,7 @@ It is ${turnLabel}'s turn to move.
 The student is playing as ${data.playerColor}.
 
 [Top Engine Moves — use these for your suggestions]
-${engineLinesBlock}${featuresBlock}${data.theoriaText ? "\n\n" + data.theoriaText : ""}`;
+${engineLinesBlock}${featuresBlock}${classicalEvalBlock}${data.theoriaText ? "\n\n" + data.theoriaText : ""}`;
 }
 
 const MODEL = "gpt-5.4";
@@ -375,6 +424,25 @@ async function handleToolCall(
       } catch (e) {
         console.error(`[${tag}] get_theoria_insights error:`, e);
         return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Theoria evaluation failed" }) };
+      }
+    }
+    if (name === "get_classical_eval") {
+      const fen = args.fen || "";
+      try {
+        const text = await executeGetClassicalEval(fen, fallbackFen);
+        if (!text) {
+          return {
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify({ error: "Classical eval not ready or invalid FEN" }),
+          };
+        }
+        console.log(`[${tag}] get_classical_eval => OK for FEN="${fen.slice(0, 40)}..."`);
+        sendGA4Event(clientId, "llm_get_classical_eval", { tag }).catch(() => {});
+        return { role: "tool", tool_call_id: tc.id, content: text };
+      } catch (e) {
+        console.error(`[${tag}] get_classical_eval error:`, e instanceof Error ? e.message : String(e));
+        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Classical eval failed" }) };
       }
     }
     return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: `Unknown tool: ${name}` }) };
