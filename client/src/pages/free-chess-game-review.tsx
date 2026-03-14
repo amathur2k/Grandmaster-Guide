@@ -23,6 +23,7 @@ const FOOTER_LINKS = [
   { href: "/terms", label: "Terms of Use" },
   { href: "/about", label: "About Us" },
   { href: "/contact", label: "Contact Us" },
+  { href: "/credits", label: "Credits" },
 ];
 
 export default function FreeChessGameReview() {

@@ -1468,6 +1468,7 @@ export default function ChessCoach() {
           <a href="/about" className="hover:text-foreground transition-colors">About Us</a>
           <a href="/contact" className="hover:text-foreground transition-colors">Contact Us</a>
           <a href="/free-chess-game-review" className="hover:text-foreground transition-colors">Free Chess Review</a>
+          <a href="/credits" className="hover:text-foreground transition-colors">Credits</a>
         </div>
       </footer>
     </div>

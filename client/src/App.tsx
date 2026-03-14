@@ -9,6 +9,7 @@ import TermsOfUse from "@/pages/terms-of-use";
 import AboutUs from "@/pages/about-us";
 import ContactUs from "@/pages/contact-us";
 import FreeChessGameReview from "@/pages/free-chess-game-review";
+import Credits from "@/pages/credits";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/about" component={AboutUs} />
       <Route path="/contact" component={ContactUs} />
       <Route path="/free-chess-game-review" component={FreeChessGameReview} />
+      <Route path="/credits" component={Credits} />
       <Route component={NotFound} />
     </Switch>
   );

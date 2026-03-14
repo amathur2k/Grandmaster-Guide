@@ -147,6 +147,7 @@ export default function TermsOfUse() {
           <Link href="/about" className="hover:text-foreground transition-colors">About Us</Link>
           <Link href="/contact" className="hover:text-foreground transition-colors">Contact Us</Link>
           <Link href="/free-chess-game-review" className="hover:text-foreground transition-colors">Free Chess Review</Link>
+          <Link href="/credits" className="hover:text-foreground transition-colors">Credits</Link>
         </div>
       </footer>
     </div>

@@ -39,6 +39,7 @@ export default function ContactUs() {
           <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
           <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Use</Link>
           <Link href="/about" className="hover:text-foreground transition-colors">About Us</Link>
+          <Link href="/credits" className="hover:text-foreground transition-colors">Credits</Link>
         </div>
       </footer>
     </div>
