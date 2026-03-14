@@ -291,6 +291,8 @@ export default function ChessCoach() {
   const [computeProgress, setComputeProgress] = useState({ current: 0, total: 0 });
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [boardSize, setBoardSize] = useState(400);
+  const boardColRef = useRef<HTMLDivElement>(null);
+  const [boardColHeight, setBoardColHeight] = useState(400);
   const isNavigatingRef = useRef(false);
   const [showPaywall, setShowPaywall] = useState(false);
 
@@ -416,6 +418,16 @@ export default function ChessCoach() {
       observer.observe(boardContainerRef.current);
     }
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const update = () => {
+      if (boardColRef.current) setBoardColHeight(boardColRef.current.offsetHeight);
+    };
+    update();
+    const obs = new ResizeObserver(update);
+    if (boardColRef.current) obs.observe(boardColRef.current);
+    return () => obs.disconnect();
   }, []);
 
   useEffect(() => {
@@ -1218,7 +1230,7 @@ export default function ChessCoach() {
             )}
 
             {/* Board col: player bands + board + nav */}
-            <div className="flex flex-col gap-1 items-center shrink-0">
+            <div ref={boardColRef} className="flex flex-col gap-1 items-center shrink-0">
 
               {/* Top player band (opponent) */}
               {gameMeta && (
@@ -1404,7 +1416,7 @@ export default function ChessCoach() {
 
             </div>{/* end board-col */}
 
-            <div className="flex-1 min-w-0 min-h-0 self-stretch border border-border rounded-md overflow-hidden">
+            <div className="flex-1 min-w-0 border border-border rounded-md overflow-hidden" style={{ height: boardColHeight }}>
               <MoveHistory
                 moves={allMoves}
                 currentMoveIndex={currentMoveIndex}
