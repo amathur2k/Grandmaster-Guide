@@ -137,8 +137,8 @@ class PythonAnalyzerService {
       });
 
       console.log("[python-analyzer] Spawned python3 position_analyzer.py");
-    } catch (err: any) {
-      console.error("[python-analyzer] Failed to spawn:", err?.message);
+    } catch (err: unknown) {
+      console.error("[python-analyzer] Failed to spawn:", err instanceof Error ? err.message : String(err));
       const delay = Math.min(1000 * Math.pow(2, this.spawnAttempts - 1), 30000);
       setTimeout(() => this.spawn(), delay);
     }
@@ -182,7 +182,7 @@ class PythonAnalyzerService {
     }
   }
 
-  async analyze(fen: string): Promise<RichPositionFeatures> {
+  async analyze(fen: string, lastMove?: string): Promise<RichPositionFeatures> {
     if (!this.ready || !this.process?.stdin?.writable) {
       throw new Error("Python analyzer is not ready");
     }
@@ -195,7 +195,9 @@ class PythonAnalyzerService {
       }, 10000);
 
       this.pending.set(id, { resolve, reject, timer });
-      this.process!.stdin!.write(JSON.stringify({ id, fen }) + "\n");
+      const payload: Record<string, string> = { id, fen };
+      if (lastMove) payload.lastMove = lastMove;
+      this.process!.stdin!.write(JSON.stringify(payload) + "\n");
     });
   }
 

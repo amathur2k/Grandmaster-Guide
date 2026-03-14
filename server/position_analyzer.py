@@ -1235,11 +1235,18 @@ def detect_king_cutoff(board):
     return results
 
 
-def analyze_position(fen):
+def analyze_position(fen, last_move_uci=None):
     try:
         board = chess.Board(fen)
     except Exception as e:
         return {"error": str(e)}
+
+    if last_move_uci:
+        try:
+            move = chess.Move.from_uci(last_move_uci)
+            board.move_stack.append(move)
+        except Exception:
+            pass
 
     tactical = []
     tactical.extend(detect_hanging_pieces(board))
@@ -1330,8 +1337,9 @@ def main():
             continue
         req_id = req.get("id", "")
         fen = req.get("fen", "")
+        last_move = req.get("lastMove", None)
         try:
-            result = analyze_position(fen)
+            result = analyze_position(fen, last_move)
             resp = {"id": req_id, "result": result}
         except Exception as e:
             resp = {"id": req_id, "error": str(e)}

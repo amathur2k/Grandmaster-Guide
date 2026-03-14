@@ -377,6 +377,10 @@ export default function ChessCoach() {
           ? `+${evaluation.score.toFixed(1)}`
           : evaluation.score.toFixed(1);
 
+    const history = game.history({ verbose: true });
+    const last = history.length > 0 ? history[history.length - 1] : null;
+    const lastMoveUci = last ? `${last.from}${last.to}${last.promotion || ""}` : undefined;
+
     return {
       fen: game.fen(),
       pgn: getCurrentPgn(),
@@ -385,6 +389,7 @@ export default function ChessCoach() {
       engineLines: evaluation.lines,
       turn: game.turn() as "w" | "b",
       playerColor,
+      lastMove: lastMoveUci,
     };
   }, [game, getCurrentPgn, evaluation, playerColor]);
 

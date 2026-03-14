@@ -251,6 +251,7 @@ async function buildContextMessage(data: {
   engineLines?: { move: string; score: number; mate: number | null; pv: string[] }[];
   turn: string;
   playerColor: string;
+  lastMove?: string;
   useFeatures?: boolean;
   theoriaText?: string;
 }) {
@@ -270,7 +271,7 @@ async function buildContextMessage(data: {
   let featuresBlock = "";
   if (data.useFeatures && pythonAnalyzerService.isReady()) {
     try {
-      const features = await pythonAnalyzerService.analyze(data.fen);
+      const features = await pythonAnalyzerService.analyze(data.fen, data.lastMove);
       featuresBlock = "\n\n" + formatFeaturesForPrompt(features);
     } catch (e) {
       console.error("[python-analyzer] Error computing features:", e);
@@ -340,8 +341,8 @@ async function handleToolCall(
         console.log(`[${tag}] get_position_features => summary="${result.summary.slice(0, 120)}"`);
         sendGA4Event(clientId, "llm_get_position_features", { tag }).catch(() => {});
         return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
-      } catch (e: any) {
-        console.error(`[${tag}] get_position_features error:`, e?.message);
+      } catch (e: unknown) {
+        console.error(`[${tag}] get_position_features error:`, e instanceof Error ? e.message : String(e));
         return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Position analysis failed" }) };
       }
     }
