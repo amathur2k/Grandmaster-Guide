@@ -766,6 +766,25 @@ export async function registerRoutes(
     res.json({ ready: status === "ready", status, retries });
   });
 
+  app.post("/api/position-features", async (req, res) => {
+    const { fen, lastMove } = req.body || {};
+    if (!fen || typeof fen !== "string") {
+      return res.status(400).json({ error: "Missing or invalid FEN" });
+    }
+    const cleanFen = sanitizeFen(fen);
+    if (!cleanFen) return res.status(400).json({ error: "Invalid FEN string" });
+    if (!pythonAnalyzerService.isReady()) {
+      return res.status(503).json({ error: "Analyzer not ready" });
+    }
+    try {
+      const result = await pythonAnalyzerService.analyze(cleanFen, typeof lastMove === "string" ? lastMove : undefined);
+      return res.json(result);
+    } catch (e: unknown) {
+      console.error("[position-features]", e instanceof Error ? e.message : String(e));
+      return res.status(500).json({ error: "Analysis failed" });
+    }
+  });
+
   app.get("/api/theoria-status", (_req, res) => {
     res.json({
       ready: theoriaService.isReady(),

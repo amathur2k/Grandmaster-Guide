@@ -3,6 +3,7 @@ import { Chess, type Square } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import { useStockfish } from "@/hooks/use-stockfish";
 import { EvalBar } from "@/components/eval-bar";
+import { PositionFindings } from "@/components/position-findings";
 import { MoveHistory } from "@/components/move-history";
 import { EngineLines } from "@/components/engine-lines";
 import { EvalGraph } from "@/components/eval-graph";
@@ -270,6 +271,11 @@ export default function ChessCoach() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [hoverArrows, setHoverArrows] = useState<Array<{ from: string; to: string; moveNum: number }>>([]);
   const [hoveredSquare, setHoveredSquare] = useState<string | null>(null);
+  const [hoveredFindingSquares, setHoveredFindingSquares] = useState<string[]>([]);
+  const [positionFindings, setPositionFindings] = useState<any | null>(null);
+  const [findingsLoading, setFindingsLoading] = useState(false);
+  const [analyzerReady, setAnalyzerReady] = useState(false);
+  const findingsAbortRef = useRef<AbortController | null>(null);
   const coachSequencePending = useRef(false);
   const [useToolCalling, setUseToolCalling] = useState(true);
   const [useFeatures, setUseFeatures] = useState(() => {
@@ -428,6 +434,55 @@ export default function ChessCoach() {
       }
     }
   }, [currentMoveIndex, evaluation.score, evaluation.mate, evaluation.depth, isComputingScores, currentNodeId, tree]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch("/api/python-analyzer-status");
+        const data = await res.json();
+        if (!cancelled) setAnalyzerReady(data.ready === true);
+      } catch {}
+    };
+    check();
+    const id = setInterval(check, 5000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  useEffect(() => {
+    if (!useFeatures || !analyzerReady) {
+      setPositionFindings(null);
+      return;
+    }
+    if (findingsAbortRef.current) findingsAbortRef.current.abort();
+    const fen = game.fen();
+    const history = game.history({ verbose: true });
+    const lastMoveUci = history.length > 0
+      ? history[history.length - 1].from + history[history.length - 1].to
+      : undefined;
+
+    const controller = new AbortController();
+    findingsAbortRef.current = controller;
+    const tid = setTimeout(async () => {
+      setFindingsLoading(true);
+      try {
+        const res = await fetch("/api/position-features", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fen, lastMove: lastMoveUci }),
+          signal: controller.signal,
+        });
+        if (!res.ok) { setFindingsLoading(false); return; }
+        const data = await res.json();
+        setPositionFindings(data);
+      } catch (e: unknown) {
+        if ((e as Error).name !== "AbortError") setPositionFindings(null);
+      } finally {
+        setFindingsLoading(false);
+      }
+    }, 300);
+    return () => { clearTimeout(tid); controller.abort(); };
+  }, [game, useFeatures, analyzerReady]);
 
   const makeMove = useCallback(
     (sourceSquare: string, targetSquare: string, piece: string) => {
@@ -1148,6 +1203,18 @@ export default function ChessCoach() {
             <EvalBar evaluation={evaluation} isReady={isReady} />
           </div>
 
+          {useFeatures && (
+            <div className="flex items-stretch pt-4 pl-3 pb-0" style={{ maxHeight: boardSize + 80 }}>
+              <PositionFindings
+                findings={positionFindings}
+                loading={findingsLoading}
+                analyzerReady={analyzerReady}
+                useFeatures={useFeatures}
+                onHoverSquares={setHoveredFindingSquares}
+              />
+            </div>
+          )}
+
           <div className="flex flex-col flex-1 min-w-0 pt-4 px-4 pb-0 gap-1">
             {/* Top player band (opponent) */}
             {gameMeta && (
@@ -1183,7 +1250,10 @@ export default function ChessCoach() {
                   customDarkSquareStyle={{ backgroundColor: "#779952" }}
                   customLightSquareStyle={{ backgroundColor: "#edeed1" }}
                   customNotationStyle={{ fontSize: "14px", fontWeight: "bold", opacity: 0.8 }}
-                  customSquareStyles={hoveredSquare ? { [hoveredSquare]: { backgroundColor: "rgba(255, 215, 0, 0.5)" } } : {}}
+                  customSquareStyles={{
+                    ...(hoveredSquare ? { [hoveredSquare]: { backgroundColor: "rgba(255, 215, 0, 0.5)" } } : {}),
+                    ...Object.fromEntries(hoveredFindingSquares.map(sq => [sq, { backgroundColor: "rgba(100, 160, 255, 0.45)" }])),
+                  }}
                   customArrows={[
                     ...engineMoveArrows.filter(a => a.type === "second").map(a => [a.from as Square, a.to as Square, "rgba(100, 220, 100, 0.75)"] as [Square, Square, string]),
                     ...engineMoveArrows.filter(a => a.type === "best").map(a => [a.from as Square, a.to as Square, "rgba(0, 130, 0, 0.85)"] as [Square, Square, string]),
