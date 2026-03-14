@@ -1204,7 +1204,7 @@ export default function ChessCoach() {
           </div>
 
           {useFeatures && (
-            <div className="flex items-stretch pt-4 pl-3 pb-0" style={{ maxHeight: boardSize + 80 }}>
+            <div className="flex items-start pt-4 pl-3 pb-0" style={{ height: boardSize + 16 }}>
               <PositionFindings
                 findings={positionFindings}
                 loading={findingsLoading}
@@ -1215,7 +1215,7 @@ export default function ChessCoach() {
             </div>
           )}
 
-          <div className="flex flex-col flex-1 min-w-0 pt-4 px-4 pb-0 gap-1">
+          <div className="flex flex-col flex-1 min-w-0 pt-4 px-4 pb-0 gap-1" style={{ minWidth: 520 }}>
             {/* Top player band (opponent) */}
             {gameMeta && (
               <div style={{ width: boardSize }} className="mx-auto shrink-0">
