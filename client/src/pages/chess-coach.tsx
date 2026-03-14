@@ -406,7 +406,7 @@ export default function ChessCoach() {
       if (boardContainerRef.current) {
         const container = boardContainerRef.current;
         const width = container.clientWidth;
-        const size = Math.min(width, 560);
+        const size = Math.min(width, 520);
         setBoardSize(size);
       }
     };
