@@ -191,7 +191,7 @@ export function VariationTree({ tree, currentPath, onNodeClick }: VariationTreeP
 
   if (nodes.length === 0) {
     return (
-      <div className="p-4 text-xs text-muted-foreground italic text-center" data-testid="variation-tree-empty">
+      <div className="p-4 text-sm text-muted-foreground italic text-center" data-testid="variation-tree-empty">
         Play different moves from any position to create branches
       </div>
     );
@@ -243,7 +243,7 @@ export function VariationTree({ tree, currentPath, onNodeClick }: VariationTreeP
       {nodes.map(node => (
         <button
           key={node.id}
-          className={`absolute text-xs font-mono leading-none rounded px-1.5 py-1.5 border transition-colors truncate ${
+          className={`absolute text-sm font-mono leading-none rounded px-1.5 py-1.5 border transition-colors truncate ${
             node.isCurrentNode
               ? "bg-primary text-primary-foreground border-primary font-bold shadow-sm"
               : node.isOnCurrentPath

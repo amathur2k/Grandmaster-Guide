@@ -318,7 +318,7 @@ export function CoachConsole({
               <p className="text-sm font-medium text-foreground mb-1">
                 Your Chess Coach
               </p>
-              <p className="text-xs text-muted-foreground leading-relaxed">
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Ask about the current position, strategy, tactics, or any chess question.
               </p>
             </div>
@@ -431,7 +431,7 @@ export function CoachConsole({
                   type="button"
                   onClick={() => analyzerStatus === "ready" && onToggleFeatures(!useFeatures)}
                   disabled={analyzerStatus !== "ready"}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
                     analyzerStatus !== "ready"
                       ? "bg-muted text-muted-foreground/50 border border-border/50 cursor-not-allowed opacity-60"
                       : useFeatures
@@ -471,7 +471,7 @@ export function CoachConsole({
                 <button
                   type="button"
                   onClick={() => onToggleTheoria(!useTheoria)}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
                     useTheoria
                       ? "bg-primary/10 text-primary border border-primary/30"
                       : "bg-muted text-muted-foreground border border-border"
@@ -515,7 +515,7 @@ export function CoachConsole({
                 <button
                   type="button"
                   onClick={() => onToggleToolCalling(!useToolCalling)}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
                     useToolCalling
                       ? "bg-primary/10 text-primary border border-primary/30"
                       : "bg-muted text-muted-foreground border border-border"

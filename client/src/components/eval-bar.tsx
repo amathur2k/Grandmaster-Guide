@@ -40,7 +40,7 @@ export function EvalBar({ evaluation, isReady }: EvalBarProps) {
         />
         <div className="absolute inset-0 flex items-center justify-center">
           <span
-            className={`text-[10px] font-mono font-bold z-10 px-0.5 ${
+            className={`text-xs font-mono font-bold z-10 px-0.5 ${
               isWhiteAdvantage ? "text-[#1a1a2e]" : "text-white"
             }`}
             style={{

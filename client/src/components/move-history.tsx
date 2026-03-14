@@ -37,7 +37,7 @@ export function MoveHistory({ moves, currentMoveIndex, onMoveClick }: MoveHistor
 
   return (
     <div className="flex flex-col h-full" data-testid="move-history">
-      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2">
+      <h3 className="text-sm font-semibold text-foreground px-3 py-2">
         Moves
       </h3>
       <ScrollArea className="flex-1">
@@ -54,7 +54,7 @@ export function MoveHistory({ moves, currentMoveIndex, onMoveClick }: MoveHistor
                   key={pair.number}
                   className="flex items-center text-sm font-mono gap-1"
                 >
-                  <span className="text-muted-foreground w-7 text-right text-xs shrink-0">
+                  <span className="text-muted-foreground w-7 text-right text-sm shrink-0">
                     {pair.number}.
                   </span>
                   <button

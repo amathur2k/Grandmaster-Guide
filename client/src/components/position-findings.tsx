@@ -85,14 +85,14 @@ function FindingRow({ item, category, onMouseEnter, onMouseLeave }: FindingRowPr
       data-testid={`finding-${item.type}`}
     >
       <div className="flex items-center gap-1.5 mb-0.5">
-        <span className={`text-[9px] font-bold uppercase tracking-wide leading-none ${labelColorClasses}`}>
+        <span className={`text-xs font-bold leading-none ${labelColorClasses}`}>
           {categoryLabel(item.type)}
         </span>
-        <span className="text-[9px] text-muted-foreground/60 ml-auto shrink-0 leading-none">
+        <span className="text-xs text-muted-foreground ml-auto shrink-0 leading-none">
           {item.side === "White" ? "W" : "B"}
         </span>
       </div>
-      <p className="text-[10px] text-foreground/80 leading-tight">
+      <p className="text-xs text-foreground leading-tight">
         {trimDescription(item.description)}
       </p>
     </div>
@@ -124,7 +124,7 @@ export function PositionFindings({
     >
       <div className="px-2 py-1.5 border-b border-border bg-muted/30 shrink-0 flex items-center gap-1.5">
         <Shield className="w-3 h-3 text-muted-foreground" />
-        <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider leading-none">
+        <h3 className="text-xs font-semibold text-muted-foreground leading-none">
           Hints
         </h3>
         {loading && (
@@ -136,7 +136,7 @@ export function PositionFindings({
         {!analyzerReady && (
           <div className="flex flex-col items-center justify-center h-full gap-2 py-6">
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground/50" />
-            <p className="text-[10px] text-muted-foreground/60 text-center leading-tight">
+            <p className="text-xs text-muted-foreground text-center leading-tight">
               Analyzer starting…
             </p>
           </div>
@@ -153,7 +153,7 @@ export function PositionFindings({
         {analyzerReady && !loading && allFindings.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-1.5 py-6">
             <Crown className="w-4 h-4 text-muted-foreground/40" />
-            <p className="text-[10px] text-muted-foreground/60 text-center leading-tight">
+            <p className="text-xs text-muted-foreground text-center leading-tight">
               No notable findings
             </p>
           </div>
@@ -165,7 +165,7 @@ export function PositionFindings({
               <div className="space-y-1">
                 <div className="flex items-center gap-1 px-1">
                   <AlertTriangle className="w-2.5 h-2.5 text-amber-500/70" />
-                  <span className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-wide">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     Tactical
                   </span>
                 </div>
@@ -185,7 +185,7 @@ export function PositionFindings({
               <div className="space-y-1 mt-1">
                 <div className="flex items-center gap-1 px-1">
                   <Shield className="w-2.5 h-2.5 text-blue-500/70" />
-                  <span className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-wide">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     Strategic
                   </span>
                 </div>
@@ -205,7 +205,7 @@ export function PositionFindings({
               <div className="space-y-1 mt-1">
                 <div className="flex items-center gap-1 px-1">
                   <Crown className="w-2.5 h-2.5 text-purple-500/70" />
-                  <span className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-wide">
+                  <span className="text-xs font-semibold text-muted-foreground">
                     Endgame
                   </span>
                 </div>

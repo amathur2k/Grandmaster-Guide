@@ -116,7 +116,7 @@ function PlayerBand({ name, rating, color, captured, netAdvantage, clock, isBott
               </span>
             ))}
             {netAdvantage > 0 && (
-              <span className="ml-1 text-[11px] font-semibold" style={{ color: "#1e3a5f" }}>+{netAdvantage}</span>
+              <span className="ml-1 text-xs font-semibold" style={{ color: "#1e3a5f" }}>+{netAdvantage}</span>
             )}
           </span>
         )}
@@ -1104,10 +1104,10 @@ export default function ChessCoach() {
         <div className="flex items-center gap-3">
           <img src={logoPath} alt="Chess Analysis" className="w-9 h-9 object-contain" />
           <div>
-            <h1 className="text-base font-bold leading-tight" data-testid="text-app-title">
+            <h1 className="text-lg font-bold leading-tight" data-testid="text-app-title">
               Chess Analysis
             </h1>
-            <p className="text-xs text-muted-foreground leading-tight">
+            <p className="text-sm text-muted-foreground leading-tight">
               Your personal chess coach
             </p>
           </div>
@@ -1128,11 +1128,11 @@ export default function ChessCoach() {
           />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-muted-foreground font-medium">Analyse as:</span>
+          <span className="text-sm text-muted-foreground font-medium">Analyse as:</span>
           <div className="flex items-center gap-1.5 border border-border rounded-md p-0.5" data-testid="player-color-selector">
             <button
               onClick={() => { setPlayerColor("white"); setBoardOrientation("white"); }}
-              className={`text-xs font-medium px-2.5 py-1 rounded-sm transition-colors ${
+              className={`text-sm font-medium px-2.5 py-1 rounded-sm transition-colors ${
                 playerColor === "white"
                   ? "bg-foreground text-background"
                   : "text-muted-foreground"
@@ -1143,7 +1143,7 @@ export default function ChessCoach() {
             </button>
             <button
               onClick={() => { setPlayerColor("black"); setBoardOrientation("black"); }}
-              className={`text-xs font-medium px-2.5 py-1 rounded-sm transition-colors ${
+              className={`text-sm font-medium px-2.5 py-1 rounded-sm transition-colors ${
                 playerColor === "black"
                   ? "bg-foreground text-background"
                   : "text-muted-foreground"
@@ -1154,7 +1154,7 @@ export default function ChessCoach() {
             </button>
           </div>
           <span
-            className={`text-xs font-medium px-2 py-1 rounded-md ${
+            className={`text-sm font-medium px-2 py-1 rounded-md ${
               hasError
                 ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                 : isReady
@@ -1166,7 +1166,7 @@ export default function ChessCoach() {
             {hasError ? "Unavailable" : isReady ? "Ready" : "Loading..."}
           </span>
           <span
-            className="text-xs font-medium px-2 py-1 rounded-md bg-muted text-muted-foreground"
+            className="text-sm font-medium px-2 py-1 rounded-md bg-muted text-muted-foreground"
             data-testid="status-game"
           >
             {gameStatus}
@@ -1199,7 +1199,7 @@ export default function ChessCoach() {
             <a
               href="/api/auth/google"
               onClick={() => analytics.signInStarted()}
-              className="ml-auto text-xs font-medium text-primary hover:underline"
+              className="ml-auto text-sm font-medium text-primary hover:underline"
               data-testid="link-sign-in"
             >
               Sign in with Google
@@ -1434,7 +1434,7 @@ export default function ChessCoach() {
             {isComputingScores && (
               <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-md flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                <span className="text-xs font-medium text-muted-foreground" data-testid="text-computing-scores">
+                <span className="text-sm font-medium text-muted-foreground" data-testid="text-computing-scores">
                   Computing evaluations... {computeProgress.current}/{computeProgress.total}
                 </span>
               </div>
@@ -1443,8 +1443,8 @@ export default function ChessCoach() {
 
           <div className="flex-1 min-h-[100px] border border-border rounded-md overflow-hidden bg-muted/20 flex flex-col mx-4 mb-4">
             <div className="px-3 py-1.5 border-b border-border bg-muted/40 shrink-0">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                What if ?
+              <h3 className="text-sm font-semibold text-muted-foreground">
+                What if?
               </h3>
             </div>
             <div className="flex-1 overflow-auto">
@@ -1460,7 +1460,7 @@ export default function ChessCoach() {
         <div className="flex-1 min-w-[320px] max-w-[480px] border-l border-border flex flex-col min-h-0">
           <div className="border-b border-border shrink-0">
             <div className="flex items-center px-4 pt-2 pb-1">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <h3 className="text-sm font-semibold text-muted-foreground">
                 Best Moves
               </h3>
             </div>

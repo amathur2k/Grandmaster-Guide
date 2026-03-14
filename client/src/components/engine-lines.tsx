@@ -112,7 +112,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
   if (!isReady) {
     return (
       <div className="px-4 py-3">
-        <p className="text-xs text-muted-foreground italic">Loading...</p>
+        <p className="text-sm text-muted-foreground italic">Loading...</p>
       </div>
     );
   }
@@ -120,7 +120,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
   if (displayLines.length === 0) {
     return (
       <div className="px-4 py-3">
-        <p className="text-xs text-muted-foreground italic">Calculating best moves...</p>
+        <p className="text-sm text-muted-foreground italic">Calculating best moves...</p>
       </div>
     );
   }
@@ -137,7 +137,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
             data-testid={`engine-line-${line.index}`}
           >
             <span
-              className={`text-xs font-mono font-bold w-12 text-right shrink-0 ${
+              className={`text-sm font-mono font-bold w-14 text-right shrink-0 ${
                 line.isNeutral
                   ? "text-muted-foreground"
                   : line.isPositive
@@ -149,7 +149,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
               {line.score}
             </span>
             <span
-              className="text-xs font-mono text-foreground truncate flex-1"
+              className="text-sm font-mono text-foreground truncate flex-1"
               data-testid={`engine-pv-${line.index}`}
             >
               {line.pvMoveInfos.map((moveInfo, mi) => {
@@ -165,7 +165,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
 
                 return (
                   <span key={mi}>
-                    {prefix && <span className="text-muted-foreground/70 mr-0.5">{prefix}</span>}
+                    {prefix && <span className="text-muted-foreground mr-0.5">{prefix}</span>}
                     <span
                       className="text-foreground hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-sm transition-colors"
                       onMouseEnter={() => handleHover(line.pvMoveInfos, mi, line.startMoveNum, isBlackStart)}
