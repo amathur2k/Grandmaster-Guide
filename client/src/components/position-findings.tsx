@@ -119,13 +119,13 @@ export function PositionFindings({
   return (
     <div
       className="flex flex-col h-full border border-border rounded-md overflow-hidden bg-muted/10"
-      style={{ width: 220 }}
+      style={{ width: 264 }}
       data-testid="position-findings-panel"
     >
       <div className="px-2 py-1.5 border-b border-border bg-muted/30 shrink-0 flex items-center gap-1.5">
         <Shield className="w-3 h-3 text-muted-foreground" />
         <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider leading-none">
-          Findings
+          Hints
         </h3>
         {loading && (
           <Loader2 className="w-3 h-3 animate-spin text-muted-foreground ml-auto" />
