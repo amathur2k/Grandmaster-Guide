@@ -228,6 +228,23 @@ export function CoachConsole({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [theoriaStatus, setTheoriaStatus] = useState<{ ready: boolean; downloading: boolean; hasBinary: boolean } | null>(null);
+  const [analyzerStatus, setAnalyzerStatus] = useState<"starting" | "ready" | "unavailable">("starting");
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/python-analyzer-status");
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          setAnalyzerStatus(data.status as "starting" | "ready" | "unavailable");
+        }
+      } catch {}
+    };
+    poll();
+    const interval = setInterval(poll, 3000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
 
   useEffect(() => {
     if (!useTheoria) {
@@ -412,22 +429,37 @@ export function CoachConsole({
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  onClick={() => onToggleFeatures(!useFeatures)}
+                  onClick={() => analyzerStatus === "ready" && onToggleFeatures(!useFeatures)}
+                  disabled={analyzerStatus !== "ready"}
                   className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-                    useFeatures
+                    analyzerStatus !== "ready"
+                      ? "bg-muted text-muted-foreground/50 border border-border/50 cursor-not-allowed opacity-60"
+                      : useFeatures
                       ? "bg-primary/10 text-primary border border-primary/30"
                       : "bg-muted text-muted-foreground border border-border"
                   }`}
                   data-testid="toggle-features"
                 >
-                  <Microscope className="w-3 h-3" />
-                  {useFeatures ? "Position Detail ON" : "Position Detail OFF"}
+                  {analyzerStatus === "starting" ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Microscope className="w-3 h-3" />
+                  )}
+                  {analyzerStatus === "starting"
+                    ? "Starting..."
+                    : analyzerStatus === "unavailable"
+                    ? "Unavailable"
+                    : useFeatures ? "Position Detail ON" : "Position Detail OFF"}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-[220px]">
                 <p className="text-xs">
-                  {useFeatures
-                    ? "The coach receives extra detail about the position — material balance, piece activity, king safety, and pawn structure."
+                  {analyzerStatus === "starting"
+                    ? "Position analysis is starting up. It will be available shortly."
+                    : analyzerStatus === "unavailable"
+                    ? "Position analysis is currently unavailable. The system will keep trying to restart it."
+                    : useFeatures
+                    ? "The coach receives rich tactical and strategic detail about the position — forks, pins, king safety, pawn structure, center control, and more."
                     : "Extra position detail is off. The coach uses only the best-move lines."}
                 </p>
               </TooltipContent>

@@ -7,7 +7,7 @@ import { analyzePositionSchema, coachChatSchema, type User } from "@shared/schem
 import { stockfishService } from "./stockfish-service";
 import { theoriaService } from "./theoria-service";
 import { sendGA4Event } from "./analytics";
-import { analyzePosition, formatFeaturesForPrompt } from "./position-analyzer";
+import { pythonAnalyzerService, formatFeaturesForPrompt } from "./python-analyzer-service";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -108,7 +108,7 @@ const getPositionFeaturesTool: OpenAI.ChatCompletionTool = {
   function: {
     name: "get_position_features",
     description:
-      "Compute positional features for a chess position: material balance (Kaufman values), piece mobility, king safety (pawn shield), and pawn structure (doubled/isolated/passed). Use before discussing plans that change the position significantly.",
+      "Analyze a chess position for tactical themes (hanging pieces, forks, pins, skewers, discovered attacks, overloaded defenders, trapped pieces, mating threats), strategic factors (development, center control, rook placement, outposts, weak squares, bad bishops, backward pawns, space, piece coordination), and endgame factors (active king, opposition, outside passers, rook behind passer, pawn majorities, king cutoff). Returns structured findings with plain-English descriptions. Use before discussing plans that change the position significantly.",
     parameters: {
       type: "object",
       properties: {
@@ -243,7 +243,7 @@ function formatScore(score: number, mate: number | null): string {
   return `${score > 0 ? "+" : ""}${score.toFixed(2)}`;
 }
 
-function buildContextMessage(data: {
+async function buildContextMessage(data: {
   fen: string;
   pgn: string;
   evaluation: string;
@@ -268,12 +268,12 @@ function buildContextMessage(data: {
   }
 
   let featuresBlock = "";
-  if (data.useFeatures) {
+  if (data.useFeatures && pythonAnalyzerService.isReady()) {
     try {
-      const features = analyzePosition(data.fen);
+      const features = await pythonAnalyzerService.analyze(data.fen);
       featuresBlock = "\n\n" + formatFeaturesForPrompt(features);
     } catch (e) {
-      console.error("[position-analyzer] Error computing features:", e);
+      console.error("[python-analyzer] Error computing features:", e);
     }
   }
 
@@ -332,10 +332,18 @@ async function handleToolCall(
       if (!cleanFen) {
         return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Invalid FEN string" }) };
       }
-      const result = analyzePosition(cleanFen);
-      console.log(`[${tag}] get_position_features => summary="${result.summary.slice(0, 120)}"`);
-      sendGA4Event(clientId, "llm_get_position_features", { tag }).catch(() => {});
-      return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
+      if (!pythonAnalyzerService.isReady()) {
+        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Position analyzer is starting up" }) };
+      }
+      try {
+        const result = await pythonAnalyzerService.analyze(cleanFen);
+        console.log(`[${tag}] get_position_features => summary="${result.summary.slice(0, 120)}"`);
+        sendGA4Event(clientId, "llm_get_position_features", { tag }).catch(() => {});
+        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
+      } catch (e: any) {
+        console.error(`[${tag}] get_position_features error:`, e?.message);
+        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Position analysis failed" }) };
+      }
     }
     if (name === "get_theoria_insights") {
       const fen = args.fen || "";
@@ -396,7 +404,7 @@ export async function registerRoutes(
         }
       }
 
-      const contextMessage = buildContextMessage({ ...positionData, useFeatures, theoriaText });
+      const contextMessage = await buildContextMessage({ ...positionData, useFeatures, theoriaText });
       const activeTools = getTools(useToolCalling, useFeatures, useTheoria);
 
       const msgs: OpenAI.ChatCompletionMessageParam[] = [
@@ -463,7 +471,7 @@ export async function registerRoutes(
         }
       }
 
-      const contextMessage = buildContextMessage({ ...positionData, useFeatures, theoriaText });
+      const contextMessage = await buildContextMessage({ ...positionData, useFeatures, theoriaText });
       const activeTools = getTools(useToolCalling, useFeatures, useTheoria);
 
       res.setHeader("Content-Type", "text/event-stream");
@@ -748,6 +756,11 @@ export async function registerRoutes(
     } catch {
       res.status(500).json({ error: "Failed to fetch games from Lichess" });
     }
+  });
+
+  app.get("/api/python-analyzer-status", (_req, res) => {
+    const { status, retries } = pythonAnalyzerService.getStatus();
+    res.json({ ready: status === "ready", status, retries });
   });
 
   app.get("/api/theoria-status", (_req, res) => {
