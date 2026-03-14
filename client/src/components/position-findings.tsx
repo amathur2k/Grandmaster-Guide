@@ -7,7 +7,7 @@ interface Finding {
   squares: string[];
 }
 
-interface RichPositionFeatures {
+export interface RichPositionFeatures {
   tactical: Finding[];
   strategic: Finding[];
   endgame: Finding[];

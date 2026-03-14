@@ -3,7 +3,7 @@ import { Chess, type Square } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import { useStockfish } from "@/hooks/use-stockfish";
 import { EvalBar } from "@/components/eval-bar";
-import { PositionFindings } from "@/components/position-findings";
+import { PositionFindings, type RichPositionFeatures } from "@/components/position-findings";
 import { MoveHistory } from "@/components/move-history";
 import { EngineLines } from "@/components/engine-lines";
 import { EvalGraph } from "@/components/eval-graph";
@@ -272,7 +272,7 @@ export default function ChessCoach() {
   const [hoverArrows, setHoverArrows] = useState<Array<{ from: string; to: string; moveNum: number }>>([]);
   const [hoveredSquare, setHoveredSquare] = useState<string | null>(null);
   const [hoveredFindingSquares, setHoveredFindingSquares] = useState<string[]>([]);
-  const [positionFindings, setPositionFindings] = useState<any | null>(null);
+  const [positionFindings, setPositionFindings] = useState<RichPositionFeatures | null>(null);
   const [findingsLoading, setFindingsLoading] = useState(false);
   const [analyzerReady, setAnalyzerReady] = useState(false);
   const findingsAbortRef = useRef<AbortController | null>(null);
@@ -1205,7 +1205,7 @@ export default function ChessCoach() {
 
             <EvalBar evaluation={evaluation} isReady={isReady} />
 
-            {useFeatures && (
+            {useFeatures && analyzerReady && (
               <div className="self-start shrink-0" style={{ height: boardSize }}>
                 <PositionFindings
                   findings={positionFindings}
