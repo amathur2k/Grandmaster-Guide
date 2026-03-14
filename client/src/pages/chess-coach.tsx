@@ -1198,45 +1198,49 @@ export default function ChessCoach() {
       </header>
 
       <div className="flex-1 flex min-h-0 overflow-hidden">
-        <div className="flex flex-1 min-h-0 min-w-0">
-          <div className="flex items-stretch pt-4 pl-4 pb-0">
+        <div className="flex flex-col flex-1 min-h-0 min-w-0">
+
+          {/* ── Board row: EvalBar + Findings + Board col ── */}
+          <div className="flex items-stretch gap-2 pt-4 px-4 shrink-0">
+
             <EvalBar evaluation={evaluation} isReady={isReady} />
-          </div>
 
-          {useFeatures && (
-            <div className="flex items-start pt-4 pl-3 pb-0" style={{ height: boardSize + 16 }}>
-              <PositionFindings
-                findings={positionFindings}
-                loading={findingsLoading}
-                analyzerReady={analyzerReady}
-                useFeatures={useFeatures}
-                onHoverSquares={setHoveredFindingSquares}
-              />
-            </div>
-          )}
-
-          <div className="flex flex-col flex-1 min-w-0 pt-4 px-4 pb-0 gap-1" style={{ minWidth: 520 }}>
-            {/* Top player band (opponent) */}
-            {gameMeta && (
-              <div style={{ width: boardSize }} className="mx-auto shrink-0">
-                <PlayerBand
-                  name={boardOrientation === "white" ? gameMeta.black.name : gameMeta.white.name}
-                  rating={boardOrientation === "white" ? gameMeta.black.rating : gameMeta.white.rating}
-                  color={boardOrientation === "white" ? "black" : "white"}
-                  captured={boardOrientation === "white" ? blackCaptured : whiteCaptured}
-                  netAdvantage={boardOrientation === "white" ? blackAdv : whiteAdv}
-                  clock={boardOrientation === "white" ? blackClock : whiteClock}
-                  isBottom={false}
+            {useFeatures && (
+              <div className="self-start shrink-0" style={{ height: boardSize }}>
+                <PositionFindings
+                  findings={positionFindings}
+                  loading={findingsLoading}
+                  analyzerReady={analyzerReady}
+                  useFeatures={useFeatures}
+                  onHoverSquares={setHoveredFindingSquares}
                 />
               </div>
             )}
 
-            <div
-              ref={boardContainerRef}
-              className="flex items-center justify-center min-h-0"
-              style={{ flex: "0 0 auto" }}
-            >
-              <div style={{ width: boardSize, height: boardSize, position: "relative" }}>
+            {/* Board col: player bands + board + nav */}
+            <div className="flex flex-col gap-1 items-center flex-1 min-w-0">
+
+              {/* Top player band (opponent) */}
+              {gameMeta && (
+                <div style={{ width: boardSize }} className="mx-auto shrink-0">
+                  <PlayerBand
+                    name={boardOrientation === "white" ? gameMeta.black.name : gameMeta.white.name}
+                    rating={boardOrientation === "white" ? gameMeta.black.rating : gameMeta.white.rating}
+                    color={boardOrientation === "white" ? "black" : "white"}
+                    captured={boardOrientation === "white" ? blackCaptured : whiteCaptured}
+                    netAdvantage={boardOrientation === "white" ? blackAdv : whiteAdv}
+                    clock={boardOrientation === "white" ? blackClock : whiteClock}
+                    isBottom={false}
+                  />
+                </div>
+              )}
+
+              <div
+                ref={boardContainerRef}
+                className="flex items-center justify-center min-h-0"
+                style={{ flex: "0 0 auto" }}
+              >
+                <div style={{ width: boardSize, height: boardSize, position: "relative" }}>
                 <Chessboard
                   id="chess-board"
                   position={game.fen()}
@@ -1398,35 +1402,37 @@ export default function ChessCoach() {
               </Button>
             </div>
 
-            <div className="shrink-0 relative">
-              <EvalGraph
-                scores={hasScores ? scoreHistory : []}
-                currentMoveIndex={currentMoveIndex}
-                onMoveClick={goToMove}
-              />
-              {isComputingScores && (
-                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-md flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span className="text-xs font-medium text-muted-foreground" data-testid="text-computing-scores">
-                    Computing evaluations... {computeProgress.current}/{computeProgress.total}
-                  </span>
-                </div>
-              )}
-            </div>
+            </div>{/* end board-col */}
+          </div>{/* end board-row */}
 
-            <div className="flex-1 min-h-[100px] border border-border rounded-md overflow-hidden bg-muted/20 flex flex-col">
-              <div className="px-3 py-1.5 border-b border-border bg-muted/40 shrink-0">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Gameline Tree
-                </h3>
+          <div className="shrink-0 relative px-4">
+            <EvalGraph
+              scores={hasScores ? scoreHistory : []}
+              currentMoveIndex={currentMoveIndex}
+              onMoveClick={goToMove}
+            />
+            {isComputingScores && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-md flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-xs font-medium text-muted-foreground" data-testid="text-computing-scores">
+                  Computing evaluations... {computeProgress.current}/{computeProgress.total}
+                </span>
               </div>
-              <div className="flex-1 overflow-auto">
-                <VariationTree
-                  tree={tree}
-                  currentPath={currentPath}
-                  onNodeClick={navigateToNode}
-                />
-              </div>
+            )}
+          </div>
+
+          <div className="flex-1 min-h-[100px] border border-border rounded-md overflow-hidden bg-muted/20 flex flex-col mx-4 mb-4">
+            <div className="px-3 py-1.5 border-b border-border bg-muted/40 shrink-0">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                What if ?
+              </h3>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <VariationTree
+                tree={tree}
+                currentPath={currentPath}
+                onNodeClick={navigateToNode}
+              />
             </div>
           </div>
         </div>
