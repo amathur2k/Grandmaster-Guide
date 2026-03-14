@@ -242,15 +242,12 @@ function sanitizeFen(fen: string): string | null {
 
 async function executeGetClassicalEval(fen: string, fallbackFen: string): Promise<string> {
   const cleanFen = sanitizeFen(fen) || sanitizeFen(fallbackFen);
-  if (!cleanFen) return "";
-  if (!classicalStockfishService.isReady()) return "";
-  try {
-    const result = await classicalStockfishService.getEvalFeatures(cleanFen);
-    return formatClassicalEvalForPrompt(result);
-  } catch (e) {
-    console.error("[classical-sf] executeGetClassicalEval error:", e instanceof Error ? e.message : String(e));
-    return "";
+  if (!cleanFen) throw new Error("Accuracy Check Module Down: invalid FEN");
+  if (!classicalStockfishService.isReady()) {
+    throw new Error("Accuracy Check Module Down: classical Stockfish 12 engine is not ready");
   }
+  const result = await classicalStockfishService.getEvalFeatures(cleanFen);
+  return formatClassicalEvalForPrompt(result);
 }
 
 async function callOpenAIWithRetry(
@@ -319,13 +316,8 @@ async function buildContextMessage(data: {
     }
   }
 
-  let classicalEvalBlock = "";
-  try {
-    const text = await executeGetClassicalEval(data.fen, "");
-    if (text) classicalEvalBlock = "\n\n" + text;
-  } catch (e) {
-    console.error("[classical-sf] buildContextMessage error:", e instanceof Error ? e.message : String(e));
-  }
+  const classicalEvalText = await executeGetClassicalEval(data.fen, "");
+  const classicalEvalBlock = "\n\n" + classicalEvalText;
 
   return `[Chess Position Context]
 Full PGN of the game: ${data.pgn || "No moves yet (starting position)"}
@@ -430,19 +422,13 @@ async function handleToolCall(
       const fen = args.fen || "";
       try {
         const text = await executeGetClassicalEval(fen, fallbackFen);
-        if (!text) {
-          return {
-            role: "tool",
-            tool_call_id: tc.id,
-            content: JSON.stringify({ error: "Classical eval not ready or invalid FEN" }),
-          };
-        }
         console.log(`[${tag}] get_classical_eval => OK for FEN="${fen.slice(0, 40)}..."`);
         sendGA4Event(clientId, "llm_get_classical_eval", { tag }).catch(() => {});
         return { role: "tool", tool_call_id: tc.id, content: text };
       } catch (e) {
-        console.error(`[${tag}] get_classical_eval error:`, e instanceof Error ? e.message : String(e));
-        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Classical eval failed" }) };
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(`[${tag}] get_classical_eval error:`, msg);
+        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: msg }) };
       }
     }
     return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: `Unknown tool: ${name}` }) };
@@ -511,12 +497,16 @@ export async function registerRoutes(
       res.json({ explanation: explanation || "I couldn't generate a response. Please try again." });
     } catch (error: unknown) {
       console.error("Error analyzing position:", error);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const isAccuracyModule = errMsg.startsWith("Accuracy Check Module Down");
       const isRateLimit =
         error instanceof Error &&
         "status" in error &&
         (error as { status: number }).status === 429;
-      const status = isRateLimit ? 429 : 500;
-      const msg = isRateLimit
+      const status = isAccuracyModule ? 503 : isRateLimit ? 429 : 500;
+      const msg = isAccuracyModule
+        ? errMsg
+        : isRateLimit
         ? "AI service is busy. Please wait a moment and try again."
         : "Failed to analyze position";
       res.status(status).json({ error: msg });
@@ -700,15 +690,20 @@ export async function registerRoutes(
       }
     } catch (error: unknown) {
       console.error("Error in coach chat:", error);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const isAccuracyModule = errMsg.startsWith("Accuracy Check Module Down");
       const isRateLimit =
         error instanceof Error &&
         "status" in error &&
         (error as { status: number }).status === 429;
-      const msg = isRateLimit
+      const status = isAccuracyModule ? 503 : isRateLimit ? 429 : 500;
+      const msg = isAccuracyModule
+        ? errMsg
+        : isRateLimit
         ? "AI service is busy. Please wait a moment and try again."
         : "Failed to get coach response";
       if (!res.headersSent) {
-        res.status(isRateLimit ? 429 : 500).json({ error: msg });
+        res.status(status).json({ error: msg });
       } else {
         res.write(`data: ${JSON.stringify({ type: "error", text: msg })}\n\n`);
         res.end();
