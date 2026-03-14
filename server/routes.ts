@@ -420,6 +420,8 @@ export async function registerRoutes(
           model: MODEL,
           messages: msgs,
           max_completion_tokens: 8192,
+          temperature: 0.1,
+          frequency_penalty: 0.6,
           tools: activeTools,
         });
         const choice = response.choices[0];
@@ -535,6 +537,8 @@ export async function registerRoutes(
             model: MODEL,
             messages: chatMessages,
             max_completion_tokens: 8192,
+            temperature: 0.1,
+            frequency_penalty: 0.6,
             tools: activeTools,
             stream: true,
           });
