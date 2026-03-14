@@ -1218,7 +1218,7 @@ export default function ChessCoach() {
             )}
 
             {/* Board col: player bands + board + nav */}
-            <div className="flex flex-col gap-1 items-center flex-1 min-w-0">
+            <div className="flex flex-col gap-1 items-center shrink-0">
 
               {/* Top player band (opponent) */}
               {gameMeta && (
@@ -1403,6 +1403,15 @@ export default function ChessCoach() {
             </div>
 
             </div>{/* end board-col */}
+
+            <div className="flex-1 min-w-0 min-h-0 self-stretch border border-border rounded-md overflow-hidden">
+              <MoveHistory
+                moves={allMoves}
+                currentMoveIndex={currentMoveIndex}
+                onMoveClick={goToMove}
+              />
+            </div>
+
           </div>{/* end board-row */}
 
           <div className="shrink-0 relative px-4">
@@ -1438,13 +1447,6 @@ export default function ChessCoach() {
         </div>
 
         <div className="flex-1 min-w-[320px] max-w-[480px] border-l border-border flex flex-col min-h-0">
-          <div className="h-[160px] border-b border-border overflow-hidden shrink-0">
-            <MoveHistory
-              moves={allMoves}
-              currentMoveIndex={currentMoveIndex}
-              onMoveClick={goToMove}
-            />
-          </div>
           <div className="border-b border-border shrink-0">
             <div className="flex items-center px-4 pt-2 pb-1">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
