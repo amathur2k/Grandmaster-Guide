@@ -303,6 +303,7 @@ async function handleToolCall(
   fallbackFen: string,
   tag: string,
   clientId = "server",
+  lastMove?: string,
 ): Promise<OpenAI.ChatCompletionToolMessageParam> {
   const name = tc.function.name;
   try {
@@ -337,7 +338,7 @@ async function handleToolCall(
         return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Position analyzer is starting up" }) };
       }
       try {
-        const result = await pythonAnalyzerService.analyze(cleanFen);
+        const result = await pythonAnalyzerService.analyze(cleanFen, lastMove);
         console.log(`[${tag}] get_position_features => summary="${result.summary.slice(0, 120)}"`);
         sendGA4Event(clientId, "llm_get_position_features", { tag }).catch(() => {});
         return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
@@ -428,7 +429,7 @@ export async function registerRoutes(
           msgs.push(choice.message);
           const clientId = req.sessionID || "server";
           for (const tc of choice.message.tool_calls) {
-            msgs.push(await handleToolCall(tc, positionData.fen, "analyze", clientId));
+            msgs.push(await handleToolCall(tc, positionData.fen, "analyze", clientId, positionData.lastMove));
           }
           continue;
         }
@@ -597,6 +598,7 @@ export async function registerRoutes(
               positionData.fen,
               "chat",
               clientId,
+              positionData.lastMove,
             ));
           }
 
