@@ -118,7 +118,7 @@ export function PositionFindings({
 
   return (
     <div
-      className="flex flex-col min-h-0 border border-border rounded-md overflow-hidden bg-muted/10"
+      className="flex flex-col h-full min-h-0 border border-border rounded-md overflow-hidden bg-muted/10"
       style={{ width: 264 }}
       data-testid="position-findings-panel"
     >
@@ -132,7 +132,7 @@ export function PositionFindings({
         )}
       </div>
 
-      <div className="overflow-y-auto p-1.5 flex flex-col gap-1" style={{ maxHeight: 260 }}>
+      <div className="overflow-y-auto p-1.5 flex flex-col gap-1" style={{ maxHeight: "calc(100% - 32px)" }}>
         {!analyzerReady && (
           <div className="flex flex-col items-center justify-center h-full gap-2 py-6">
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground/50" />

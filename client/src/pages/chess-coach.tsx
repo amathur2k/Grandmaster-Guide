@@ -1212,7 +1212,7 @@ export default function ChessCoach() {
             <EvalBar evaluation={evaluation} isReady={isReady} />
 
             {useFeatures && analyzerReady && (
-              <div className="shrink-0" style={{ height: "calc(100% - 5px)" }}>
+              <div className="shrink-0" style={{ maxHeight: boardSize + (gameMeta ? 108 : 44) }}>
                 <PositionFindings
                   findings={positionFindings}
                   loading={findingsLoading}
