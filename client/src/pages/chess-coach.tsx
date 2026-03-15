@@ -1265,8 +1265,8 @@ export default function ChessCoach() {
                     ...Object.fromEntries((hoveredFindingSquares ?? []).map(sq => [sq, { backgroundColor: "rgba(100, 160, 255, 0.45)" }])),
                   }}
                   customArrows={[
-                    ...(engineMoveArrows ?? []).filter(a => a.type === "second").map(a => [a.from as Square, a.to as Square, "rgba(100, 220, 100, 0.75)"] as [Square, Square, string]),
-                    ...(engineMoveArrows ?? []).filter(a => a.type === "best").map(a => [a.from as Square, a.to as Square, "rgba(0, 130, 0, 0.85)"] as [Square, Square, string]),
+                    ...((hoverArrows ?? []).length > 0 ? [] : (engineMoveArrows ?? []).filter(a => a.type === "second").map(a => [a.from as Square, a.to as Square, "rgba(100, 220, 100, 0.75)"] as [Square, Square, string])),
+                    ...((hoverArrows ?? []).length > 0 ? [] : (engineMoveArrows ?? []).filter(a => a.type === "best").map(a => [a.from as Square, a.to as Square, "rgba(0, 130, 0, 0.85)"] as [Square, Square, string])),
                     ...(hoverArrows ?? []).map(a => [a.from as Square, a.to as Square, "rgba(255, 170, 0, 0.75)"] as [Square, Square, string]),
                   ]}
                   animationDuration={200}
@@ -1276,7 +1276,7 @@ export default function ChessCoach() {
                       style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 10 }}
                       data-testid="arrow-overlay"
                     >
-                      {(engineMoveArrows ?? []).map((ea, i) => {
+                      {(hoverArrows ?? []).length === 0 && (engineMoveArrows ?? []).map((ea, i) => {
                         const pos = getArrowMidpoint(ea.from, ea.to, boardSize, boardOrientation);
                         return (
                           <div
