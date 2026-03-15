@@ -407,7 +407,9 @@ export default function ChessCoach() {
         const width = boardContainerRef.current.clientWidth;
         // Reserve space for: eval graph (86px) + nav row (36px) + board-col gap (4px)
         // + board-row pt-4 (16px) + What-if minimum visible space (150px)
-        const maxFromHeight = leftColRef.current.clientHeight - 292;
+        // + player bands (~30px each) when a game with metadata is loaded
+        const playerBandsHeight = gameMeta ? 60 : 0;
+        const maxFromHeight = leftColRef.current.clientHeight - 292 - playerBandsHeight;
         const size = Math.max(100, Math.min(width, maxFromHeight, 520));
         setBoardSize(size);
       }
@@ -418,7 +420,8 @@ export default function ChessCoach() {
     if (boardContainerRef.current) observer.observe(boardContainerRef.current);
     if (leftColRef.current) observer.observe(leftColRef.current);
     return () => observer.disconnect();
-  }, []);
+  }, [gameMeta]);
+
 
 
   useEffect(() => {
@@ -1221,7 +1224,7 @@ export default function ChessCoach() {
             )}
 
             {/* Board col: player bands + board + nav */}
-            <div ref={boardColRef} className="flex-1 min-w-0 flex flex-col gap-1 items-center">
+            <div ref={boardColRef} className="flex-1 min-w-0 flex flex-col gap-1 items-center self-start">
 
               {/* Top player band (opponent) */}
               {gameMeta && (
@@ -1407,7 +1410,7 @@ export default function ChessCoach() {
 
             </div>{/* end board-col */}
 
-            <div className="shrink-0 border border-border rounded-md overflow-hidden" style={{ width: 158 }}>
+            <div className="shrink-0 border border-border rounded-md overflow-hidden" style={{ width: 158, maxHeight: boardSize + (gameMeta ? 108 : 44) }}>
               <MoveHistory
                 moves={allMoves}
                 currentMoveIndex={currentMoveIndex}
