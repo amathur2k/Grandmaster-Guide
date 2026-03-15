@@ -118,7 +118,7 @@ export function PositionFindings({
 
   return (
     <div
-      className="flex flex-col h-full border border-border rounded-md overflow-hidden bg-muted/10"
+      className="flex flex-col h-full min-h-0 border border-border rounded-md overflow-hidden bg-muted/10"
       style={{ width: 264 }}
       data-testid="position-findings-panel"
     >
