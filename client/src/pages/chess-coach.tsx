@@ -290,9 +290,9 @@ export default function ChessCoach() {
   const [isComputingScores, setIsComputingScores] = useState(false);
   const [computeProgress, setComputeProgress] = useState({ current: 0, total: 0 });
   const boardContainerRef = useRef<HTMLDivElement>(null);
+  const leftColRef = useRef<HTMLDivElement>(null);
   const [boardSize, setBoardSize] = useState(400);
   const boardColRef = useRef<HTMLDivElement>(null);
-  const [boardColHeight, setBoardColHeight] = useState(boardSize);
   const isNavigatingRef = useRef(false);
   const [showPaywall, setShowPaywall] = useState(false);
 
@@ -403,31 +403,23 @@ export default function ChessCoach() {
 
   useEffect(() => {
     const updateBoardSize = () => {
-      if (boardContainerRef.current) {
-        const container = boardContainerRef.current;
-        const width = container.clientWidth;
-        const size = Math.min(width, 520);
+      if (boardContainerRef.current && leftColRef.current) {
+        const width = boardContainerRef.current.clientWidth;
+        // Reserve space for: eval graph (86px) + nav row (36px) + board-col gap (4px)
+        // + board-row pt-4 (16px) + What-if minimum visible space (150px)
+        const maxFromHeight = leftColRef.current.clientHeight - 292;
+        const size = Math.max(100, Math.min(width, maxFromHeight, 520));
         setBoardSize(size);
       }
     };
 
     updateBoardSize();
     const observer = new ResizeObserver(updateBoardSize);
-    if (boardContainerRef.current) {
-      observer.observe(boardContainerRef.current);
-    }
+    if (boardContainerRef.current) observer.observe(boardContainerRef.current);
+    if (leftColRef.current) observer.observe(leftColRef.current);
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    const update = () => {
-      if (boardColRef.current) setBoardColHeight(boardColRef.current.offsetHeight);
-    };
-    update();
-    const obs = new ResizeObserver(update);
-    if (boardColRef.current) obs.observe(boardColRef.current);
-    return () => obs.disconnect();
-  }, []);
 
   useEffect(() => {
     if (isReady && !isComputingScores) {
@@ -1209,7 +1201,7 @@ export default function ChessCoach() {
       </header>
 
       <div className="flex-1 flex min-h-0 overflow-hidden">
-        <div className="flex flex-col flex-1 min-h-0 min-w-0">
+        <div ref={leftColRef} className="flex flex-col flex-1 min-h-0 min-w-0">
 
           {/* ── Board row: EvalBar + Findings + Board col ── */}
           <div className="flex items-stretch gap-[10px] pt-4 px-4 shrink-0">
@@ -1229,7 +1221,7 @@ export default function ChessCoach() {
             )}
 
             {/* Board col: player bands + board + nav */}
-            <div ref={boardColRef} className="flex-1 flex flex-col gap-1 items-center">
+            <div ref={boardColRef} className="flex-1 min-w-0 flex flex-col gap-1 items-center">
 
               {/* Top player band (opponent) */}
               {gameMeta && (
@@ -1415,7 +1407,7 @@ export default function ChessCoach() {
 
             </div>{/* end board-col */}
 
-            <div className="shrink-0 border border-border rounded-md overflow-hidden" style={{ width: 158, height: boardColHeight }}>
+            <div className="shrink-0 border border-border rounded-md overflow-hidden" style={{ width: 158 }}>
               <MoveHistory
                 moves={allMoves}
                 currentMoveIndex={currentMoveIndex}

@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(node:*)",
+      "Bash(npm run:*)",
+      "WebFetch(domain:vrrdjniqzpuojrebbkcc.supabase.co)",
+      "Bash(npm install:*)",
+      "Bash(netstat:*)",
+      "Bash(grep:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd:*)",
+      "Bash(git checkout:*)",
+      "Bash(npx playwright:*)",
+      "Bash(cd:*)",
+      "Bash(mkdir:*)"
+    ]
+  }
+}
