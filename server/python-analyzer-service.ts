@@ -109,7 +109,8 @@ class PythonAnalyzerService {
 
     try {
       const scriptPath = path.join(process.cwd(), "server", "position_analyzer.py");
-      this.process = spawn("python3", [scriptPath], {
+      const pythonCmd = process.platform === "win32" ? "C:\\Python313\\python.exe" : "python3";
+      this.process = spawn(pythonCmd, [scriptPath], {
         stdio: ["pipe", "pipe", "pipe"],
       });
 
@@ -145,7 +146,7 @@ class PythonAnalyzerService {
         console.error("[python-analyzer] Process error:", err.message);
       });
 
-      console.log("[python-analyzer] Spawned python3 position_analyzer.py");
+      console.log("[python-analyzer] Spawned python position_analyzer.py");
     } catch (err: unknown) {
       console.error("[python-analyzer] Failed to spawn:", err instanceof Error ? err.message : String(err));
       const delay = Math.min(1000 * Math.pow(2, this.spawnAttempts - 1), 30000);

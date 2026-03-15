@@ -406,10 +406,10 @@ export default function ChessCoach() {
       if (boardContainerRef.current && leftColRef.current) {
         const width = boardContainerRef.current.clientWidth;
         // Reserve space for: eval graph (86px) + nav row (36px) + board-col gap (4px)
-        // + board-row pt-4 (16px) + What-if minimum visible space (150px)
+        // + board-row pt-4 (16px) + gaps (~10px)
         // + player bands (~30px each) when a game with metadata is loaded
         const playerBandsHeight = gameMeta ? 60 : 0;
-        const maxFromHeight = leftColRef.current.clientHeight - 292 - playerBandsHeight;
+        const maxFromHeight = leftColRef.current.clientHeight - 156 - playerBandsHeight;
         const size = Math.max(100, Math.min(width, maxFromHeight, 520));
         setBoardSize(size);
       }
@@ -1420,56 +1420,55 @@ export default function ChessCoach() {
 
           </div>{/* end board-row */}
 
-          <div className="shrink-0 relative px-4">
-            <EvalGraph
-              scores={hasScores ? scoreHistory : []}
-              currentMoveIndex={currentMoveIndex}
-              onMoveClick={goToMove}
-            />
-            {isComputingScores && (
-              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-md flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                <span className="text-sm font-medium text-muted-foreground" data-testid="text-computing-scores">
-                  Computing evaluations... {computeProgress.current}/{computeProgress.total}
-                </span>
-              </div>
-            )}
-          </div>
+          <div className="shrink-0 mt-auto flex flex-row items-end gap-2 px-4">
+            <div className="w-1/2 flex flex-col relative">
+              <EvalGraph
+                scores={hasScores ? scoreHistory : []}
+                currentMoveIndex={currentMoveIndex}
+                onMoveClick={goToMove}
+              />
+              {isComputingScores && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-md flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span className="text-sm font-medium text-muted-foreground" data-testid="text-computing-scores">
+                    Computing evaluations... {computeProgress.current}/{computeProgress.total}
+                  </span>
+                </div>
+              )}
+            </div>
 
-          <div className="flex-1 min-h-[100px] border border-border rounded-md overflow-hidden bg-muted/20 flex flex-col mx-4 mb-4">
-            <div className="px-3 py-1.5 border-b border-border bg-muted/40 shrink-0">
+            <div className="w-1/2 border border-border rounded-md overflow-hidden bg-muted/20 flex flex-col" style={{ height: 86 }}>
+              <div className="flex-1 overflow-auto">
+                <EngineLines
+                  lines={evaluation.lines}
+                  fen={game.fen()}
+                  turn={game.turn() as "w" | "b"}
+                  isReady={isReady}
+                  onExplainMove={explainMove}
+                  onAnalyzeLine={loadEngineLine}
+                  onHoverMoves={handleHoverMoves}
+                  onClickSequence={playCoachSequence}
+                  currentNodeId={currentNodeId}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 min-w-[320px] max-w-[480px] border-l border-border flex flex-col min-h-0">
+          <div className="border-b border-border flex-none">
+            <div className="flex items-center px-4 pt-2 pb-1">
               <h3 className="text-sm font-semibold text-muted-foreground">
                 What if?
               </h3>
             </div>
-            <div className="flex-1 overflow-auto">
+            <div className="overflow-auto" style={{ maxHeight: "calc(75vh - 40px)" }}>
               <VariationTree
                 tree={tree}
                 currentPath={currentPath}
                 onNodeClick={navigateToNode}
               />
             </div>
-          </div>
-        </div>
-
-        <div className="flex-1 min-w-[320px] max-w-[480px] border-l border-border flex flex-col min-h-0">
-          <div className="border-b border-border shrink-0">
-            <div className="flex items-center px-4 pt-2 pb-1">
-              <h3 className="text-sm font-semibold text-muted-foreground">
-                Best Moves
-              </h3>
-            </div>
-            <EngineLines
-              lines={evaluation.lines}
-              fen={game.fen()}
-              turn={game.turn() as "w" | "b"}
-              isReady={isReady}
-              onExplainMove={explainMove}
-              onAnalyzeLine={loadEngineLine}
-              onHoverMoves={handleHoverMoves}
-              onClickSequence={playCoachSequence}
-              currentNodeId={currentNodeId}
-            />
           </div>
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             <CoachConsole
@@ -1544,7 +1543,7 @@ export default function ChessCoach() {
         </div>
       )}
 
-      <footer className="border-t border-border px-4 py-1 text-center text-[10px] text-muted-foreground/40 mt-auto">
+      <footer className="border-t border-border px-4 py-0 text-center text-[8px] text-muted-foreground/40 mt-auto">
         <div className="flex flex-wrap items-center justify-center gap-4">
           <a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
           <a href="/terms" className="hover:text-foreground transition-colors">Terms of Use</a>

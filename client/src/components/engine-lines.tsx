@@ -126,7 +126,12 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
   }
 
   return (
-    <div className="px-3 py-2 space-y-1" data-testid="engine-lines">
+    <div className="flex items-center h-full" data-testid="engine-lines">
+      <div className="shrink-0 flex flex-col items-center justify-center px-2 self-stretch">
+        <span className="text-xs font-bold text-muted-foreground leading-tight">Best</span>
+        <span className="text-xs font-bold text-muted-foreground leading-tight">Moves</span>
+      </div>
+      <div className="flex-1 py-1.5 pr-1 space-y-1 overflow-hidden">
       {displayLines.map((line) => {
         const isBlackStart = line.startIsBlack;
 
@@ -204,6 +209,7 @@ export function EngineLines({ lines, fen, turn, isReady, onExplainMove, onAnalyz
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
