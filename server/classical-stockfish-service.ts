@@ -202,6 +202,14 @@ class ClassicalStockfishService {
       const lines = [...this.collectingLines];
       const reject = this.currentReject!;
       this.clearCurrent();
+      // Kill the stale process so the next request gets a fresh one
+      if (this.process) {
+        console.warn("[classical-sf] Timeout — killing stale SF12 process for restart");
+        try { this.process.kill(); } catch {}
+        this.process = null;
+        this.ready = false;
+        this.startupPromise = null;
+      }
       reject(new Error(`SF12 eval timed out. Collected ${lines.length} lines`));
       this.processQueue();
     }, 8000);
