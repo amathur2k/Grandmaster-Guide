@@ -243,9 +243,9 @@ function sanitizeFen(fen: string): string | null {
 async function executeGetClassicalEval(fen: string, fallbackFen: string): Promise<string> {
   const cleanFen = sanitizeFen(fen) || sanitizeFen(fallbackFen);
   if (!cleanFen) throw new Error("Accuracy Check Module Down: invalid FEN");
-  if (!classicalStockfishService.isReady()) {
-    throw new Error("Accuracy Check Module Down: classical Stockfish 12 engine is not ready");
-  }
+  // Don't gate on isReady() — getEvalFeatures() calls ensureProcess() internally,
+  // which restarts SF12 after a transient crash. Only permanent failures (unavailable=true)
+  // will bubble up as "Accuracy Check Module Down" errors.
   const result = await classicalStockfishService.getEvalFeatures(cleanFen);
   return formatClassicalEvalForPrompt(result);
 }

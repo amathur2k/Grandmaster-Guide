@@ -22,7 +22,7 @@ tar -xzf /tmp/sf12.tar.gz -C /tmp/
 
 echo "[build-sf12] Compiling SF12 in classical (no-NNUE) mode — may take 3-5 minutes..."
 LDFLAGS="-Wl,--dynamic-linker=/lib64/ld-linux-x86-64.so.2 -Wl,-rpath,/lib/x86_64-linux-gnu -Wl,-rpath,/usr/lib/x86_64-linux-gnu" \
-  make -C "$BUILD_SRC_DIR" build ARCH=x86-64-avx2 COMP=gcc EXE="$SF12_BIN" -j4
+  make -C "$BUILD_SRC_DIR" build ARCH=x86-64 COMP=gcc EXE="$SF12_BIN" -j4
 
 chmod +x "$SF12_BIN"
 

@@ -129,7 +129,7 @@ class ClassicalStockfishService {
 
     console.log("[classical-sf] Compiling SF12 classical (may take 3-5 minutes)...");
     await this.runAsync(
-      `make build ARCH=x86-64-avx2 COMP=gcc EXE="${SF12_BIN}" -j4`,
+      `make build ARCH=x86-64 COMP=gcc EXE="${SF12_BIN}" -j4`,
       { cwd: BUILD_SRC_DIR, timeout: 600_000 }
     );
 
@@ -243,6 +243,10 @@ class ClassicalStockfishService {
 
       this.process.on("exit", (code) => {
         console.log(`[classical-sf] Process exited (code ${code})`);
+        // Guard: if this.process is already null, the timeout handler killed this
+        // process and has already cleared state. Don't wipe a fresh restart's
+        // startupPromise that may have been created in the meantime.
+        if (this.process === null) return;
         this.ready = false;
         this.process = null;
         this.startupPromise = null;
