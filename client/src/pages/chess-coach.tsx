@@ -1456,13 +1456,13 @@ export default function ChessCoach() {
         </div>
 
         <div className="flex-1 min-w-[320px] max-w-[480px] border-l border-border flex flex-col min-h-0">
-          <div className="border-b border-border flex-none">
+          <div className="border-b border-border shrink-0 overflow-hidden" style={{ maxHeight: "35vh" }}>
             <div className="flex items-center px-4 pt-2 pb-1">
               <h3 className="text-sm font-semibold text-muted-foreground">
                 What if?
               </h3>
             </div>
-            <div className="overflow-auto" style={{ maxHeight: "calc(75vh - 40px)" }}>
+            <div className="overflow-auto" style={{ maxHeight: "calc(35vh - 40px)" }}>
               <VariationTree
                 tree={tree}
                 currentPath={currentPath}

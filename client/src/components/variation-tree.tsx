@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import type { VariationNode } from "@/pages/chess-coach";
 
 interface VariationTreeProps {
@@ -75,6 +75,13 @@ function countStepsBetween(from: VariationNode, to: VariationNode): number {
 
 export function VariationTree({ tree, currentPath, onNodeClick }: VariationTreeProps) {
   const currentNodeId = currentPath[currentPath.length - 1];
+  const activeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (activeRef.current) {
+      activeRef.current.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }, [currentNodeId]);
 
   const { nodes, lines, totalWidth, totalHeight } = useMemo(() => {
     const nodes: DisplayNode[] = [];
@@ -243,6 +250,7 @@ export function VariationTree({ tree, currentPath, onNodeClick }: VariationTreeP
       {nodes.map(node => (
         <button
           key={node.id}
+          ref={node.isCurrentNode ? activeRef : undefined}
           className={`absolute text-sm font-mono leading-none rounded px-1.5 py-1.5 border transition-colors truncate ${
             node.isCurrentNode
               ? "bg-primary text-primary-foreground border-primary font-bold shadow-sm"
