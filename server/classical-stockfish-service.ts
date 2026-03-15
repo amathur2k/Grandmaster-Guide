@@ -212,7 +212,7 @@ class ClassicalStockfishService {
       }
       reject(new Error(`SF12 eval timed out. Collected ${lines.length} lines`));
       this.processQueue();
-    }, 8000);
+    }, 30000);
 
     for (const cmd of item.commands) {
       this.process?.stdin?.write(cmd + "\n");
