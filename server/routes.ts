@@ -240,12 +240,9 @@ function sanitizeFen(fen: string): string | null {
   return cleaned;
 }
 
-async function executeGetClassicalEval(fen: string, fallbackFen: string): Promise<string | null> {
+async function executeGetClassicalEval(fen: string, fallbackFen: string): Promise<string> {
   const cleanFen = sanitizeFen(fen) || sanitizeFen(fallbackFen);
   if (!cleanFen) throw new Error("Accuracy Check Module Down: invalid FEN");
-  if (classicalStockfishService.isUnavailable()) {
-    return null;
-  }
   if (!classicalStockfishService.isReady()) {
     throw new Error("Accuracy Check Module Down: classical Stockfish 12 engine is not ready");
   }
@@ -320,7 +317,7 @@ async function buildContextMessage(data: {
   }
 
   const classicalEvalText = await executeGetClassicalEval(data.fen, "");
-  const classicalEvalBlock = classicalEvalText ? "\n\n" + classicalEvalText : "";
+  const classicalEvalBlock = "\n\n" + classicalEvalText;
 
   return `[Chess Position Context]
 Full PGN of the game: ${data.pgn || "No moves yet (starting position)"}
@@ -427,7 +424,7 @@ async function handleToolCall(
         const text = await executeGetClassicalEval(fen, fallbackFen);
         console.log(`[${tag}] get_classical_eval => OK for FEN="${fen.slice(0, 40)}..."`);
         sendGA4Event(clientId, "llm_get_classical_eval", { tag }).catch(() => {});
-        return { role: "tool", tool_call_id: tc.id, content: text ?? "Classical evaluation unavailable in this environment." };
+        return { role: "tool", tool_call_id: tc.id, content: text };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error(`[${tag}] get_classical_eval error:`, msg);

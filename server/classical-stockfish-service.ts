@@ -374,10 +374,6 @@ class ClassicalStockfishService {
     return this.ready && !this.unavailable;
   }
 
-  isUnavailable(): boolean {
-    return this.unavailable;
-  }
-
   getStatus(): { status: "starting" | "ready" | "unavailable" } {
     if (this.unavailable) return { status: "unavailable" };
     if (this.ready) return { status: "ready" };
