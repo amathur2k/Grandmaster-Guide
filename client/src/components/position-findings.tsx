@@ -161,7 +161,7 @@ export function PositionFindings({
 
         {analyzerReady && allFindings.length > 0 && (
           <>
-            {findings!.tactical.length > 0 && (
+            {allFindings.filter(f => f.category === "tactical").length > 0 && (
               <div className="space-y-1">
                 <div className="flex items-center gap-1 px-1">
                   <AlertTriangle className="w-2.5 h-2.5 text-amber-500/70" />
@@ -169,7 +169,7 @@ export function PositionFindings({
                     Tactical
                   </span>
                 </div>
-                {findings!.tactical.map((f, i) => (
+                {allFindings.filter(f => f.category === "tactical").map((f, i) => (
                   <FindingRow
                     key={`t-${i}`}
                     item={f}
@@ -181,7 +181,7 @@ export function PositionFindings({
               </div>
             )}
 
-            {findings!.strategic.slice(0, 4).length > 0 && (
+            {allFindings.filter(f => f.category === "strategic").length > 0 && (
               <div className="space-y-1 mt-1">
                 <div className="flex items-center gap-1 px-1">
                   <Shield className="w-2.5 h-2.5 text-blue-500/70" />
@@ -189,7 +189,7 @@ export function PositionFindings({
                     Strategic
                   </span>
                 </div>
-                {findings!.strategic.slice(0, 4).map((f, i) => (
+                {allFindings.filter(f => f.category === "strategic").map((f, i) => (
                   <FindingRow
                     key={`s-${i}`}
                     item={f}
@@ -201,7 +201,7 @@ export function PositionFindings({
               </div>
             )}
 
-            {findings!.is_endgame && findings!.endgame.slice(0, 3).length > 0 && (
+            {allFindings.filter(f => f.category === "endgame").length > 0 && (
               <div className="space-y-1 mt-1">
                 <div className="flex items-center gap-1 px-1">
                   <Crown className="w-2.5 h-2.5 text-purple-500/70" />
@@ -209,7 +209,7 @@ export function PositionFindings({
                     Endgame
                   </span>
                 </div>
-                {findings!.endgame.slice(0, 3).map((f, i) => (
+                {allFindings.filter(f => f.category === "endgame").map((f, i) => (
                   <FindingRow
                     key={`e-${i}`}
                     item={f}
