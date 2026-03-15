@@ -12,10 +12,10 @@ interface EvalGraphProps {
 }
 
 const CLAMP = 5;
-const PADDING_LEFT = 28;
+const PADDING_LEFT = 32;
 const PADDING_RIGHT = 4;
 const PADDING_TOP = 4;
-const PADDING_BOTTOM = 14;
+const PADDING_BOTTOM = 18;
 const GRAPH_HEIGHT = 72;
 const HEIGHT = GRAPH_HEIGHT + PADDING_BOTTOM;
 const VIEW_WIDTH = 620;
@@ -178,7 +178,7 @@ export function EvalGraph({ scores, currentMoveIndex, onMoveClick }: EvalGraphPr
               y={y}
               textAnchor="end"
               dominantBaseline="central"
-              fontSize="7"
+              fontSize="10"
               fill="#94a3b8"
               className="dark:fill-zinc-500"
             >
@@ -199,7 +199,7 @@ export function EvalGraph({ scores, currentMoveIndex, onMoveClick }: EvalGraphPr
             x={tick.x}
             y={GRAPH_HEIGHT + 10}
             textAnchor="middle"
-            fontSize="7"
+            fontSize="10"
             fill="#94a3b8"
             className="dark:fill-zinc-500"
           >
