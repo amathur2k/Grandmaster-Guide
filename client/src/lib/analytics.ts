@@ -53,6 +53,18 @@ export const analytics = {
     trackEvent("chat_message_sent", { authenticated: isAuthenticated });
   },
 
+  chesscoachInvoked() {
+    trackEvent("chesscoach_invoked");
+  },
+
+  chesscoachSuccess(latencyMs: number) {
+    trackEvent("chesscoach_success", { latency_ms: latencyMs });
+  },
+
+  chesscoachFailed(latencyMs: number) {
+    trackEvent("chesscoach_failed", { latency_ms: latencyMs });
+  },
+
   positionAnalyzed() {
     trackEvent("position_analyzed");
   },

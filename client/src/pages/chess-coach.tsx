@@ -767,6 +767,8 @@ export default function ChessCoach() {
 
   const sendChatMessage = useCallback(async (text: string) => {
     analytics.chatMessageSent(isAuthenticated);
+    analytics.chesscoachInvoked();
+    const invokeTime = Date.now();
     const msgFen = game.fen();
     const msgNodeId = currentNodeId;
     const userMessage: ChatMessageWithFen = { role: "user", text, fen: msgFen, nodeId: msgNodeId };
@@ -843,6 +845,7 @@ export default function ChessCoach() {
                 });
               }
             } else if (event.type === "done") {
+              analytics.chesscoachSuccess(Date.now() - invokeTime);
               if (useTheoria) analytics.theoriaContextLoaded();
               if (event.theoriaToolUsed) analytics.theoriaToolCalled();
             } else if (event.type === "error") {
@@ -862,6 +865,7 @@ export default function ChessCoach() {
       if (err instanceof DOMException && err.name === "AbortError") {
         return;
       }
+      analytics.chesscoachFailed(Date.now() - invokeTime);
       toast({
         title: "Chat Error",
         description: "Could not get a response. Please try again.",
