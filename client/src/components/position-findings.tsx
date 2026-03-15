@@ -108,17 +108,17 @@ export function PositionFindings({
 }: PositionFindingsProps) {
   if (!useFeatures) return null;
 
-  const allFindings = (findings
+  const allFindings = findings
     ? [
         ...findings.tactical.map(f => ({ ...f, category: "tactical" as const })),
         ...findings.strategic.slice(0, 4).map(f => ({ ...f, category: "strategic" as const })),
         ...findings.endgame.slice(0, 3).map(f => ({ ...f, category: "endgame" as const })),
       ]
-    : []).slice(0, 5);
+    : [];
 
   return (
     <div
-      className="flex flex-col h-full border border-border rounded-md overflow-hidden bg-muted/10"
+      className="flex flex-col min-h-0 border border-border rounded-md overflow-hidden bg-muted/10"
       style={{ width: 264 }}
       data-testid="position-findings-panel"
     >
@@ -132,7 +132,7 @@ export function PositionFindings({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0 p-1.5 flex flex-col gap-1">
+      <div className="overflow-y-auto p-1.5 flex flex-col gap-1" style={{ maxHeight: 260 }}>
         {!analyzerReady && (
           <div className="flex flex-col items-center justify-center h-full gap-2 py-6">
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground/50" />
