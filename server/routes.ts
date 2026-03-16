@@ -693,6 +693,26 @@ export async function registerRoutes(
           res.write(`data: ${JSON.stringify({ type: "status", text: statusText })}\n\n`);
         }
 
+        if (tokenCount === 0 && !clientDisconnected) {
+          console.log(`[chat] Tool rounds exhausted with 0 text tokens — forcing final response without tools`);
+          const forcedStream = await openai.chat.completions.create({
+            model: MODEL,
+            messages: chatMessages,
+            max_completion_tokens: 8192,
+            temperature: 0.1,
+            frequency_penalty: 0.6,
+            stream: true,
+          });
+          for await (const chunk of forcedStream) {
+            if (clientDisconnected) break;
+            const delta = chunk.choices[0]?.delta?.content;
+            if (!delta) continue;
+            finalResponse += delta;
+            tokenCount++;
+            res.write(`data: ${JSON.stringify({ type: "token", text: delta })}\n\n`);
+          }
+        }
+
         console.log(`[chat] Streamed ${tokenCount} tokens in ${Date.now() - startTime}ms`);
 
         logCoachInteraction({

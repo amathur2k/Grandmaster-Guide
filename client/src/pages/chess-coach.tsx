@@ -848,6 +848,10 @@ export default function ChessCoach() {
               analytics.chesscoachSuccess(Date.now() - invokeTime);
               if (useTheoria) analytics.theoriaContextLoaded();
               if (event.theoriaToolUsed) analytics.theoriaToolCalled();
+              if (modelMessageAdded && accumulated === "") {
+                setChatMessages(prev => prev.slice(0, -1));
+                modelMessageAdded = false;
+              }
             } else if (event.type === "error") {
               throw new Error(event.text);
             }
