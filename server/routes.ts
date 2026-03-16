@@ -9,6 +9,7 @@ import { theoriaService } from "./theoria-service";
 import { sendGA4Event } from "./analytics";
 import { pythonAnalyzerService, formatFeaturesForPrompt } from "./python-analyzer-service";
 import { classicalStockfishService, formatClassicalEvalForPrompt } from "./classical-stockfish-service";
+import { logCoachInteraction } from "./coach-logger";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -572,6 +573,9 @@ export async function registerRoutes(
           return;
         }
 
+        const userQuery = [...messages].reverse().find(m => m.role === "user")?.text ?? "";
+        let finalResponse = "";
+
         const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
           { role: "system", content: SYSTEM_PROMPT },
         ];
@@ -643,6 +647,7 @@ export async function registerRoutes(
           }
 
           if (!hasToolCalls || toolCallAccum.size === 0) {
+            finalResponse = assistantContent;
             for (const token of bufferedTokens) {
               if (clientDisconnected) break;
               tokenCount++;
@@ -689,6 +694,12 @@ export async function registerRoutes(
         }
 
         console.log(`[chat] Streamed ${tokenCount} tokens in ${Date.now() - startTime}ms`);
+
+        logCoachInteraction({
+          userQuery,
+          prompt: contextMessage,
+          response: finalResponse,
+        });
 
         clearInterval(heartbeat);
         if (!clientDisconnected) {
