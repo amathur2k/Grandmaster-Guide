@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { Chess } from "chess.js";
 import passport from "passport";
 import { analyzePositionSchema, coachChatSchema, type User } from "@shared/schema";
-import { stockfishService } from "./stockfish-service";
+
 import { theoriaService } from "./theoria-service";
 import { sendGA4Event } from "./analytics";
 import { pythonAnalyzerService, formatFeaturesForPrompt } from "./python-analyzer-service";
@@ -91,7 +91,7 @@ const evaluatePositionTool: OpenAI.ChatCompletionTool = {
   function: {
     name: "evaluate_position",
     description:
-      "Evaluate a chess position using Stockfish engine at depth 10. Returns centipawn score (White POV), mate distance, best move in SAN, and principal variation. Use this to verify whether a plan or idea actually works before suggesting it.",
+      "Evaluate a chess position using the Theoria engine at depth 10. Returns the top 3 candidate moves with centipawn scores (White POV), mate distances, best moves in SAN, and principal variations. Also includes 2 alternative lines so you can compare the engine's top choices. Use this to verify whether a plan or idea actually works before suggesting it.",
     parameters: {
       type: "object",
       properties: {
@@ -185,20 +185,34 @@ async function handleEvaluatePosition(fen: string, fallbackFen: string): Promise
     return { error: "Invalid FEN string" };
   }
   try {
-    const result = await stockfishService.evaluate(cleanFen, 10);
-    const bestMoveSan = uciToSan(cleanFen, result.bestMove);
-    const pvSan = pvToSan(cleanFen, result.pv.slice(0, 10));
+    const lines = await theoriaService.evaluate(cleanFen, 10, 3);
+    const top = lines[0];
+    const topMoveSan = uciToSan(cleanFen, top.bestMove);
+    const topPvSan = pvToSan(cleanFen, top.pv.slice(0, 10));
+    const alternatives = lines.slice(1).map((r, i) => {
+      const moveSan = uciToSan(cleanFen, r.bestMove);
+      const pvSan = pvToSan(cleanFen, r.pv.slice(0, 8));
+      return {
+        rank: i + 2,
+        move: moveSan,
+        score: r.score,
+        mate: r.mate,
+        scoreDisplay: formatScore(r.score, r.mate),
+        principalVariation: pvSan.join(" "),
+      };
+    });
     return {
       fen: cleanFen,
-      score: result.score,
-      mate: result.mate,
-      scoreDisplay: formatScore(result.score, result.mate),
-      bestMove: bestMoveSan,
-      principalVariation: pvSan.join(" "),
-      depth: result.depth,
+      score: top.score,
+      mate: top.mate,
+      scoreDisplay: formatScore(top.score, top.mate),
+      bestMove: topMoveSan,
+      principalVariation: topPvSan.join(" "),
+      depth: top.depth,
+      alternatives,
     };
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Stockfish evaluation failed" };
+    return { error: e instanceof Error ? e.message : "Theoria evaluation failed" };
   }
 }
 
@@ -670,7 +684,7 @@ export async function registerRoutes(
           const statusText = toolNames.includes("get_theoria_insights")
             ? "Consulting Theoria engine..."
             : toolNames.includes("evaluate_position")
-            ? "Running Stockfish verification..."
+            ? "Running Theoria verification..."
             : toolNames.includes("get_position_features")
             ? "Analyzing position features..."
             : "Validating moves...";
