@@ -367,6 +367,56 @@ class TheoriaService {
     return { raw, formatted };
   }
 
+  async evaluateWithText(fen: string, depth = 12, multiPV = 3): Promise<{ lines: TheoriaEvalResult[]; evalText: EvalTextResult }> {
+    await this.ensureProcess();
+
+    await this.runCommand(["ucinewgame", "isready"], "readyok");
+
+    const pvLines = await this.runCommand(
+      [`position fen ${fen}`, `setoption name MultiPV value ${multiPV}`, `go depth ${depth}`],
+      "bestmove"
+    );
+
+    const evalLines = await this.runCommand(["eval"], "Final evaluation|Total evaluation");
+
+    const fenParts = fen.split(" ");
+    const turn = (fenParts[1] || "w") as "w" | "b";
+
+    const results: Map<number, TheoriaEvalResult> = new Map();
+    for (const line of pvLines) {
+      if (!line.startsWith("info") || !line.includes("score")) continue;
+
+      const depthMatch = line.match(/depth (\d+)/);
+      const scoreMatch = line.match(/score cp (-?\d+)/);
+      const mateMatch = line.match(/score mate (-?\d+)/);
+      const pvMatch = line.match(/ pv (.+)/);
+      const multipvMatch = line.match(/multipv (\d+)/);
+
+      const mpv = multipvMatch ? parseInt(multipvMatch[1]) : 1;
+      const d = depthMatch ? parseInt(depthMatch[1]) : 0;
+      if (d < 4) continue;
+
+      const rawScore = scoreMatch ? parseInt(scoreMatch[1]) / 100 : 0;
+      const rawMate = mateMatch ? parseInt(mateMatch[1]) : null;
+
+      const score = turn === "b" ? -rawScore : rawScore;
+      const mate = rawMate !== null ? (turn === "b" ? -rawMate : rawMate) : null;
+      const pv = pvMatch ? pvMatch[1].trim().split(" ") : [];
+
+      results.set(mpv, { score, mate, bestMove: pv[0] || "", pv, depth: d });
+    }
+
+    const sorted = Array.from(results.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([, v]) => v);
+    const lines = sorted.length > 0 ? sorted : [{ score: 0, mate: null, bestMove: "", pv: [], depth: 0 }];
+
+    const raw = evalLines.join("\n");
+    const formatted = this.parseEvalOutput(evalLines, fen);
+
+    return { lines, evalText: { raw, formatted } };
+  }
+
   private parseEvalOutput(lines: string[], fen: string): string {
     const parts: string[] = [];
 

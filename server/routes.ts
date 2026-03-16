@@ -91,7 +91,7 @@ const evaluatePositionTool: OpenAI.ChatCompletionTool = {
   function: {
     name: "evaluate_position",
     description:
-      "Evaluate a chess position using the Theoria engine at depth 10. Returns the top 3 candidate moves with centipawn scores (White POV), mate distances, best moves in SAN, and principal variations. Also includes 2 alternative lines so you can compare the engine's top choices. Use this to verify whether a plan or idea actually works before suggesting it.",
+      "Evaluate a chess position using the Theoria engine at depth 12. Returns the top 3 candidate moves with centipawn scores (White POV), mate distances, best moves in SAN, and principal variations. Also returns a strategicAssessment string with per-term positional breakdown (Material, King Safety, Piece Activity, Pawn Structure, Passed Pawns, Space, etc.) and an overall evaluation score. Use this to verify whether a plan or idea actually works and to understand the positional factors at play.",
     parameters: {
       type: "object",
       properties: {
@@ -185,7 +185,7 @@ async function handleEvaluatePosition(fen: string, fallbackFen: string): Promise
     return { error: "Invalid FEN string" };
   }
   try {
-    const lines = await theoriaService.evaluate(cleanFen, 10, 3);
+    const { lines, evalText } = await theoriaService.evaluateWithText(cleanFen, 12, 3);
     const top = lines[0];
     const topMoveSan = uciToSan(cleanFen, top.bestMove);
     const topPvSan = pvToSan(cleanFen, top.pv.slice(0, 10));
@@ -210,6 +210,7 @@ async function handleEvaluatePosition(fen: string, fallbackFen: string): Promise
       principalVariation: topPvSan.join(" "),
       depth: top.depth,
       alternatives,
+      strategicAssessment: evalText.formatted,
     };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Theoria evaluation failed" };
@@ -465,13 +466,11 @@ export async function registerRoutes(
       const { useToolCalling, useFeatures, useTheoria, ...positionData } = parsed.data;
 
       let theoriaText: string | undefined;
-      if (useTheoria) {
-        try {
-          const evalResult = await theoriaService.getEvalText(positionData.fen);
-          theoriaText = evalResult.formatted;
-        } catch (e) {
-          console.error("[analyze] Theoria eval failed:", e);
-        }
+      try {
+        const evalResult = await theoriaService.getEvalText(positionData.fen);
+        theoriaText = evalResult.formatted;
+      } catch (e) {
+        console.error("[analyze] Theoria eval failed:", e);
       }
 
       const contextMessage = await buildContextMessage({ ...positionData, useFeatures, theoriaText });
@@ -538,13 +537,11 @@ export async function registerRoutes(
 
       let theoriaText: string | undefined;
       let theoriaToolUsed = false;
-      if (useTheoria) {
-        try {
-          const evalResult = await theoriaService.getEvalText(positionData.fen);
-          theoriaText = evalResult.formatted;
-        } catch (e) {
-          console.error("[chat] Theoria eval failed:", e);
-        }
+      try {
+        const evalResult = await theoriaService.getEvalText(positionData.fen);
+        theoriaText = evalResult.formatted;
+      } catch (e) {
+        console.error("[chat] Theoria eval failed:", e);
       }
 
       const contextMessage = await buildContextMessage({ ...positionData, useFeatures, theoriaText });
