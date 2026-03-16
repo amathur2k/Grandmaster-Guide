@@ -91,7 +91,7 @@ const evaluatePositionTool: OpenAI.ChatCompletionTool = {
   function: {
     name: "evaluate_position",
     description:
-      "Evaluate a chess position using Stockfish engine at depth 18. Returns centipawn score (White POV), mate distance, best move in SAN, and principal variation. Use this to verify whether a plan or idea actually works before suggesting it.",
+      "Evaluate a chess position using Stockfish engine at depth 10. Returns centipawn score (White POV), mate distance, best move in SAN, and principal variation. Use this to verify whether a plan or idea actually works before suggesting it.",
     parameters: {
       type: "object",
       properties: {
@@ -185,7 +185,7 @@ async function handleEvaluatePosition(fen: string, fallbackFen: string): Promise
     return { error: "Invalid FEN string" };
   }
   try {
-    const result = await stockfishService.evaluate(cleanFen, 18);
+    const result = await stockfishService.evaluate(cleanFen, 10);
     const bestMoveSan = uciToSan(cleanFen, result.bestMove);
     const pvSan = pvToSan(cleanFen, result.pv.slice(0, 10));
     return {
@@ -396,7 +396,7 @@ async function handleToolCall(
       }
       try {
         const [evalResults, evalText] = await Promise.all([
-          theoriaService.evaluate(cleanFen, 16, 3),
+          theoriaService.evaluate(cleanFen, 10, 3),
           theoriaService.getEvalText(cleanFen),
         ]);
         const linesFormatted = evalResults.map((r, i) => {
