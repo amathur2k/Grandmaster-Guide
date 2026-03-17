@@ -785,6 +785,10 @@ export async function registerRoutes(
         warmupTheoriaText = warmupResult?.formatted;
       }
 
+      if (classifyResult.contextType === "full_game") {
+        classifyResult.contextNote = "Analyzing the entire game to identify key learnings and improvements. I will give you the before and after analysis of key pivot points in the game";
+      }
+
       const { positions: resolvedPositions, resolvedIndices } = resolveRelevantPositions(
         classifyResult.contextType,
         positionHistory,
