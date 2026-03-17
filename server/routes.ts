@@ -50,16 +50,16 @@ const SYSTEM_PROMPT = `You are a chess coach. Be brief and direct — no filler,
 
 ## Rules
 1. Address the student by their color. Analyze from their perspective.
-2. Use the top engine moves provided. The scores are shown to the student in the UI — do not quote or repeat numeric evaluations (e.g. +1.74) in your response. Instead explain the chess idea behind each move and why it leads to a better position.
+2. Use the [Theoria Suggested moves] from [Theoria Strategic Assessment] as the primary source for move suggestions. Explain the chess idea behind each candidate move and why it leads to a better position — do not quote raw numeric evaluations in your response.
 3. SAN notation only (Nf3, O-O, exd5). Never UCI (e2e4).
-4. Show concrete continuations (2-4 moves deep). Use engine PVs.
+4. Show concrete continuations (2-4 moves deep). Use the principal variations from the Theoria assessment.
 5. **Move numbering**: Use the game's actual move numbers from the PGN. For Black moves, use the ellipsis format: "19...Qxb2". For White: "19. Na4". A sequence example: "19. Na4 Qb4 20. Bd2 Qa5 21. c4".
-6. Do NOT call validate_move on moves already listed in [Top Engine Moves] — they are pre-validated. Only call validate_move on moves you generate yourself that are not in that list. Chain validations for sequences (use resultingFen from each call). Never mention move legality in your response — do not write phrases like "this is a legal move" or "I've verified this move is legal".
-7. When the evaluate_position tool is available, call it to verify your ideas — especially when suggesting plans that deviate from the engine's top line. If Stockfish disagrees, defer to the engine.
+6. Do NOT call validate_move on moves already listed in [Theoria Suggested moves] — they are pre-validated. Only call validate_move on moves you generate yourself that are not in that list. Chain validations for sequences (use resultingFen from each call). Never mention move legality in your response — do not write phrases like "this is a legal move" or "I've verified this move is legal".
+7. When the evaluate_position tool is available, call it to verify your ideas — especially when suggesting plans that deviate from the Theoria top line. If the engine disagrees, defer to it.
 8. Identify the opening precisely.
 9. Never end your response with a question.
 10. Trust engine data completely — prefer it over your own calculation.
-11. When [Position Features] data is provided, reference it when explaining material imbalances, pawn weaknesses, piece activity, or king safety. Ground your explanations in the computed facts. When get_position_features is available, call it before discussing alternative lines that significantly change the position.
+11. Each position block includes [Position Features] (material, tactics, pawn structure, king safety, strategic themes). Use these facts to ground your explanations of imbalances, weaknesses, and piece activity. When get_position_features is available, call it before discussing alternative lines that significantly change the position.
 12. When [Theoria Strategic Assessment] data is present, use it to enrich your positional explanations — it reflects an Lc0-trained evaluation that emphasises strategic themes over tactical complexity. When get_theoria_insights is available, call it to analyse any alternative line you want to explain.
 13. When get_classical_eval is available, call it whenever you want hard numerical engine data to back up your explanation of king safety, mobility, threats, passed pawns, or space. Reference the term scores directly in your response (e.g. "Stockfish scores King safety −11 MG for White").
 14. Limit all strategic advice to the top 3 most critical points.`;
@@ -69,7 +69,7 @@ const validateMoveTool: OpenAI.ChatCompletionTool = {
   function: {
     name: "validate_move",
     description:
-      "Check whether a chess move is legal in a given position. Pass the COMPLETE FEN (all 6 fields) and the move in SAN. Returns legality, resulting FEN if legal, or legal moves if illegal. Only call this for moves you generate yourself — do NOT call it for moves already listed in [Top Engine Moves], which are pre-validated.",
+      "Check whether a chess move is legal in a given position. Pass the COMPLETE FEN (all 6 fields) and the move in SAN. Returns legality, resulting FEN if legal, or legal moves if illegal. Only call this for moves you generate yourself — do NOT call it for moves already listed in [Theoria Suggested moves], which are pre-validated.",
     parameters: {
       type: "object",
       properties: {
@@ -307,6 +307,7 @@ type ResolvedPosition = {
   label: string;
   beforeFen: string | null;
   afterFen: string;
+  move?: string | null;
 };
 
 async function preCoachClassify(
@@ -389,6 +390,7 @@ function resolveRelevantPositions(
     label,
     beforeFen: idx > 0 ? positionHistory[idx - 1].fen : null,
     afterFen: positionHistory[idx].fen,
+    move: positionHistory[idx].move ?? null,
   });
 
   if (contextType === "current") {
@@ -459,7 +461,12 @@ function resolveRelevantPositions(
   return { positions: [], resolvedIndices: [] };
 }
 
-async function enrichPosition(fen: string, cachedTheoriaText?: string): Promise<string> {
+async function enrichPosition(
+  fen: string,
+  cachedTheoriaText?: string,
+  lastMove?: string | null,
+  useFeatures?: boolean
+): Promise<string> {
   const blocks: string[] = [`FEN: ${fen}`];
 
   try {
@@ -475,6 +482,14 @@ async function enrichPosition(fen: string, cachedTheoriaText?: string): Promise<
     try {
       const evalResult = await theoriaService.getEvalText(fen);
       blocks.push(evalResult.formatted);
+    } catch {
+    }
+  }
+
+  if (useFeatures && pythonAnalyzerService.isReady()) {
+    try {
+      const features = await pythonAnalyzerService.analyze(fen, lastMove || "");
+      blocks.push(formatFeaturesForPrompt(features));
     } catch {
     }
   }
@@ -498,38 +513,15 @@ async function buildContextMessage(data: {
 }) {
   const turnLabel = data.turn === "w" ? "White" : "Black";
 
-  let engineLinesBlock = "No engine lines available.";
-  if (data.engineLines && data.engineLines.length > 0) {
-    const lines = data.engineLines.map((line, i) => {
-      const moveSan = uciToSan(data.fen, line.move);
-      const pvSan = pvToSan(data.fen, line.pv.slice(0, 10));
-      const scoreStr = formatScore(line.score, line.mate);
-      return `  ${i + 1}. ${moveSan} (eval: ${scoreStr}) — continuation: ${pvSan.join(" ")}`;
-    });
-    engineLinesBlock = lines.join("\n");
-  }
-
-  let featuresBlock = "";
-  const featureStart = Date.now();
-  if (data.useFeatures && pythonAnalyzerService.isReady()) {
-    try {
-      const features = await pythonAnalyzerService.analyze(data.fen, data.lastMove);
-      featuresBlock = "\n\n" + formatFeaturesForPrompt(features);
-    } catch (e) {
-      console.error("[python-analyzer] Error computing features:", e);
-    }
-  }
-  const featureMs = Date.now() - featureStart;
-
   const classicalStart = Date.now();
   let enrichmentBlock = "";
 
   if (data.resolvedPositions && data.resolvedPositions.length > 0) {
     const enrichCache = new Map<string, Promise<string>>();
-    const cachedEnrich = (fen: string): Promise<string> => {
+    const cachedEnrich = (fen: string, lastMove?: string | null): Promise<string> => {
       if (!enrichCache.has(fen)) {
         const cachedTheoria = fen === data.fen ? data.theoriaText : undefined;
-        enrichCache.set(fen, enrichPosition(fen, cachedTheoria));
+        enrichCache.set(fen, enrichPosition(fen, cachedTheoria, lastMove, data.useFeatures));
       }
       return enrichCache.get(fen)!;
     };
@@ -538,25 +530,16 @@ async function buildContextMessage(data: {
     for (const pos of data.resolvedPositions) {
       const subParts: string[] = [];
       if (pos.beforeFen) {
-        const beforeAnalysis = await cachedEnrich(pos.beforeFen);
+        const beforeAnalysis = await cachedEnrich(pos.beforeFen, null);
         subParts.push(`[Position: before ${pos.label}]\n${beforeAnalysis}`);
       }
-      const afterAnalysis = await cachedEnrich(pos.afterFen);
+      const afterAnalysis = await cachedEnrich(pos.afterFen, pos.move);
       subParts.push(`[Position: after ${pos.label}]\n${afterAnalysis}`);
       parts.push(subParts.join("\n\n"));
     }
     enrichmentBlock = "\n\n" + parts.join("\n\n");
   } else {
-    try {
-      const classicalEvalText = await executeGetClassicalEval(data.fen, "");
-      enrichmentBlock = "\n\n" + classicalEvalText;
-    } catch (e) {
-      console.warn("[classical-sf] SF12 eval failed for this position — continuing without it:", e instanceof Error ? e.message : String(e));
-      enrichmentBlock = "\n\n[SF12 classical eval unavailable for this position]";
-    }
-    if (data.theoriaText) {
-      enrichmentBlock += "\n\n" + data.theoriaText;
-    }
+    enrichmentBlock = "\n\n" + await enrichPosition(data.fen, data.theoriaText, data.lastMove, data.useFeatures);
   }
   const classicalMs = Date.now() - classicalStart;
 
@@ -569,12 +552,9 @@ Full PGN of the game: ${data.pgn || "No moves yet (starting position)"}
 Current position (FEN): ${data.fen}
 Overall evaluation (from White's perspective): ${data.evaluation}
 It is ${turnLabel}'s turn to move.
-The student is playing as ${data.playerColor}.${contextNoteBlock}
+The student is playing as ${data.playerColor}.${contextNoteBlock}${enrichmentBlock}`;
 
-[Top Engine Moves — use these for your suggestions]
-${engineLinesBlock}${featuresBlock}${enrichmentBlock}`;
-
-  return { message, timings: { featureMs, classicalMs } };
+  return { message, timings: { featureMs: 0, classicalMs } };
 }
 
 const MODEL = "gpt-5.4";

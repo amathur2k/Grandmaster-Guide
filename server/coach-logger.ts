@@ -75,8 +75,7 @@ export function logCoachInteraction(opts: {
     `${pad("Prompt generation (total):")} ${ms(t.promptTotalMs)}`,
     ...(classifyLine ? [classifyLine] : []),
     `  ${pad("├─ Theoria warmup:")}       ${ms(t.theoriaMs)}`,
-    `  ${pad("├─ Position features:")}    ${ms(t.featureMs)}`,
-    `  ${pad("└─ SF12 classical eval:")}  ${ms(t.classicalMs)}`,
+    `  ${pad("└─ Enrichment (SF12+Theoria+Features):")} ${ms(t.classicalMs)}`,
   ];
 
   const totalRounds = t.gptRounds.length;

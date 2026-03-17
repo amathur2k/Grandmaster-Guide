@@ -1,0 +1,43 @@
+ 
+│  [Top Engine Moves — use these for your suggestions]
+│    1. Kxf7 (eval: -2.55) — continuation: Kxf7 O-O Rf8 c4 Nb4 Nc3 Kg8 Bg3 Kh8 a3
+│    2. Nxe3 (eval: +3.17) — continuation: Nxe3 Nxd8 Nxd1 Nxb7 Nxb2 Nd6+ Bxd6 Bxd6 Rc8 O-O
+│    3. Nxc3 (eval: +4.04) — continuation: Nxc3 Nxd8 Nxd1 Nxb7 Nxb2 Bxb2 Rb8 Bf3 Nd5 Nc3
+│  
+│  [Position Features — computed facts about the current position]
+│  Summary: White is up 1.0 in material value. Tactical themes: direct material loss, fork, tactical refutation, hanging piece, discovered attack, skewer. White has a slight center advantage (7 vs 5). Strategic themes: bad bishop, outpost, backward pawn.
+│  
+│  Material: White is up 1.0 in material value. (balance: +1.0)
+│  
+│  Tactical Findings:
+│    ⚠ White's Knight on f7 is undefended and attacked.
+│    ⚠ Black's Queen on d8 is attacked by a lower-value piece.
+│    ⚠ Black's Rook on h8 is undefended and attacked.
+│    ⚠ White's Knight on f7 forks Queen on d8, Rook on h8.
+│    ⚠ White's Knight on f7 can be captured by Black's King for a net gain of ~3 points.
+│    ⚠ White's Queen on d1 skewers Black's Knight on d5 to the Pawn on d7.
+│    ⚠ White's Bishop on e5 skewers Black's Knight on f6 to the Pawn on g7.
+│    ⚠ Black can capture the Knight on f7 with the King — refuting the last move.
+│    ⚠ Moving Black's Knight from d5 reveals an attack by the Bishop on b7 against White's Pawn on g2.
+│  
+│  King Safety:
+│    White: White's king is in the center (e1).
+│    Black: Black's king is in the center (e8).
+│  Pawn Structure: Pawn structure is symmetrical.
+│  Center: White has a slight center advantage (7 vs 5).
+│  Space: White has a space advantage (13 vs 7 controlled squares in the opponent's half).
+│  
+│  Strategic Observations:
+│    • White's Rook on a1 is passive (0 legal moves).
+│    • a6 is a reachable outpost for White's Bishop on e2 (cannot be challenged by enemy pawns).
+│    • d6 is a reachable outpost for White's Bishop on e5 (cannot be challenged by enemy pawns).
+│    • c7 is a reachable outpost for White's Bishop on e5 (cannot be challenged by enemy pawns).
+│    • White's Knight on f7 occupies a strong outpost (cannot be challenged by enemy pawns).
+│    • b8 is a reachable outpost for White's Bishop on e5 (cannot be challenged by enemy pawns).
+│    • d8 is a reachable outpost for White's Knight on f7 (cannot be challenged by enemy pawns).
+│    • h8 is a reachable outpost for White's Knight on f7 (cannot be challenged by enemy pawns).
+│    • Black has weak squares that cannot be defended by pawns: a6, d6, c7, b8, d8.
+│    • White's Bishop on e5 is a bad bishop — 5 of 7 own pawns are on dark squares.
+│    • Black's Bishop on e7 is a bad bishop — 4 of 6 own pawns are on dark squares.
+│    • Black's pawn on a7 is backward — the square ahead is controlled and no friendly pawn can support its advance.
+│    • Black's pawn on d7 is backward — the square ahead is controlled and no friendly pawn can support its advance.
