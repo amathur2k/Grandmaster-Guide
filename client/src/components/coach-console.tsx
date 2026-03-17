@@ -200,6 +200,17 @@ function InteractiveMessage({
                     onHover(null);
                     return;
                   }
+                  if (seq && seq.moves.length > 0 && seg.orderInSeq > 0) {
+                    try {
+                      const firstMove = seq.moves[0];
+                      const seqCheck = new Chess(currentBoardFen);
+                      const firstLegal = seqCheck.move({ from: firstMove.from, to: firstMove.to });
+                      if (!firstLegal) { onHover(null); return; }
+                    } catch {
+                      onHover(null);
+                      return;
+                    }
+                  }
                   const meta = getMoveNumMeta(effectiveFen);
                   const arrows = unplayed.map((m, idx) => {
                     const globalIdx = alreadyPlayed + idx;
