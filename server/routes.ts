@@ -317,10 +317,10 @@ async function preCoachClassify(
   const fallback: ClassifyResult = { contextType: "current", contextNote: "" };
 
   try {
-    const currentEntry = positionHistory[currentMoveIndex + 1];
+    const currentEntry = positionHistory[currentMoveIndex];
     const moveName = currentEntry?.move || "";
     const moveNum = currentMoveIndex >= 0 ? Math.ceil((currentMoveIndex + 1) / 2) : 0;
-    const totalMoves = positionHistory.length - 1;
+    const totalMoves = positionHistory.length;
 
     const systemPrompt =
       `Classify the chess coaching question into exactly one context type. Output ONLY a JSON object, no other text.\n\n` +
@@ -366,14 +366,14 @@ function resolveRelevantPositions(
   contextType: string,
   positionHistory: PositionHistoryEntry[],
   currentMoveIndex: number
-): ResolvedPosition[] {
-  const currentIdx = currentMoveIndex + 1;
+): { positions: ResolvedPosition[]; resolvedIndices: number[] } {
+  const currentIdx = currentMoveIndex;
 
   if (positionHistory.length === 0 || currentIdx < 0 || currentIdx >= positionHistory.length) {
-    return [];
+    return { positions: [], resolvedIndices: [] };
   }
 
-  const moveNum = (idx: number) => Math.ceil(idx / 2);
+  const moveNum = (idx: number) => Math.ceil((idx + 1) / 2);
 
   const posLabel = (idx: number, prefix?: string): string => {
     const entry = positionHistory[idx];
@@ -390,24 +390,33 @@ function resolveRelevantPositions(
   };
 
   if (contextType === "current") {
-    return [{ label: posLabel(currentIdx, "Current position after"), fen: positionHistory[currentIdx].fen }];
+    return {
+      positions: [{ label: posLabel(currentIdx, "Current position after"), fen: positionHistory[currentIdx].fen }],
+      resolvedIndices: [currentIdx],
+    };
   }
 
   if (contextType === "last_move") {
-    const results: ResolvedPosition[] = [];
+    const positions: ResolvedPosition[] = [];
+    const resolvedIndices: number[] = [];
     if (currentIdx > 0) {
-      results.push({ label: `Before move ${moveNum(currentIdx)}${positionHistory[currentIdx]?.move ? ` — before ${positionHistory[currentIdx].move}` : ""}`, fen: positionHistory[currentIdx - 1].fen });
+      positions.push({
+        label: `Before move ${moveNum(currentIdx)}${positionHistory[currentIdx]?.move ? ` (before ${positionHistory[currentIdx].move})` : ""}`,
+        fen: positionHistory[currentIdx - 1].fen,
+      });
+      resolvedIndices.push(currentIdx - 1);
     }
-    results.push({ label: posLabel(currentIdx, "After"), fen: positionHistory[currentIdx].fen });
-    return results;
+    positions.push({ label: posLabel(currentIdx, "After"), fen: positionHistory[currentIdx].fen });
+    resolvedIndices.push(currentIdx);
+    return { positions, resolvedIndices };
   }
 
   if (contextType === "last_few" || contextType === "full_game") {
-    const startIdx = contextType === "last_few" ? Math.max(1, currentIdx - 8) : 1;
+    const startIdx = contextType === "last_few" ? Math.max(0, currentIdx - 8) : 0;
     const limit = contextType === "last_few" ? 4 : 5;
 
     const swings: { idx: number; swing: number }[] = [];
-    for (let i = startIdx; i <= currentIdx; i++) {
+    for (let i = startIdx + 1; i <= currentIdx; i++) {
       const scoreBefore = getScoreVal(positionHistory[i - 1]);
       const scoreAfter = getScoreVal(positionHistory[i]);
       if (scoreBefore === null || scoreAfter === null) continue;
@@ -416,21 +425,30 @@ function resolveRelevantPositions(
     }
 
     if (swings.length === 0) {
-      return [{ label: posLabel(currentIdx, "Current position after"), fen: positionHistory[currentIdx].fen }];
+      return {
+        positions: [{ label: posLabel(currentIdx, "Current position after"), fen: positionHistory[currentIdx].fen }],
+        resolvedIndices: [currentIdx],
+      };
     }
 
     const topSwings = swings.sort((a, b) => b.swing - a.swing).slice(0, limit);
     topSwings.sort((a, b) => a.idx - b.idx);
 
-    const results: ResolvedPosition[] = [];
+    const positions: ResolvedPosition[] = [];
+    const resolvedIndices: number[] = [];
     for (const { idx } of topSwings) {
-      results.push({ label: `Before move ${moveNum(idx)}${positionHistory[idx]?.move ? ` — before ${positionHistory[idx].move}` : ""}`, fen: positionHistory[idx - 1].fen });
-      results.push({ label: posLabel(idx, "After"), fen: positionHistory[idx].fen });
+      positions.push({
+        label: `Before move ${moveNum(idx)}${positionHistory[idx]?.move ? ` (before ${positionHistory[idx].move})` : ""}`,
+        fen: positionHistory[idx - 1].fen,
+      });
+      resolvedIndices.push(idx - 1);
+      positions.push({ label: posLabel(idx, "After"), fen: positionHistory[idx].fen });
+      resolvedIndices.push(idx);
     }
-    return results;
+    return { positions, resolvedIndices };
   }
 
-  return [];
+  return { positions: [], resolvedIndices: [] };
 }
 
 async function enrichPosition(fen: string): Promise<string> {
@@ -730,18 +748,23 @@ export async function registerRoutes(
 
       const classifyStart = Date.now();
       let classifyResult: ClassifyResult = { contextType: "current", contextNote: "" };
+      let theoriaMs = 0;
+
       if (positionHistory.length > 0) {
-        classifyResult = await preCoachClassify(lastUserMsg, recentContext, currentMoveIndex, positionHistory);
+        const theoriaStart = Date.now();
+        [classifyResult] = await Promise.all([
+          preCoachClassify(lastUserMsg, recentContext, currentMoveIndex, positionHistory),
+          theoriaService.getEvalText(positionData.fen).catch(() => null),
+        ]);
+        theoriaMs = Date.now() - theoriaStart;
       }
       const classifyMs = Date.now() - classifyStart;
 
-      const resolvedPositions = resolveRelevantPositions(
+      const { positions: resolvedPositions, resolvedIndices } = resolveRelevantPositions(
         classifyResult.contextType,
         positionHistory,
         currentMoveIndex
       );
-
-      const theoriaMs = 0;
 
       const { message: contextMessage, timings: promptTimings } = await buildContextMessage({
         ...positionData,
@@ -946,6 +969,7 @@ export async function registerRoutes(
             classicalMs: promptTimings.classicalMs,
             classifyMs,
             classifyContextType: classifyResult.contextType,
+            resolvedIndices,
             promptTotalMs,
             gptMs,
             gptRounds,

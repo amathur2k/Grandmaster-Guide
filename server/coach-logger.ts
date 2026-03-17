@@ -47,6 +47,7 @@ export interface CoachTimings {
   classicalMs: number;
   classifyMs?: number;
   classifyContextType?: string;
+  resolvedIndices?: number[];
   promptTotalMs: number;
   gptMs: number;
   gptRounds: GptRound[];
@@ -64,7 +65,7 @@ export function logCoachInteraction(opts: {
   const { timings: t } = opts;
 
   const classifyLine = t.classifyMs !== undefined
-    ? `  ${pad("├─ Pre-coach classify:")}   ${ms(t.classifyMs)}${t.classifyContextType ? `  → ${t.classifyContextType}` : ""}`
+    ? `  ${pad("├─ Pre-coach classify:")}   ${ms(t.classifyMs)}${t.classifyContextType ? `  → ${t.classifyContextType}` : ""}${t.resolvedIndices && t.resolvedIndices.length > 0 ? `  [moves: ${t.resolvedIndices.join(",")}]` : ""}`
     : null;
 
   const promptLines = [
