@@ -299,8 +299,9 @@ function formatScore(score: number, mate: number | null): string {
 }
 
 type ClassifyResult = {
-  contextType: "current" | "last_move" | "last_few" | "full_game";
+  contextType: "current" | "last_move" | "last_few" | "full_game" | "continuation";
   contextNote: string;
+  continuationMoves?: string[];
 };
 
 type ResolvedPosition = {
@@ -327,12 +328,14 @@ async function preCoachClassify(
 
     const systemPrompt =
       `Classify the chess coaching question into exactly one context type. Output ONLY a JSON object, no other text.\n\n` +
-      `{"contextType":"current"|"last_move"|"last_few"|"full_game","contextNote":"<1-sentence note>"}\n\n` +
+      `Normal output: {"contextType":"current"|"last_move"|"last_few"|"full_game","contextNote":"<1-sentence note>"}\n` +
+      `Continuation output: {"contextType":"continuation","contextNote":"<1-sentence note>","moves":["<san1>","<san2>",...]}\n\n` +
       `Rules:\n` +
       `- "current": future plans, what to play, best move, evaluate this position\n` +
       `- "last_move": why was that move good/bad, the move just played${moveName ? ` (move ${moveNum} — ${moveName})` : ""}\n` +
       `- "last_few": last few moves, recently, what happened, past few turns\n` +
-      `- "full_game": entire game, game analysis, what to learn, game review\n\n` +
+      `- "full_game": entire game, game analysis, what to learn, game review\n` +
+      `- "continuation": user asks "what is the idea behind X", "explain this line", or provides a move list/continuation. Extract the moves array from the user message or coach response in SAN notation.\n\n` +
       `Game length: ${totalMoves} moves. Currently at move ${moveNum}${moveName ? ` (${moveName})` : ""}.`;
 
     const msgs: OpenAI.ChatCompletionMessageParam[] = [
@@ -345,10 +348,10 @@ async function preCoachClassify(
       openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: msgs,
-        max_completion_tokens: 120,
+        max_completion_tokens: 200,
         temperature: 0,
       }),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("classify timeout")), 3000)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("classify timeout")), 4000)),
     ]);
 
     const text = resp.choices[0]?.message?.content?.trim() ?? "";
@@ -357,6 +360,10 @@ async function preCoachClassify(
 
     if (parsed && ["current", "last_move", "last_few", "full_game"].includes(parsed.contextType)) {
       return { contextType: parsed.contextType, contextNote: parsed.contextNote ?? "" };
+    }
+    if (parsed && parsed.contextType === "continuation") {
+      const moves = Array.isArray(parsed.moves) ? parsed.moves.filter((m: unknown) => typeof m === "string" && m.length > 0) : [];
+      return { contextType: "continuation", contextNote: parsed.contextNote ?? "", continuationMoves: moves };
     }
   } catch (e) {
     console.warn("[pre-coach] classify failed, using 'current':", e instanceof Error ? e.message : String(e));
@@ -500,6 +507,39 @@ async function enrichPosition(
   return header + "\n\n" + evalBlocks.join(`\n\n${SECTION_SEP}\n\n`);
 }
 
+async function buildContinuationPositions(
+  startFen: string,
+  sanMoves: string[],
+  useFeatures: boolean,
+): Promise<string> {
+  const MOVE_SEP = "════════════════════════════════════════";
+
+  const steps: { label: string; fen: string; move: string }[] = [];
+  try {
+    const chess = new Chess(startFen);
+    for (let i = 0; i < sanMoves.length; i++) {
+      const result = chess.move(sanMoves[i]);
+      if (!result) {
+        steps.push({ label: `move ${i + 1}: ${sanMoves[i]} (illegal — sequence stopped)`, fen: chess.fen(), move: sanMoves[i] });
+        break;
+      }
+      steps.push({ label: `move ${i + 1}: ${result.san}`, fen: chess.fen(), move: result.san });
+    }
+  } catch {
+    // If chess.js throws, return empty
+    return "";
+  }
+
+  if (steps.length === 0) return "";
+
+  const enrichments = await Promise.all(
+    steps.map(s => enrichPosition(s.fen, undefined, s.move, useFeatures))
+  );
+
+  const parts = steps.map((s, i) => `[After ${s.label}]\n${enrichments[i]}`);
+  return parts.join(`\n\n${MOVE_SEP}\n\n`);
+}
+
 async function buildContextMessage(data: {
   fen: string;
   pgn: string;
@@ -513,13 +553,16 @@ async function buildContextMessage(data: {
   theoriaText?: string;
   resolvedPositions?: ResolvedPosition[];
   contextNote?: string;
+  continuationBlock?: string;
 }) {
   const turnLabel = data.turn === "w" ? "White" : "Black";
 
   const classicalStart = Date.now();
   let enrichmentBlock = "";
 
-  if (data.resolvedPositions && data.resolvedPositions.length > 0) {
+  if (data.continuationBlock) {
+    enrichmentBlock = "\n\n" + data.continuationBlock;
+  } else if (data.resolvedPositions && data.resolvedPositions.length > 0) {
     const enrichCache = new Map<string, Promise<string>>();
     const cachedEnrich = (fen: string, lastMove?: string | null): Promise<string> => {
       if (!enrichCache.has(fen)) {
@@ -789,18 +832,36 @@ export async function registerRoutes(
         classifyResult.contextNote = "Analyzing the entire game to identify key learnings and improvements. I will give you the before and after analysis of key pivot points in the game";
       }
 
+      if (classifyResult.contextType === "continuation") {
+        classifyResult.contextNote = "The user is asking about the idea behind a continuation. Below is the full SF12, Theoria NNUE, and computed observations after each move in the line — starting from the current position.";
+      }
+
       const { positions: resolvedPositions, resolvedIndices } = resolveRelevantPositions(
         classifyResult.contextType,
         positionHistory,
         currentMoveIndex
       );
 
+      let continuationBlock: string | undefined;
+      if (
+        classifyResult.contextType === "continuation" &&
+        classifyResult.continuationMoves &&
+        classifyResult.continuationMoves.length > 0
+      ) {
+        continuationBlock = await buildContinuationPositions(
+          positionData.fen,
+          classifyResult.continuationMoves,
+          useFeatures,
+        );
+      }
+
       const { message: contextMessage, timings: promptTimings } = await buildContextMessage({
         ...positionData,
         useFeatures,
-        resolvedPositions: resolvedPositions.length > 0 ? resolvedPositions : undefined,
+        resolvedPositions: !continuationBlock && resolvedPositions.length > 0 ? resolvedPositions : undefined,
         contextNote: classifyResult.contextNote || undefined,
         theoriaText: warmupTheoriaText,
+        continuationBlock,
       });
       const promptTotalMs = Date.now() - promptPhaseStart;
 
