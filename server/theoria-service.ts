@@ -478,12 +478,29 @@ class TheoriaService {
       }
     };
 
+    const pvFullToSan = (startFen: string, uciMoves: string[]): string[] => {
+      const result: string[] = [];
+      try {
+        const chess = new Chess(startFen);
+        for (const uci of uciMoves) {
+          const move = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || undefined });
+          if (!move) break;
+          result.push(move.san);
+        }
+      } catch {
+      }
+      return result;
+    };
+
     const moveEntry = (r: TheoriaEvalResult): string => {
       const mv = r.bestMove ? uciToSan(r.bestMove) : "?";
-      if (r.mate !== null) {
-        return `${mv} (${r.mate > 0 ? "Mate in " + r.mate : "Mated in " + Math.abs(r.mate)})`;
-      }
-      return `${mv} (${r.score > 0 ? "+" : ""}${r.score.toFixed(2)})`;
+      const scoreStr = r.mate !== null
+        ? `${r.mate > 0 ? "Mate in " + r.mate : "Mated in " + Math.abs(r.mate)}`
+        : `${r.score > 0 ? "+" : ""}${r.score.toFixed(2)}`;
+      const allSan = pvFullToSan(fen, r.pv.slice(0, 5));
+      const continuation = allSan.slice(1);
+      const contStr = continuation.length > 0 ? ` — ${continuation.join(" ")}` : "";
+      return `${mv}${contStr} (${scoreStr})`;
     };
 
     let result = `[Theoria NNUE Assessment]\n`;
