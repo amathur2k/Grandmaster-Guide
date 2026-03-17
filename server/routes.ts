@@ -69,7 +69,7 @@ const validateMoveTool: OpenAI.ChatCompletionTool = {
   function: {
     name: "validate_move",
     description:
-      "Check whether a chess move is legal in a given position. Pass the COMPLETE FEN (all 6 fields) and the move in SAN. Returns legality, resulting FEN if legal, or legal moves if illegal. ALWAYS call this for every move you suggest.",
+      "Check whether a chess move is legal in a given position. Pass the COMPLETE FEN (all 6 fields) and the move in SAN. Returns legality, resulting FEN if legal, or legal moves if illegal. Only call this for moves you generate yourself — do NOT call it for moves already listed in [Top Engine Moves], which are pre-validated.",
     parameters: {
       type: "object",
       properties: {
