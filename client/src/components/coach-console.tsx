@@ -175,6 +175,14 @@ function InteractiveMessage({
                 const alreadyPlayed = countPlayedMoves(effectiveFen, movesUpTo, currentBoardFen);
                 const unplayed = movesUpTo.slice(alreadyPlayed);
                 if (unplayed.length > 0) {
+                  try {
+                    const boardCheck = new Chess(currentBoardFen);
+                    const legal = boardCheck.move({ from: unplayed[0].from, to: unplayed[0].to });
+                    if (!legal) { onHover(null); return; }
+                  } catch {
+                    onHover(null);
+                    return;
+                  }
                   const meta = getMoveNumMeta(effectiveFen);
                   const arrows = unplayed.map((m, idx) => {
                     const globalIdx = alreadyPlayed + idx;
