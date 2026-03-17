@@ -525,16 +525,23 @@ async function buildContextMessage(data: {
   let enrichmentBlock = "";
 
   if (data.resolvedPositions && data.resolvedPositions.length > 0) {
+    const enrichCache = new Map<string, Promise<string>>();
+    const cachedEnrich = (fen: string): Promise<string> => {
+      if (!enrichCache.has(fen)) {
+        const cachedTheoria = fen === data.fen ? data.theoriaText : undefined;
+        enrichCache.set(fen, enrichPosition(fen, cachedTheoria));
+      }
+      return enrichCache.get(fen)!;
+    };
+
     const parts: string[] = [];
     for (const pos of data.resolvedPositions) {
       const subParts: string[] = [];
       if (pos.beforeFen) {
-        const cachedBefore = pos.beforeFen === data.fen ? data.theoriaText : undefined;
-        const beforeAnalysis = await enrichPosition(pos.beforeFen, cachedBefore);
+        const beforeAnalysis = await cachedEnrich(pos.beforeFen);
         subParts.push(`[Position: before ${pos.label}]\n${beforeAnalysis}`);
       }
-      const cachedAfter = pos.afterFen === data.fen ? data.theoriaText : undefined;
-      const afterAnalysis = await enrichPosition(pos.afterFen, cachedAfter);
+      const afterAnalysis = await cachedEnrich(pos.afterFen);
       subParts.push(`[Position: after ${pos.label}]\n${afterAnalysis}`);
       parts.push(subParts.join("\n\n"));
     }
