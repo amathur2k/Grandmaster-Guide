@@ -541,8 +541,9 @@ async function buildContextMessage(data: {
       console.warn("[classical-sf] SF12 eval failed for this position — continuing without it:", e instanceof Error ? e.message : String(e));
       enrichmentBlock = "\n\n[SF12 classical eval unavailable for this position]";
     }
-    if (data.theoriaText) {
-      enrichmentBlock += "\n\n" + data.theoriaText;
+    const theoriaSource = data.theoriaText ?? await theoriaService.getEvalText(data.fen).then(r => r.formatted).catch(() => null);
+    if (theoriaSource) {
+      enrichmentBlock += "\n\n" + theoriaSource;
     }
   }
   const classicalMs = Date.now() - classicalStart;
@@ -766,26 +767,12 @@ export async function registerRoutes(
       let classifyResult: ClassifyResult = { contextType: "current", contextNote: "" };
       let theoriaMs = 0;
 
-      let warmupTheoriaText: string | undefined;
       let classifyMs = 0;
 
-      {
-        const timedClassify = async () => {
-          if (positionHistory.length === 0) return classifyResult;
-          const cs = Date.now();
-          const r = await preCoachClassify(lastUserMsg, recentTurns.slice(0, -1), currentMoveIndex, positionHistory);
-          classifyMs = Date.now() - cs;
-          return r;
-        };
-        const timedTheoria = async () => {
-          const ts = Date.now();
-          const r = await theoriaService.getEvalText(positionData.fen).catch(() => null);
-          theoriaMs = Date.now() - ts;
-          return r;
-        };
-        let warmupResult: { formatted: string } | null = null;
-        [classifyResult, warmupResult] = await Promise.all([timedClassify(), timedTheoria()]);
-        warmupTheoriaText = warmupResult?.formatted;
+      if (positionHistory.length > 0) {
+        const cs = Date.now();
+        classifyResult = await preCoachClassify(lastUserMsg, recentTurns.slice(0, -1), currentMoveIndex, positionHistory);
+        classifyMs = Date.now() - cs;
       }
 
       const { positions: resolvedPositions, resolvedIndices } = resolveRelevantPositions(
@@ -799,7 +786,6 @@ export async function registerRoutes(
         useFeatures,
         resolvedPositions: resolvedPositions.length > 0 ? resolvedPositions : undefined,
         contextNote: classifyResult.contextNote || undefined,
-        theoriaText: warmupTheoriaText,
       });
       const promptTotalMs = Date.now() - promptPhaseStart;
 
