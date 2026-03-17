@@ -511,6 +511,7 @@ async function buildContinuationPositions(
   startFen: string,
   sanMoves: string[],
   useFeatures: boolean,
+  cachedTheoriaText?: string,
 ): Promise<string> {
   const MOVE_SEP = "════════════════════════════════════════";
 
@@ -526,14 +527,13 @@ async function buildContinuationPositions(
       steps.push({ label: `move ${i + 1}: ${result.san}`, fen: chess.fen(), move: result.san });
     }
   } catch {
-    // If chess.js throws, return empty
     return "";
   }
 
   if (steps.length === 0) return "";
 
   const enrichments = await Promise.all(
-    steps.map(s => enrichPosition(s.fen, undefined, s.move, useFeatures))
+    steps.map((s, i) => enrichPosition(s.fen, i === 0 ? cachedTheoriaText : undefined, s.move, useFeatures))
   );
 
   const parts = steps.map((s, i) => `[After ${s.label}]\n${enrichments[i]}`);
@@ -833,7 +833,7 @@ export async function registerRoutes(
       }
 
       if (classifyResult.contextType === "continuation") {
-        classifyResult.contextNote = "The user is asking about the idea behind a continuation. Below is the full SF12, Theoria NNUE, and computed observations after each move in the line — starting from the current position.";
+        classifyResult.contextNote = "The user is asking about the idea behind a continuation. Below is full SF12, Theoria NNUE, and computed observations after each move.";
       }
 
       const { positions: resolvedPositions, resolvedIndices } = resolveRelevantPositions(
@@ -852,6 +852,7 @@ export async function registerRoutes(
           positionData.fen,
           classifyResult.continuationMoves,
           useFeatures,
+          warmupTheoriaText,
         );
       }
 
