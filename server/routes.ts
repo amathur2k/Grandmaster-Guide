@@ -260,6 +260,19 @@ function sanitizeFen(fen: string): string | null {
 async function executeGetClassicalEval(fen: string, fallbackFen: string): Promise<string> {
   const cleanFen = sanitizeFen(fen) || sanitizeFen(fallbackFen);
   if (!cleanFen) throw new Error("Accuracy Check Module Down: invalid FEN");
+
+  const pieceValues: Record<string, number> = { q: 9, r: 5, b: 3, n: 3, p: 1 };
+  const boardChess = new Chess(cleanFen);
+  let totalMaterial = 0;
+  for (const piece of boardChess.board().flat()) {
+    if (piece && piece.type !== "k") {
+      totalMaterial += pieceValues[piece.type] ?? 0;
+    }
+  }
+  if (totalMaterial < 14) {
+    return "[SF12 Classical Evaluation Breakdown]\nNot available for endgame positions (fewer than 14 points of material on the board).";
+  }
+
   // Don't gate on isReady() — getEvalFeatures() calls ensureProcess() internally,
   // which restarts SF12 after a transient crash. Only permanent failures (unavailable=true)
   // will bubble up as "Accuracy Check Module Down" errors.
