@@ -317,10 +317,11 @@ async function preCoachClassify(
   const fallback: ClassifyResult = { contextType: "current", contextNote: "" };
 
   try {
-    const currentEntry = positionHistory[currentMoveIndex];
+    const currentIdx = currentMoveIndex + 1;
+    const currentEntry = positionHistory[currentIdx];
     const moveName = currentEntry?.move || "";
     const moveNum = currentMoveIndex >= 0 ? Math.ceil((currentMoveIndex + 1) / 2) : 0;
-    const totalMoves = positionHistory.length;
+    const totalMoves = positionHistory.length - 1;
 
     const systemPrompt =
       `Classify the chess coaching question into exactly one context type. Output ONLY a JSON object, no other text.\n\n` +
@@ -367,13 +368,13 @@ function resolveRelevantPositions(
   positionHistory: PositionHistoryEntry[],
   currentMoveIndex: number
 ): { positions: ResolvedPosition[]; resolvedIndices: number[] } {
-  const currentIdx = currentMoveIndex;
+  const currentIdx = currentMoveIndex + 1;
 
-  if (positionHistory.length === 0 || currentIdx < 0 || currentIdx >= positionHistory.length) {
+  if (positionHistory.length === 0 || currentIdx <= 0 || currentIdx >= positionHistory.length) {
     return { positions: [], resolvedIndices: [] };
   }
 
-  const moveNum = (idx: number) => Math.ceil((idx + 1) / 2);
+  const moveNum = (idx: number) => Math.ceil(idx / 2);
 
   const posLabel = (idx: number, prefix?: string): string => {
     const entry = positionHistory[idx];
@@ -412,11 +413,11 @@ function resolveRelevantPositions(
   }
 
   if (contextType === "last_few" || contextType === "full_game") {
-    const startIdx = contextType === "last_few" ? Math.max(0, currentIdx - 8) : 0;
+    const startIdx = contextType === "last_few" ? Math.max(1, currentIdx - 8) : 1;
     const limit = contextType === "last_few" ? 4 : 5;
 
     const swings: { idx: number; swing: number }[] = [];
-    for (let i = startIdx + 1; i <= currentIdx; i++) {
+    for (let i = startIdx; i <= currentIdx; i++) {
       const scoreBefore = getScoreVal(positionHistory[i - 1]);
       const scoreAfter = getScoreVal(positionHistory[i]);
       if (scoreBefore === null || scoreAfter === null) continue;
@@ -432,7 +433,6 @@ function resolveRelevantPositions(
     }
 
     const topSwings = swings.sort((a, b) => b.swing - a.swing).slice(0, limit);
-    topSwings.sort((a, b) => a.idx - b.idx);
 
     const positions: ResolvedPosition[] = [];
     const resolvedIndices: number[] = [];
@@ -750,12 +750,15 @@ export async function registerRoutes(
       let classifyResult: ClassifyResult = { contextType: "current", contextNote: "" };
       let theoriaMs = 0;
 
+      let warmupTheoriaText: string | undefined;
       if (positionHistory.length > 0) {
         const theoriaStart = Date.now();
-        [classifyResult] = await Promise.all([
+        let warmupResult: { formatted: string } | null = null;
+        [classifyResult, warmupResult] = await Promise.all([
           preCoachClassify(lastUserMsg, recentContext, currentMoveIndex, positionHistory),
           theoriaService.getEvalText(positionData.fen).catch(() => null),
         ]);
+        warmupTheoriaText = warmupResult?.formatted;
         theoriaMs = Date.now() - theoriaStart;
       }
       const classifyMs = Date.now() - classifyStart;
@@ -771,6 +774,7 @@ export async function registerRoutes(
         useFeatures,
         resolvedPositions: resolvedPositions.length > 0 ? resolvedPositions : undefined,
         contextNote: classifyResult.contextNote || undefined,
+        theoriaText: resolvedPositions.length === 0 ? warmupTheoriaText : undefined,
       });
       const promptTotalMs = Date.now() - promptPhaseStart;
 

@@ -398,11 +398,10 @@ export default function ChessCoach() {
       turn: game.turn() as "w" | "b",
       playerColor,
       lastMove: lastMoveUci,
-      positionHistory: activeLine.map(n => ({
-        fen: n.fen,
-        move: n.move,
-        score: n.score,
-      })),
+      positionHistory: [
+        { fen: tree.fen, move: tree.move, score: tree.score },
+        ...activeLine.map(n => ({ fen: n.fen, move: n.move, score: n.score })),
+      ],
       currentMoveIndex,
     };
   }, [game, getCurrentPgn, evaluation, playerColor, activeLine, currentMoveIndex]);
