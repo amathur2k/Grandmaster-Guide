@@ -9,7 +9,7 @@ import { theoriaService } from "./theoria-service";
 import { sendGA4Event } from "./analytics";
 import { pythonAnalyzerService, formatFeaturesForPrompt } from "./python-analyzer-service";
 import { classicalStockfishService, formatClassicalEvalForPrompt } from "./classical-stockfish-service";
-import { logCoachInteraction } from "./coach-logger";
+import { logCoachInteraction, type CoachTimings } from "./coach-logger";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -323,6 +323,7 @@ async function buildContextMessage(data: {
   }
 
   let featuresBlock = "";
+  const featureStart = Date.now();
   if (data.useFeatures && pythonAnalyzerService.isReady()) {
     try {
       const features = await pythonAnalyzerService.analyze(data.fen, data.lastMove);
@@ -331,11 +332,14 @@ async function buildContextMessage(data: {
       console.error("[python-analyzer] Error computing features:", e);
     }
   }
+  const featureMs = Date.now() - featureStart;
 
+  const classicalStart = Date.now();
   const classicalEvalText = await executeGetClassicalEval(data.fen, "");
+  const classicalMs = Date.now() - classicalStart;
   const classicalEvalBlock = "\n\n" + classicalEvalText;
 
-  return `[Chess Position Context]
+  const message = `[Chess Position Context]
 Full PGN of the game: ${data.pgn || "No moves yet (starting position)"}
 Current position (FEN): ${data.fen}
 Overall evaluation (from White's perspective): ${data.evaluation}
@@ -344,6 +348,8 @@ The student is playing as ${data.playerColor}.
 
 [Top Engine Moves — use these for your suggestions]
 ${engineLinesBlock}${featuresBlock}${classicalEvalBlock}${data.theoriaText ? "\n\n" + data.theoriaText : ""}`;
+
+  return { message, timings: { featureMs, classicalMs } };
 }
 
 const MODEL = "gpt-5.4";
@@ -474,7 +480,7 @@ export async function registerRoutes(
         console.error("[analyze] Theoria eval failed:", e);
       }
 
-      const contextMessage = await buildContextMessage({ ...positionData, useFeatures, theoriaText });
+      const { message: contextMessage } = await buildContextMessage({ ...positionData, useFeatures, theoriaText });
       const activeTools = getTools(useToolCalling, useFeatures, useTheoria);
 
       const msgs: OpenAI.ChatCompletionMessageParam[] = [
@@ -538,14 +544,20 @@ export async function registerRoutes(
 
       let theoriaText: string | undefined;
       let theoriaToolUsed = false;
+      const promptPhaseStart = Date.now();
+
+      const theoriaStart = Date.now();
       try {
         const evalResult = await theoriaService.getEvalText(positionData.fen);
         theoriaText = evalResult.formatted;
       } catch (e) {
         console.error("[chat] Theoria eval failed:", e);
       }
+      const theoriaMs = Date.now() - theoriaStart;
 
-      const contextMessage = await buildContextMessage({ ...positionData, useFeatures, theoriaText });
+      const { message: contextMessage, timings: promptTimings } = await buildContextMessage({ ...positionData, useFeatures, theoriaText });
+      const promptTotalMs = Date.now() - promptPhaseStart;
+
       const activeTools = getTools(useToolCalling, useFeatures, useTheoria);
 
       res.setHeader("Content-Type", "text/event-stream");
@@ -713,12 +725,20 @@ export async function registerRoutes(
           }
         }
 
-        console.log(`[chat] Streamed ${tokenCount} tokens in ${Date.now() - startTime}ms`);
+        const gptMs = Date.now() - startTime;
+        console.log(`[chat] Streamed ${tokenCount} tokens in ${gptMs}ms`);
 
         logCoachInteraction({
           userQuery,
           prompt: contextMessage,
           response: finalResponse,
+          timings: {
+            theoriaMs,
+            featureMs: promptTimings.featureMs,
+            classicalMs: promptTimings.classicalMs,
+            promptTotalMs,
+            gptMs,
+          },
         });
 
         clearInterval(heartbeat);
