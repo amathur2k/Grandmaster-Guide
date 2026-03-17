@@ -9,7 +9,7 @@ import { theoriaService } from "./theoria-service";
 import { sendGA4Event } from "./analytics";
 import { pythonAnalyzerService, formatFeaturesForPrompt } from "./python-analyzer-service";
 import { classicalStockfishService, formatClassicalEvalForPrompt } from "./classical-stockfish-service";
-import { logCoachInteraction, type CoachTimings } from "./coach-logger";
+import { logCoachInteraction, type CoachTimings, type GptRound } from "./coach-logger";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -615,9 +615,13 @@ export async function registerRoutes(
         console.log(`[chat] === END PROMPT (${chatMessages.length} messages, tools=${activeTools.map(t => t.function.name).join(",")}) ===`);
 
         let tokenCount = 0;
+        const gptRounds: GptRound[] = [];
+        let forcedResponseMs: number | undefined;
+
         for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
           if (clientDisconnected) break;
 
+          const roundLLMStart = Date.now();
           const stream = await openai.chat.completions.create({
             model: MODEL,
             messages: chatMessages,
@@ -658,7 +662,10 @@ export async function registerRoutes(
             }
           }
 
+          const roundLLMMs = Date.now() - roundLLMStart;
+
           if (!hasToolCalls || toolCallAccum.size === 0) {
+            gptRounds.push({ round: round + 1, llmMs: roundLLMMs });
             finalResponse = assistantContent;
             for (const token of bufferedTokens) {
               if (clientDisconnected) break;
@@ -681,6 +688,7 @@ export async function registerRoutes(
 
           const clientId = req.sessionID || "server";
           const toolNames: string[] = [];
+          const toolExecStart = Date.now();
           for (const tc of toolCallAccum.values()) {
             toolNames.push(tc.name);
             chatMessages.push(await handleToolCall(
@@ -691,6 +699,9 @@ export async function registerRoutes(
               positionData.lastMove,
             ));
           }
+          const toolMs = Date.now() - toolExecStart;
+
+          gptRounds.push({ round: round + 1, llmMs: roundLLMMs, toolNames, toolMs });
 
           if (toolNames.includes("get_theoria_insights")) {
             theoriaToolUsed = true;
@@ -707,6 +718,7 @@ export async function registerRoutes(
 
         if (tokenCount === 0 && !clientDisconnected) {
           console.log(`[chat] Tool rounds exhausted with 0 text tokens — forcing final response without tools`);
+          const forcedStart = Date.now();
           const forcedStream = await openai.chat.completions.create({
             model: MODEL,
             messages: chatMessages,
@@ -723,6 +735,7 @@ export async function registerRoutes(
             tokenCount++;
             res.write(`data: ${JSON.stringify({ type: "token", text: delta })}\n\n`);
           }
+          forcedResponseMs = Date.now() - forcedStart;
         }
 
         const gptMs = Date.now() - startTime;
@@ -738,6 +751,8 @@ export async function registerRoutes(
             classicalMs: promptTimings.classicalMs,
             promptTotalMs,
             gptMs,
+            gptRounds,
+            forcedResponseMs,
           },
         });
 
