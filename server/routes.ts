@@ -396,8 +396,8 @@ function resolveRelevantPositions(
       ? "Starting position"
       : `Current position — move ${moveNum(currentIdx)}${moveName(currentIdx) ? ` (${moveName(currentIdx)})` : ""}`;
     return {
-      positions: [makePair(currentIdx, label)],
-      resolvedIndices: currentIdx > 0 ? [currentIdx - 1, currentIdx] : [currentIdx],
+      positions: [{ label, beforeFen: null, afterFen: positionHistory[currentIdx].fen }],
+      resolvedIndices: [currentIdx],
     };
   }
 
