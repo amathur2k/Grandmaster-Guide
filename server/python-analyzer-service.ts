@@ -226,7 +226,7 @@ export const pythonAnalyzerService = new PythonAnalyzerService();
 
 export function formatFeaturesForPrompt(features: RichPositionFeatures): string {
   const lines: string[] = [
-    `[Position Features — computed facts about the current position]`,
+    `[Computed observations about the position]`,
     `Summary: ${features.summary}`,
     ``,
     `Material: ${features.material.description} (balance: ${features.material.balance > 0 ? "+" : ""}${features.material.balance.toFixed(1)})`,

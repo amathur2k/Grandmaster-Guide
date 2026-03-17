@@ -59,7 +59,7 @@ const SYSTEM_PROMPT = `You are a chess coach. Be brief and direct — no filler,
 8. Identify the opening precisely.
 9. Never end your response with a question.
 10. Trust engine data completely — prefer it over your own calculation.
-11. Each position block includes [Position Features] (material, tactics, pawn structure, king safety, strategic themes). Use these facts to ground your explanations of imbalances, weaknesses, and piece activity. When get_position_features is available, call it before discussing alternative lines that significantly change the position.
+11. Each position block includes [Computed observations about the position] (material, tactics, pawn structure, king safety, strategic themes). Use these facts to ground your explanations of imbalances, weaknesses, and piece activity. When get_position_features is available, call it before discussing alternative lines that significantly change the position.
 12. When [Theoria Strategic Assessment] data is present, use it to enrich your positional explanations — it reflects an Lc0-trained evaluation that emphasises strategic themes over tactical complexity. When get_theoria_insights is available, call it to analyse any alternative line you want to explain.
 13. When get_classical_eval is available, call it whenever you want hard numerical engine data to back up your explanation of king safety, mobility, threats, passed pawns, or space. Reference the term scores directly in your response (e.g. "Stockfish scores King safety −11 MG for White").
 14. Limit all strategic advice to the top 3 most critical points.`;
@@ -461,27 +461,30 @@ function resolveRelevantPositions(
   return { positions: [], resolvedIndices: [] };
 }
 
+const SECTION_SEP = "────────────────────────────────────────";
+
 async function enrichPosition(
   fen: string,
   cachedTheoriaText?: string,
   lastMove?: string | null,
   useFeatures?: boolean
 ): Promise<string> {
-  const blocks: string[] = [`FEN: ${fen}`];
+  const header = `FEN: ${fen}`;
+  const evalBlocks: string[] = [];
 
   try {
     const classicalText = await executeGetClassicalEval(fen, "");
-    blocks.push(classicalText);
+    evalBlocks.push(classicalText);
   } catch {
-    blocks.push("[SF12 classical eval unavailable for this position]");
+    evalBlocks.push("[SF12 classical eval unavailable for this position]");
   }
 
   if (cachedTheoriaText) {
-    blocks.push(cachedTheoriaText);
+    evalBlocks.push(cachedTheoriaText);
   } else {
     try {
       const evalResult = await theoriaService.getEvalText(fen);
-      blocks.push(evalResult.formatted);
+      evalBlocks.push(evalResult.formatted);
     } catch {
     }
   }
@@ -489,12 +492,12 @@ async function enrichPosition(
   if (useFeatures && pythonAnalyzerService.isReady()) {
     try {
       const features = await pythonAnalyzerService.analyze(fen, lastMove || "");
-      blocks.push(formatFeaturesForPrompt(features));
+      evalBlocks.push(formatFeaturesForPrompt(features));
     } catch {
     }
   }
 
-  return blocks.join("\n\n");
+  return header + "\n\n" + evalBlocks.join(`\n\n${SECTION_SEP}\n\n`);
 }
 
 async function buildContextMessage(data: {
@@ -526,6 +529,7 @@ async function buildContextMessage(data: {
       return enrichCache.get(fen)!;
     };
 
+    const MOVE_SEP = "════════════════════════════════════════";
     const parts: string[] = [];
     for (const pos of data.resolvedPositions) {
       const subParts: string[] = [];
@@ -535,9 +539,9 @@ async function buildContextMessage(data: {
       }
       const afterAnalysis = await cachedEnrich(pos.afterFen, pos.move);
       subParts.push(`[Position: after ${pos.label}]\n${afterAnalysis}`);
-      parts.push(subParts.join("\n\n"));
+      parts.push(subParts.join(`\n\n${SECTION_SEP}\n\n`));
     }
-    enrichmentBlock = "\n\n" + parts.join("\n\n");
+    enrichmentBlock = "\n\n" + parts.join(`\n\n${MOVE_SEP}\n\n`);
   } else {
     enrichmentBlock = "\n\n" + await enrichPosition(data.fen, data.theoriaText, data.lastMove, data.useFeatures);
   }
