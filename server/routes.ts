@@ -947,7 +947,7 @@ export async function registerRoutes(
           const stream = await openai.chat.completions.create({
             model: MODEL,
             messages: chatMessages,
-            max_completion_tokens: 2048,
+            max_completion_tokens: 4096,
             temperature: 0.1,
             frequency_penalty: 0.6,
             verbosity: 'low',
@@ -1045,7 +1045,7 @@ export async function registerRoutes(
           const forcedStream = await openai.chat.completions.create({
             model: MODEL,
             messages: chatMessages,
-            max_completion_tokens: 300,
+            max_completion_tokens: 1024,
             temperature: 0.1,
             frequency_penalty: 0.6,
             verbosity: 'low',
