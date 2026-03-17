@@ -767,16 +767,20 @@ export async function registerRoutes(
       let theoriaMs = 0;
 
       let warmupTheoriaText: string | undefined;
+      const theoriaStart = Date.now();
       if (positionHistory.length > 0) {
-        const theoriaStart = Date.now();
         let warmupResult: { formatted: string } | null = null;
         [classifyResult, warmupResult] = await Promise.all([
           preCoachClassify(lastUserMsg, recentTurns.slice(0, -1), currentMoveIndex, positionHistory),
           theoriaService.getEvalText(positionData.fen).catch(() => null),
         ]);
         warmupTheoriaText = warmupResult?.formatted;
-        theoriaMs = Date.now() - theoriaStart;
+      } else {
+        warmupTheoriaText = await theoriaService.getEvalText(positionData.fen)
+          .then(r => r.formatted)
+          .catch(() => undefined);
       }
+      theoriaMs = Date.now() - theoriaStart;
       const classifyMs = Date.now() - classifyStart;
 
       const { positions: resolvedPositions, resolvedIndices } = resolveRelevantPositions(
