@@ -768,12 +768,23 @@ export async function registerRoutes(
 
       let warmupTheoriaText: string | undefined;
       let classifyMs = 0;
-      const classifyStart = Date.now();
 
-      if (positionHistory.length > 0) {
-        const cs = Date.now();
-        classifyResult = await preCoachClassify(lastUserMsg, recentTurns.slice(0, -1), currentMoveIndex, positionHistory);
-        classifyMs = Date.now() - cs;
+      {
+        const timedClassify = async () => {
+          if (positionHistory.length === 0) return classifyResult;
+          const cs = Date.now();
+          const r = await preCoachClassify(lastUserMsg, recentTurns.slice(0, -1), currentMoveIndex, positionHistory);
+          classifyMs = Date.now() - cs;
+          return r;
+        };
+        const theoriaStart = Date.now();
+        let warmupResult: { formatted: string } | null = null;
+        [classifyResult, warmupResult] = await Promise.all([
+          timedClassify(),
+          theoriaService.getEvalText(positionData.fen).catch(() => null),
+        ]);
+        theoriaMs = Date.now() - theoriaStart;
+        warmupTheoriaText = warmupResult?.formatted;
       }
 
       const { positions: resolvedPositions, resolvedIndices } = resolveRelevantPositions(
@@ -781,14 +792,6 @@ export async function registerRoutes(
         positionHistory,
         currentMoveIndex
       );
-
-      const theoriaStart = Date.now();
-      if (resolvedPositions.length === 0) {
-        warmupTheoriaText = await theoriaService.getEvalText(positionData.fen)
-          .then(r => r.formatted)
-          .catch(() => undefined);
-      }
-      theoriaMs = Date.now() - theoriaStart;
 
       const { message: contextMessage, timings: promptTimings } = await buildContextMessage({
         ...positionData,
