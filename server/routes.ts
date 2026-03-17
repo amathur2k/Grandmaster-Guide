@@ -413,6 +413,7 @@ function resolveRelevantPositions(
 
   if (contextType === "last_few" || contextType === "full_game") {
     const startIdx = contextType === "last_few" ? Math.max(1, currentIdx - 8) : 1;
+    const endIdx = contextType === "last_few" ? currentIdx : positionHistory.length - 1;
     const limit = contextType === "last_few" ? 4 : 5;
 
     const selected: { idx: number; swing: number }[] = [];
@@ -428,7 +429,7 @@ function resolveRelevantPositions(
       selected.sort((a, b) => a.idx - b.idx);
     } else {
       const swings: { idx: number; swing: number }[] = [];
-      for (let i = startIdx; i <= currentIdx; i++) {
+      for (let i = startIdx; i <= endIdx; i++) {
         const scoreBefore = getScoreVal(positionHistory[i - 1]);
         const scoreAfter = getScoreVal(positionHistory[i]);
         if (scoreBefore === null || scoreAfter === null) continue;
