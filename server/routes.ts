@@ -760,17 +760,24 @@ export async function registerRoutes(
         content: m.text,
       }));
 
-      const classifyStart = Date.now();
       let classifyResult: ClassifyResult = { contextType: "current", contextNote: "" };
       let theoriaMs = 0;
 
       let warmupTheoriaText: string | undefined;
+      let classifyMs = 0;
+      const classifyStart = Date.now();
       const theoriaStart = Date.now();
       {
         let warmupResult: { formatted: string } | null = null;
         if (positionHistory.length > 0) {
+          const timedClassify = async () => {
+            const cs = Date.now();
+            const r = await preCoachClassify(lastUserMsg, recentTurns.slice(0, -1), currentMoveIndex, positionHistory);
+            classifyMs = Date.now() - cs;
+            return r;
+          };
           [classifyResult, warmupResult] = await Promise.all([
-            preCoachClassify(lastUserMsg, recentTurns.slice(0, -1), currentMoveIndex, positionHistory),
+            timedClassify(),
             theoriaService.getEvalText(positionData.fen).catch(() => null),
           ]);
         } else {
@@ -779,7 +786,6 @@ export async function registerRoutes(
         warmupTheoriaText = warmupResult?.formatted;
       }
       theoriaMs = Date.now() - theoriaStart;
-      const classifyMs = Date.now() - classifyStart;
 
       const { positions: resolvedPositions, resolvedIndices } = resolveRelevantPositions(
         classifyResult.contextType,
@@ -991,7 +997,7 @@ export async function registerRoutes(
             classicalMs: promptTimings.classicalMs,
             classifyMs,
             classifyContextType: classifyResult.contextType,
-            resolvedIndices,
+            resolvedIndices: resolvedIndices.filter(i => i >= 0),
             promptTotalMs,
             gptMs,
             gptRounds,
