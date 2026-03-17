@@ -47,6 +47,17 @@ export const chatMessageSchema = z.object({
   text: z.string(),
 });
 
+export const positionHistoryEntrySchema = z.object({
+  fen: z.string(),
+  move: z.string(),
+  score: z.object({
+    score: z.number(),
+    mate: z.number().nullable(),
+  }).nullable(),
+});
+
+export type PositionHistoryEntry = z.infer<typeof positionHistoryEntrySchema>;
+
 export const coachChatSchema = z.object({
   fen: z.string(),
   pgn: z.string(),
@@ -60,6 +71,8 @@ export const coachChatSchema = z.object({
   useToolCalling: z.boolean().optional().default(true),
   useFeatures: z.boolean().optional().default(true),
   useTheoria: z.boolean().optional().default(false),
+  positionHistory: z.array(positionHistoryEntrySchema).optional().default([]),
+  currentMoveIndex: z.number().int().optional().default(-1),
 });
 
 export type ChatMessage = z.infer<typeof chatMessageSchema>;

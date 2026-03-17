@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import OpenAI from "openai";
 import { Chess } from "chess.js";
 import passport from "passport";
-import { analyzePositionSchema, coachChatSchema, type User } from "@shared/schema";
+import { analyzePositionSchema, coachChatSchema, type PositionHistoryEntry, type User } from "@shared/schema";
 
 import { theoriaService } from "./theoria-service";
 import { sendGA4Event } from "./analytics";
@@ -298,6 +298,160 @@ function formatScore(score: number, mate: number | null): string {
   return `${score > 0 ? "+" : ""}${score.toFixed(2)}`;
 }
 
+type ClassifyResult = {
+  contextType: "current" | "last_move" | "last_few" | "full_game";
+  contextNote: string;
+};
+
+type ResolvedPosition = {
+  label: string;
+  fen: string;
+};
+
+async function preCoachClassify(
+  userMessage: string,
+  recentContext: string[],
+  currentMoveIndex: number,
+  positionHistory: PositionHistoryEntry[]
+): Promise<ClassifyResult> {
+  const fallback: ClassifyResult = { contextType: "current", contextNote: "" };
+
+  try {
+    const currentEntry = positionHistory[currentMoveIndex + 1];
+    const moveName = currentEntry?.move || "";
+    const moveNum = currentMoveIndex >= 0 ? Math.ceil((currentMoveIndex + 1) / 2) : 0;
+    const totalMoves = positionHistory.length - 1;
+
+    const systemPrompt =
+      `Classify the chess coaching question into exactly one context type. Output ONLY a JSON object, no other text.\n\n` +
+      `{"contextType":"current"|"last_move"|"last_few"|"full_game","contextNote":"<1-sentence note>"}\n\n` +
+      `Rules:\n` +
+      `- "current": future plans, what to play, best move, evaluate this position\n` +
+      `- "last_move": why was that move good/bad, the move just played${moveName ? ` (move ${moveNum} — ${moveName})` : ""}\n` +
+      `- "last_few": last few moves, recently, what happened, past few turns\n` +
+      `- "full_game": entire game, game analysis, what to learn, game review\n\n` +
+      `Game length: ${totalMoves} moves. Currently at move ${moveNum}${moveName ? ` (${moveName})` : ""}.`;
+
+    const msgs: OpenAI.ChatCompletionMessageParam[] = [
+      { role: "system", content: systemPrompt },
+      ...recentContext.slice(-4).map<OpenAI.ChatCompletionMessageParam>(t => ({ role: "user", content: t })),
+      { role: "user", content: userMessage },
+    ];
+
+    const resp = await Promise.race([
+      openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: msgs,
+        max_completion_tokens: 120,
+        temperature: 0,
+      }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("classify timeout")), 3000)),
+    ]);
+
+    const text = resp.choices[0]?.message?.content?.trim() ?? "";
+    const match = text.match(/\{[\s\S]*\}/);
+    const parsed = match ? JSON.parse(match[0]) : null;
+
+    if (parsed && ["current", "last_move", "last_few", "full_game"].includes(parsed.contextType)) {
+      return { contextType: parsed.contextType, contextNote: parsed.contextNote ?? "" };
+    }
+  } catch (e) {
+    console.warn("[pre-coach] classify failed, using 'current':", e instanceof Error ? e.message : String(e));
+  }
+
+  return fallback;
+}
+
+function resolveRelevantPositions(
+  contextType: string,
+  positionHistory: PositionHistoryEntry[],
+  currentMoveIndex: number
+): ResolvedPosition[] {
+  const currentIdx = currentMoveIndex + 1;
+
+  if (positionHistory.length === 0 || currentIdx < 0 || currentIdx >= positionHistory.length) {
+    return [];
+  }
+
+  const moveNum = (idx: number) => Math.ceil(idx / 2);
+
+  const posLabel = (idx: number, prefix?: string): string => {
+    const entry = positionHistory[idx];
+    const mn = entry?.move ? ` — ${entry.move}` : "";
+    return prefix
+      ? `${prefix} move ${moveNum(idx)}${mn}`
+      : `After move ${moveNum(idx)}${mn}`;
+  };
+
+  const getScoreVal = (entry: PositionHistoryEntry | undefined): number | null => {
+    if (!entry?.score) return null;
+    if (entry.score.mate !== null) return entry.score.mate > 0 ? 100 : -100;
+    return entry.score.score;
+  };
+
+  if (contextType === "current") {
+    return [{ label: posLabel(currentIdx, "Current position after"), fen: positionHistory[currentIdx].fen }];
+  }
+
+  if (contextType === "last_move") {
+    const results: ResolvedPosition[] = [];
+    if (currentIdx > 0) {
+      results.push({ label: `Before move ${moveNum(currentIdx)}${positionHistory[currentIdx]?.move ? ` — before ${positionHistory[currentIdx].move}` : ""}`, fen: positionHistory[currentIdx - 1].fen });
+    }
+    results.push({ label: posLabel(currentIdx, "After"), fen: positionHistory[currentIdx].fen });
+    return results;
+  }
+
+  if (contextType === "last_few" || contextType === "full_game") {
+    const startIdx = contextType === "last_few" ? Math.max(1, currentIdx - 8) : 1;
+    const limit = contextType === "last_few" ? 4 : 5;
+
+    const swings: { idx: number; swing: number }[] = [];
+    for (let i = startIdx; i <= currentIdx; i++) {
+      const scoreBefore = getScoreVal(positionHistory[i - 1]);
+      const scoreAfter = getScoreVal(positionHistory[i]);
+      if (scoreBefore === null || scoreAfter === null) continue;
+      const swing = Math.abs(scoreAfter - scoreBefore);
+      if (swing >= 0.5) swings.push({ idx: i, swing });
+    }
+
+    if (swings.length === 0) {
+      return [{ label: posLabel(currentIdx, "Current position after"), fen: positionHistory[currentIdx].fen }];
+    }
+
+    const topSwings = swings.sort((a, b) => b.swing - a.swing).slice(0, limit);
+    topSwings.sort((a, b) => a.idx - b.idx);
+
+    const results: ResolvedPosition[] = [];
+    for (const { idx } of topSwings) {
+      results.push({ label: `Before move ${moveNum(idx)}${positionHistory[idx]?.move ? ` — before ${positionHistory[idx].move}` : ""}`, fen: positionHistory[idx - 1].fen });
+      results.push({ label: posLabel(idx, "After"), fen: positionHistory[idx].fen });
+    }
+    return results;
+  }
+
+  return [];
+}
+
+async function enrichPosition(fen: string): Promise<string> {
+  const blocks: string[] = [`FEN: ${fen}`];
+
+  try {
+    const classicalText = await executeGetClassicalEval(fen, "");
+    blocks.push(classicalText);
+  } catch {
+    blocks.push("[SF12 classical eval unavailable for this position]");
+  }
+
+  try {
+    const evalResult = await theoriaService.getEvalText(fen);
+    blocks.push(evalResult.formatted);
+  } catch {
+  }
+
+  return blocks.join("\n\n");
+}
+
 async function buildContextMessage(data: {
   fen: string;
   pgn: string;
@@ -309,6 +463,8 @@ async function buildContextMessage(data: {
   lastMove?: string;
   useFeatures?: boolean;
   theoriaText?: string;
+  resolvedPositions?: ResolvedPosition[];
+  contextNote?: string;
 }) {
   const turnLabel = data.turn === "w" ? "White" : "Black";
 
@@ -336,25 +492,42 @@ async function buildContextMessage(data: {
   const featureMs = Date.now() - featureStart;
 
   const classicalStart = Date.now();
-  let classicalEvalBlock = "";
-  try {
-    const classicalEvalText = await executeGetClassicalEval(data.fen, "");
-    classicalEvalBlock = "\n\n" + classicalEvalText;
-  } catch (e) {
-    console.warn("[classical-sf] SF12 eval failed for this position — continuing without it:", e instanceof Error ? e.message : String(e));
-    classicalEvalBlock = "\n\n[SF12 classical eval unavailable for this position]";
+  let enrichmentBlock = "";
+
+  if (data.resolvedPositions && data.resolvedPositions.length > 0) {
+    const parts: string[] = [];
+    for (const pos of data.resolvedPositions) {
+      const enriched = await enrichPosition(pos.fen);
+      parts.push(`[Analysed Position: ${pos.label}]\n${enriched}`);
+    }
+    enrichmentBlock = "\n\n" + parts.join("\n\n");
+  } else {
+    try {
+      const classicalEvalText = await executeGetClassicalEval(data.fen, "");
+      enrichmentBlock = "\n\n" + classicalEvalText;
+    } catch (e) {
+      console.warn("[classical-sf] SF12 eval failed for this position — continuing without it:", e instanceof Error ? e.message : String(e));
+      enrichmentBlock = "\n\n[SF12 classical eval unavailable for this position]";
+    }
+    if (data.theoriaText) {
+      enrichmentBlock += "\n\n" + data.theoriaText;
+    }
   }
   const classicalMs = Date.now() - classicalStart;
+
+  const contextNoteBlock = data.contextNote
+    ? `\n\n[Coach Context Note]\n${data.contextNote}`
+    : "";
 
   const message = `[Chess Position Context]
 Full PGN of the game: ${data.pgn || "No moves yet (starting position)"}
 Current position (FEN): ${data.fen}
 Overall evaluation (from White's perspective): ${data.evaluation}
 It is ${turnLabel}'s turn to move.
-The student is playing as ${data.playerColor}.
+The student is playing as ${data.playerColor}.${contextNoteBlock}
 
 [Top Engine Moves — use these for your suggestions]
-${engineLinesBlock}${featuresBlock}${classicalEvalBlock}${data.theoriaText ? "\n\n" + data.theoriaText : ""}`;
+${engineLinesBlock}${featuresBlock}${enrichmentBlock}`;
 
   return { message, timings: { featureMs, classicalMs } };
 }
@@ -547,22 +720,35 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid request data" });
       }
 
-      const { messages, useToolCalling, useFeatures, useTheoria, ...positionData } = parsed.data;
+      const { messages, useToolCalling, useFeatures, useTheoria, positionHistory, currentMoveIndex, ...positionData } = parsed.data;
 
-      let theoriaText: string | undefined;
       let theoriaToolUsed = false;
       const promptPhaseStart = Date.now();
 
-      const theoriaStart = Date.now();
-      try {
-        const evalResult = await theoriaService.getEvalText(positionData.fen);
-        theoriaText = evalResult.formatted;
-      } catch (e) {
-        console.error("[chat] Theoria eval failed:", e);
-      }
-      const theoriaMs = Date.now() - theoriaStart;
+      const lastUserMsg = [...messages].reverse().find(m => m.role === "user")?.text ?? "";
+      const recentContext = messages.slice(-5).map(m => m.text);
 
-      const { message: contextMessage, timings: promptTimings } = await buildContextMessage({ ...positionData, useFeatures, theoriaText });
+      const classifyStart = Date.now();
+      let classifyResult: ClassifyResult = { contextType: "current", contextNote: "" };
+      if (positionHistory.length > 0) {
+        classifyResult = await preCoachClassify(lastUserMsg, recentContext, currentMoveIndex, positionHistory);
+      }
+      const classifyMs = Date.now() - classifyStart;
+
+      const resolvedPositions = resolveRelevantPositions(
+        classifyResult.contextType,
+        positionHistory,
+        currentMoveIndex
+      );
+
+      const theoriaMs = 0;
+
+      const { message: contextMessage, timings: promptTimings } = await buildContextMessage({
+        ...positionData,
+        useFeatures,
+        resolvedPositions: resolvedPositions.length > 0 ? resolvedPositions : undefined,
+        contextNote: classifyResult.contextNote || undefined,
+      });
       const promptTotalMs = Date.now() - promptPhaseStart;
 
       const activeTools = getTools(useToolCalling, useFeatures, useTheoria);
@@ -758,6 +944,8 @@ export async function registerRoutes(
             theoriaMs,
             featureMs: promptTimings.featureMs,
             classicalMs: promptTimings.classicalMs,
+            classifyMs,
+            classifyContextType: classifyResult.contextType,
             promptTotalMs,
             gptMs,
             gptRounds,

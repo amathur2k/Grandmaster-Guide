@@ -398,8 +398,14 @@ export default function ChessCoach() {
       turn: game.turn() as "w" | "b",
       playerColor,
       lastMove: lastMoveUci,
+      positionHistory: activeLine.map(n => ({
+        fen: n.fen,
+        move: n.move,
+        score: n.score,
+      })),
+      currentMoveIndex,
     };
-  }, [game, getCurrentPgn, evaluation, playerColor]);
+  }, [game, getCurrentPgn, evaluation, playerColor, activeLine, currentMoveIndex]);
 
   useEffect(() => {
     const updateBoardSize = () => {

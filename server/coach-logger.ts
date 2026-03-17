@@ -45,6 +45,8 @@ export interface CoachTimings {
   theoriaMs: number;
   featureMs: number;
   classicalMs: number;
+  classifyMs?: number;
+  classifyContextType?: string;
   promptTotalMs: number;
   gptMs: number;
   gptRounds: GptRound[];
@@ -61,8 +63,13 @@ export function logCoachInteraction(opts: {
 
   const { timings: t } = opts;
 
+  const classifyLine = t.classifyMs !== undefined
+    ? `  ${pad("├─ Pre-coach classify:")}   ${ms(t.classifyMs)}${t.classifyContextType ? `  → ${t.classifyContextType}` : ""}`
+    : null;
+
   const promptLines = [
     `${pad("Prompt generation (total):")} ${ms(t.promptTotalMs)}`,
+    ...(classifyLine ? [classifyLine] : []),
     `  ${pad("├─ Theoria evaluation:")}   ${ms(t.theoriaMs)}`,
     `  ${pad("├─ Position features:")}    ${ms(t.featureMs)}`,
     `  ${pad("└─ SF12 classical eval:")}  ${ms(t.classicalMs)}`,
