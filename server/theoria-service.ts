@@ -3,6 +3,7 @@ import { createWriteStream, existsSync, mkdirSync, chmodSync, statSync, renameSy
 import { createHash } from "crypto";
 import https from "https";
 import path from "path";
+import { Chess } from "chess.js";
 
 const THEORIA_DIR = path.join(process.cwd(), "engines");
 const THEORIA_BIN = path.join(THEORIA_DIR, "theoria");
@@ -467,8 +468,18 @@ class TheoriaService {
       return side ? `${side} — ${quality} (${r.score > 0 ? "+" : ""}${r.score.toFixed(2)})` : `equal (0.00)`;
     };
 
+    const uciToSan = (uciMove: string): string => {
+      try {
+        const chess = new Chess(fen);
+        const move = chess.move({ from: uciMove.slice(0, 2), to: uciMove.slice(2, 4), promotion: uciMove[4] || undefined });
+        return move ? move.san : uciMove;
+      } catch {
+        return uciMove;
+      }
+    };
+
     const moveEntry = (r: TheoriaEvalResult): string => {
-      const mv = r.bestMove || "?";
+      const mv = r.bestMove ? uciToSan(r.bestMove) : "?";
       if (r.mate !== null) {
         return `${mv} (${r.mate > 0 ? "Mate in " + r.mate : "Mated in " + Math.abs(r.mate)})`;
       }
