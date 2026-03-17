@@ -423,7 +423,7 @@ function resolveRelevantPositions(
         const scoreAfter = getScoreVal(positionHistory[i]);
         if (scoreBefore === null || scoreAfter === null) continue;
         const swing = Math.abs(scoreAfter - scoreBefore);
-        if (swing >= 0.5) selected.push({ idx: i, swing });
+        if (swing > 0.5) selected.push({ idx: i, swing });
       }
       selected.sort((a, b) => a.idx - b.idx);
     } else {
@@ -433,7 +433,7 @@ function resolveRelevantPositions(
         const scoreAfter = getScoreVal(positionHistory[i]);
         if (scoreBefore === null || scoreAfter === null) continue;
         const swing = Math.abs(scoreAfter - scoreBefore);
-        if (swing >= 0.5) swings.push({ idx: i, swing });
+        if (swing > 0.5) swings.push({ idx: i, swing });
       }
       swings.sort((a, b) => b.swing - a.swing);
       selected.push(...swings.slice(0, limit));
@@ -522,12 +522,14 @@ async function buildContextMessage(data: {
   if (data.resolvedPositions && data.resolvedPositions.length > 0) {
     const parts: string[] = [];
     for (const pos of data.resolvedPositions) {
-      const [beforeAnalysis, afterAnalysis] = await Promise.all([
-        pos.beforeFen ? enrichPosition(pos.beforeFen) : Promise.resolve(null),
-        enrichPosition(pos.afterFen),
-      ]);
-      const beforeBlock = beforeAnalysis ? `Before:\n${beforeAnalysis}\n\n` : "";
-      parts.push(`[Analysed Pair: ${pos.label}]\n${beforeBlock}After:\n${afterAnalysis}`);
+      const subParts: string[] = [];
+      if (pos.beforeFen) {
+        const beforeAnalysis = await enrichPosition(pos.beforeFen);
+        subParts.push(`[Position: before ${pos.label}]\n${beforeAnalysis}`);
+      }
+      const afterAnalysis = await enrichPosition(pos.afterFen);
+      subParts.push(`[Position: after ${pos.label}]\n${afterAnalysis}`);
+      parts.push(subParts.join("\n\n"));
     }
     enrichmentBlock = "\n\n" + parts.join("\n\n");
   } else {
