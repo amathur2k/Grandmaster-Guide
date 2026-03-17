@@ -310,7 +310,7 @@ type ResolvedPosition = {
 
 async function preCoachClassify(
   userMessage: string,
-  recentContext: string[],
+  recentTurns: OpenAI.ChatCompletionMessageParam[],
   currentMoveIndex: number,
   positionHistory: PositionHistoryEntry[]
 ): Promise<ClassifyResult> {
@@ -335,7 +335,7 @@ async function preCoachClassify(
 
     const msgs: OpenAI.ChatCompletionMessageParam[] = [
       { role: "system", content: systemPrompt },
-      ...recentContext.slice(-4).map<OpenAI.ChatCompletionMessageParam>(t => ({ role: "user", content: t })),
+      ...recentTurns.slice(-3),
       { role: "user", content: userMessage },
     ];
 
@@ -416,27 +416,40 @@ function resolveRelevantPositions(
     const startIdx = contextType === "last_few" ? Math.max(1, currentIdx - 8) : 1;
     const limit = contextType === "last_few" ? 4 : 5;
 
-    const swings: { idx: number; swing: number }[] = [];
-    for (let i = startIdx; i <= currentIdx; i++) {
-      const scoreBefore = getScoreVal(positionHistory[i - 1]);
-      const scoreAfter = getScoreVal(positionHistory[i]);
-      if (scoreBefore === null || scoreAfter === null) continue;
-      const swing = Math.abs(scoreAfter - scoreBefore);
-      if (swing >= 0.5) swings.push({ idx: i, swing });
+    const selected: { idx: number; swing: number }[] = [];
+
+    if (contextType === "last_few") {
+      for (let i = currentIdx; i >= startIdx && selected.length < limit; i--) {
+        const scoreBefore = getScoreVal(positionHistory[i - 1]);
+        const scoreAfter = getScoreVal(positionHistory[i]);
+        if (scoreBefore === null || scoreAfter === null) continue;
+        const swing = Math.abs(scoreAfter - scoreBefore);
+        if (swing >= 0.5) selected.push({ idx: i, swing });
+      }
+      selected.sort((a, b) => a.idx - b.idx);
+    } else {
+      const swings: { idx: number; swing: number }[] = [];
+      for (let i = startIdx; i <= currentIdx; i++) {
+        const scoreBefore = getScoreVal(positionHistory[i - 1]);
+        const scoreAfter = getScoreVal(positionHistory[i]);
+        if (scoreBefore === null || scoreAfter === null) continue;
+        const swing = Math.abs(scoreAfter - scoreBefore);
+        if (swing >= 0.5) swings.push({ idx: i, swing });
+      }
+      swings.sort((a, b) => b.swing - a.swing);
+      selected.push(...swings.slice(0, limit));
     }
 
-    if (swings.length === 0) {
+    if (selected.length === 0) {
       return {
         positions: [{ label: posLabel(currentIdx, "Current position after"), fen: positionHistory[currentIdx].fen }],
         resolvedIndices: [currentIdx],
       };
     }
 
-    const topSwings = swings.sort((a, b) => b.swing - a.swing).slice(0, limit);
-
     const positions: ResolvedPosition[] = [];
     const resolvedIndices: number[] = [];
-    for (const { idx } of topSwings) {
+    for (const { idx } of selected) {
       positions.push({
         label: `Before move ${moveNum(idx)}${positionHistory[idx]?.move ? ` (before ${positionHistory[idx].move})` : ""}`,
         fen: positionHistory[idx - 1].fen,
@@ -744,7 +757,10 @@ export async function registerRoutes(
       const promptPhaseStart = Date.now();
 
       const lastUserMsg = [...messages].reverse().find(m => m.role === "user")?.text ?? "";
-      const recentContext = messages.slice(-5).map(m => m.text);
+      const recentTurns: OpenAI.ChatCompletionMessageParam[] = messages.slice(-6).map(m => ({
+        role: m.role === "model" ? "assistant" as const : "user" as const,
+        content: m.text,
+      }));
 
       const classifyStart = Date.now();
       let classifyResult: ClassifyResult = { contextType: "current", contextNote: "" };
@@ -755,7 +771,7 @@ export async function registerRoutes(
         const theoriaStart = Date.now();
         let warmupResult: { formatted: string } | null = null;
         [classifyResult, warmupResult] = await Promise.all([
-          preCoachClassify(lastUserMsg, recentContext, currentMoveIndex, positionHistory),
+          preCoachClassify(lastUserMsg, recentTurns.slice(0, -1), currentMoveIndex, positionHistory),
           theoriaService.getEvalText(positionData.fen).catch(() => null),
         ]);
         warmupTheoriaText = warmupResult?.formatted;
