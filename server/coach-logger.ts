@@ -64,8 +64,11 @@ export function logCoachInteraction(opts: {
 
   const { timings: t } = opts;
 
+  const resolvedStr = t.resolvedIndices && t.resolvedIndices.length > 0
+    ? `  [history idx: ${t.resolvedIndices.join(",")} → move ${t.resolvedIndices.map(i => Math.ceil(i / 2)).join(",")}]`
+    : "";
   const classifyLine = t.classifyMs !== undefined
-    ? `  ${pad("├─ Pre-coach classify:")}   ${ms(t.classifyMs)}${t.classifyContextType ? `  → ${t.classifyContextType}` : ""}${t.resolvedIndices && t.resolvedIndices.length > 0 ? `  [moves: ${t.resolvedIndices.join(",")}]` : ""}`
+    ? `  ${pad("├─ Pre-coach classify:")}   ${ms(t.classifyMs)}${t.classifyContextType ? `  → ${t.classifyContextType}` : ""}${resolvedStr}`
     : null;
 
   const promptLines = [

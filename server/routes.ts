@@ -769,26 +769,12 @@ export async function registerRoutes(
       let warmupTheoriaText: string | undefined;
       let classifyMs = 0;
       const classifyStart = Date.now();
-      const theoriaStart = Date.now();
-      {
-        let warmupResult: { formatted: string } | null = null;
-        if (positionHistory.length > 0) {
-          const timedClassify = async () => {
-            const cs = Date.now();
-            const r = await preCoachClassify(lastUserMsg, recentTurns.slice(0, -1), currentMoveIndex, positionHistory);
-            classifyMs = Date.now() - cs;
-            return r;
-          };
-          [classifyResult, warmupResult] = await Promise.all([
-            timedClassify(),
-            theoriaService.getEvalText(positionData.fen).catch(() => null),
-          ]);
-        } else {
-          warmupResult = await theoriaService.getEvalText(positionData.fen).catch(() => null);
-        }
-        warmupTheoriaText = warmupResult?.formatted;
+
+      if (positionHistory.length > 0) {
+        const cs = Date.now();
+        classifyResult = await preCoachClassify(lastUserMsg, recentTurns.slice(0, -1), currentMoveIndex, positionHistory);
+        classifyMs = Date.now() - cs;
       }
-      theoriaMs = Date.now() - theoriaStart;
 
       const { positions: resolvedPositions, resolvedIndices } = resolveRelevantPositions(
         classifyResult.contextType,
@@ -796,12 +782,20 @@ export async function registerRoutes(
         currentMoveIndex
       );
 
+      const theoriaStart = Date.now();
+      if (resolvedPositions.length === 0) {
+        warmupTheoriaText = await theoriaService.getEvalText(positionData.fen)
+          .then(r => r.formatted)
+          .catch(() => undefined);
+      }
+      theoriaMs = Date.now() - theoriaStart;
+
       const { message: contextMessage, timings: promptTimings } = await buildContextMessage({
         ...positionData,
         useFeatures,
         resolvedPositions: resolvedPositions.length > 0 ? resolvedPositions : undefined,
         contextNote: classifyResult.contextNote || undefined,
-        theoriaText: resolvedPositions.length === 0 ? warmupTheoriaText : undefined,
+        theoriaText: warmupTheoriaText,
       });
       const promptTotalMs = Date.now() - promptPhaseStart;
 
