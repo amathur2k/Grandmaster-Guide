@@ -74,7 +74,7 @@ export function logCoachInteraction(opts: {
   const promptLines = [
     `${pad("Prompt generation (total):")} ${ms(t.promptTotalMs)}`,
     ...(classifyLine ? [classifyLine] : []),
-    `  ${pad("├─ Theoria evaluation:")}   ${ms(t.theoriaMs)}`,
+    `  ${pad("├─ Theoria warmup:")}       ${ms(t.theoriaMs)}`,
     `  ${pad("├─ Position features:")}    ${ms(t.featureMs)}`,
     `  ${pad("└─ SF12 classical eval:")}  ${ms(t.classicalMs)}`,
   ];

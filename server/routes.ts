@@ -777,13 +777,14 @@ export async function registerRoutes(
           classifyMs = Date.now() - cs;
           return r;
         };
-        const theoriaStart = Date.now();
+        const timedTheoria = async () => {
+          const ts = Date.now();
+          const r = await theoriaService.getEvalText(positionData.fen).catch(() => null);
+          theoriaMs = Date.now() - ts;
+          return r;
+        };
         let warmupResult: { formatted: string } | null = null;
-        [classifyResult, warmupResult] = await Promise.all([
-          timedClassify(),
-          theoriaService.getEvalText(positionData.fen).catch(() => null),
-        ]);
-        theoriaMs = Date.now() - theoriaStart;
+        [classifyResult, warmupResult] = await Promise.all([timedClassify(), timedTheoria()]);
         warmupTheoriaText = warmupResult?.formatted;
       }
 
