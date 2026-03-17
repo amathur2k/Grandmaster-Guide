@@ -335,9 +335,15 @@ async function buildContextMessage(data: {
   const featureMs = Date.now() - featureStart;
 
   const classicalStart = Date.now();
-  const classicalEvalText = await executeGetClassicalEval(data.fen, "");
+  let classicalEvalBlock = "";
+  try {
+    const classicalEvalText = await executeGetClassicalEval(data.fen, "");
+    classicalEvalBlock = "\n\n" + classicalEvalText;
+  } catch (e) {
+    console.warn("[classical-sf] SF12 eval failed for this position — continuing without it:", e instanceof Error ? e.message : String(e));
+    classicalEvalBlock = "\n\n[SF12 classical eval unavailable for this position]";
+  }
   const classicalMs = Date.now() - classicalStart;
-  const classicalEvalBlock = "\n\n" + classicalEvalText;
 
   const message = `[Chess Position Context]
 Full PGN of the game: ${data.pgn || "No moves yet (starting position)"}

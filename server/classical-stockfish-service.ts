@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, chmodSync, createWriteStream, statSync } from "f
 import https from "https";
 import http from "http";
 import path from "path";
+import { sendGA4Event } from "./analytics";
 
 const ENGINES_DIR = path.join(process.cwd(), "engines");
 const SF12_BIN = path.join(ENGINES_DIR, "stockfish12");
@@ -201,10 +202,18 @@ class ClassicalStockfishService {
     this.currentTimeout = setTimeout(() => {
       const lines = [...this.collectingLines];
       const reject = this.currentReject!;
+
+      const fenCmd = item.commands.find(c => c.startsWith("position fen "));
+      const fen = fenCmd ? fenCmd.slice("position fen ".length).trim() : "unknown";
+      console.warn(`[classical-sf] Timeout — killing stale SF12 process for restart. FEN: ${fen}`);
+
+      sendGA4Event("server", "SF12_timeout", {
+        fen: fen.slice(0, 100),
+        lines_collected: lines.length,
+      }).catch(() => {});
+
       this.clearCurrent();
-      // Kill the stale process so the next request gets a fresh one
       if (this.process) {
-        console.warn("[classical-sf] Timeout — killing stale SF12 process for restart");
         try { this.process.kill(); } catch {}
         this.process = null;
         this.ready = false;
