@@ -357,27 +357,10 @@ class TheoriaService {
 
     await this.runCommand(["ucinewgame", "isready"], "readyok");
 
-    await this.runCommand([`position fen ${fen}`, `go depth 12`], "bestmove");
-
-    const evalLines = await this.runCommand(["eval"], "Final evaluation|Total evaluation");
-
-    const raw = evalLines.join("\n");
-    const formatted = this.parseEvalOutput(evalLines, fen);
-
-    return { raw, formatted };
-  }
-
-  async evaluateWithText(fen: string, depth = 12, multiPV = 3): Promise<{ lines: TheoriaEvalResult[]; evalText: EvalTextResult }> {
-    await this.ensureProcess();
-
-    await this.runCommand(["ucinewgame", "isready"], "readyok");
-
     const pvLines = await this.runCommand(
-      [`position fen ${fen}`, `setoption name MultiPV value ${multiPV}`, `go depth ${depth}`],
+      [`position fen ${fen}`, `setoption name MultiPV value 3`, `go depth 12`],
       "bestmove"
     );
-
-    const evalLines = await this.runCommand(["eval"], "Final evaluation|Total evaluation");
 
     const fenParts = fen.split(" ");
     const turn = (fenParts[1] || "w") as "w" | "b";
@@ -411,87 +394,112 @@ class TheoriaService {
       .map(([, v]) => v);
     const lines = sorted.length > 0 ? sorted : [{ score: 0, mate: null, bestMove: "", pv: [], depth: 0 }];
 
-    const raw = evalLines.join("\n");
-    const formatted = this.parseEvalOutput(evalLines, fen);
-
-    return { lines, evalText: { raw, formatted } };
+    const formatted = this.formatPVAssessment(lines, fen);
+    return { raw: pvLines.join("\n"), formatted };
   }
 
-  private parseEvalOutput(lines: string[], fen: string): string {
-    const parts: string[] = [];
+  async evaluateWithText(fen: string, depth = 12, multiPV = 3): Promise<{ lines: TheoriaEvalResult[]; evalText: EvalTextResult }> {
+    await this.ensureProcess();
+
+    await this.runCommand(["ucinewgame", "isready"], "readyok");
+
+    const pvLines = await this.runCommand(
+      [`position fen ${fen}`, `setoption name MultiPV value ${multiPV}`, `go depth ${depth}`],
+      "bestmove"
+    );
 
     const fenParts = fen.split(" ");
-    const turn = fenParts[1] === "b" ? "Black" : "White";
+    const turn = (fenParts[1] || "w") as "w" | "b";
 
-    const termMap: Record<string, string> = {
-      "Material": "Material",
-      "Imbalance": "Material Imbalance",
-      "Pawns": "Pawn Structure",
-      "Knights": "Knights",
-      "Bishops": "Bishops",
-      "Rooks": "Rooks",
-      "Queens": "Queens",
-      "Mobility": "Piece Activity",
-      "King safety": "King Safety",
-      "Threats": "Threats",
-      "Passed": "Passed Pawns",
-      "Space": "Space",
+    const results: Map<number, TheoriaEvalResult> = new Map();
+    for (const line of pvLines) {
+      if (!line.startsWith("info") || !line.includes("score")) continue;
+
+      const depthMatch = line.match(/depth (\d+)/);
+      const scoreMatch = line.match(/score cp (-?\d+)/);
+      const mateMatch = line.match(/score mate (-?\d+)/);
+      const pvMatch = line.match(/ pv (.+)/);
+      const multipvMatch = line.match(/multipv (\d+)/);
+
+      const mpv = multipvMatch ? parseInt(multipvMatch[1]) : 1;
+      const d = depthMatch ? parseInt(depthMatch[1]) : 0;
+      if (d < 4) continue;
+
+      const rawScore = scoreMatch ? parseInt(scoreMatch[1]) / 100 : 0;
+      const rawMate = mateMatch ? parseInt(mateMatch[1]) : null;
+
+      const score = turn === "b" ? -rawScore : rawScore;
+      const mate = rawMate !== null ? (turn === "b" ? -rawMate : rawMate) : null;
+      const pv = pvMatch ? pvMatch[1].trim().split(" ") : [];
+
+      results.set(mpv, { score, mate, bestMove: pv[0] || "", pv, depth: d });
+    }
+
+    const sorted = Array.from(results.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([, v]) => v);
+    const lines = sorted.length > 0 ? sorted : [{ score: 0, mate: null, bestMove: "", pv: [], depth: 0 }];
+
+    const formatted = this.formatPVAssessment(lines, fen);
+    return { lines, evalText: { raw: pvLines.join("\n"), formatted } };
+  }
+
+  private formatPVAssessment(pvResults: TheoriaEvalResult[], fen: string): string {
+    const fenParts = fen.split(" ");
+    const toMove = fenParts[1] === "b" ? "Black" : "White";
+
+    const pv1 = pvResults[0];
+    if (!pv1 || (!pv1.bestMove && pv1.score === 0 && pv1.mate === null)) {
+      return `[Theoria NNUE Assessment]\n${toMove} to move. No evaluation available.`;
+    }
+
+    const scoreLabel = (r: TheoriaEvalResult): string => {
+      if (r.mate !== null) {
+        return r.mate > 0 ? `Mate in ${r.mate}` : `Mated in ${Math.abs(r.mate)}`;
+      }
+      const abs = Math.abs(r.score);
+      const side = r.score > 0 ? "White" : r.score < 0 ? "Black" : null;
+      const quality =
+        abs < 0.15 ? "equal" :
+        abs < 0.35 ? "slight edge" :
+        abs < 0.75 ? "noticeable advantage" :
+        abs < 1.5  ? "clear advantage" : "decisive advantage";
+      return side ? `${side} — ${quality} (${r.score > 0 ? "+" : ""}${r.score.toFixed(2)})` : `equal (0.00)`;
     };
 
-    for (const line of lines) {
-      const tableMatch = line.match(
-        /\|\s*([A-Za-z ]+?)\s*\|\s*(-?[\d.]+)\s+(-?[\d.]+)\s*\|\s*(-?[\d.]+)\s+(-?[\d.]+)\s*\|\s*(-?[\d.]+)\s+(-?[\d.]+)\s*\|/
-      );
-      if (tableMatch) {
-        const term = tableMatch[1].trim();
-        const totalMg = parseFloat(tableMatch[6]);
-        const totalEg = parseFloat(tableMatch[7]);
-        const avg = (totalMg + totalEg) / 2;
-
-        const label = termMap[term] || term;
-        if (label === term && !termMap[term]) continue;
-        if (Math.abs(avg) < 0.05) continue;
-
-        const sign = avg > 0 ? "White" : "Black";
-        const desc =
-          Math.abs(avg) < 0.2 ? "slight edge" :
-          Math.abs(avg) < 0.5 ? "noticeable advantage" :
-          Math.abs(avg) < 1.0 ? "clear advantage" : "decisive advantage";
-
-        parts.push(`${label}: ${sign} has ${desc} (${avg > 0 ? "+" : ""}${avg.toFixed(2)})`);
+    const moveEntry = (r: TheoriaEvalResult): string => {
+      const mv = r.bestMove || "?";
+      if (r.mate !== null) {
+        return `${mv} (${r.mate > 0 ? "Mate in " + r.mate : "Mated in " + Math.abs(r.mate)})`;
       }
+      return `${mv} (${r.score > 0 ? "+" : ""}${r.score.toFixed(2)})`;
+    };
+
+    let result = `[Theoria NNUE Assessment]\n`;
+    result += `NNUE: ${scoreLabel(pv1)}\n`;
+
+    const moveEntries = pvResults
+      .filter(r => r.bestMove)
+      .slice(0, 3)
+      .map((r, i) => {
+        const label = i === 0 ? "Best" : i === 1 ? "2nd" : "3rd";
+        return `${label}: ${moveEntry(r)}`;
+      });
+
+    if (moveEntries.length > 0) {
+      result += moveEntries.join(" | ") + "\n";
     }
 
-    let nnueScore = "";
-    let finalScore = "";
-    for (const line of lines) {
-      const nnueMatch = line.match(/NNUE evaluation\s+(-?[\d.]+)/);
-      if (nnueMatch) nnueScore = nnueMatch[1];
-
-      const finalMatch = line.match(/(?:Final|Total) evaluation\s+(-?[\d.]+)\s+\((\w+) side\)/);
-      if (finalMatch) {
-        const val = parseFloat(finalMatch[1]);
-        const side = finalMatch[2];
-        const adjusted = side === "black" ? -val : val;
-        finalScore = `${adjusted > 0 ? "+" : ""}${adjusted.toFixed(2)}`;
-      }
+    if (pvResults.length >= 2 && pv1.mate === null && pvResults[1].mate === null) {
+      const gap = Math.abs(pv1.score - pvResults[1].score);
+      const clarityNote =
+        gap >= 0.5 ? "one clear best move" :
+        gap >= 0.2 ? "slight preference, alternatives playable" :
+        "multiple moves roughly equal";
+      result += `Clarity: ${gap > 0 ? "+" : ""}${gap.toFixed(2)} gap → ${clarityNote}`;
     }
 
-    if (parts.length === 0 && !finalScore) {
-      return `[Theoria Strategic Assessment]\nEvaluation computed. ${turn} to move. Use Theoria's lines for more positionally coherent strategic analysis compared to Stockfish.`;
-    }
-
-    let result = "[Theoria Strategic Assessment]\n";
-    if (parts.length > 0) {
-      result += parts.join("\n") + "\n";
-    }
-    if (finalScore) {
-      result += `Overall: ${finalScore} from White's perspective`;
-    } else if (nnueScore) {
-      result += `NNUE eval: ${nnueScore}`;
-    }
-
-    return result;
+    return result.trim();
   }
 
   async warmup(): Promise<void> {
