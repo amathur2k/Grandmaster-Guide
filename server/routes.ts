@@ -443,7 +443,7 @@ function resolveRelevantPositions(
     if (selected.length === 0) {
       return {
         positions: [makePair(currentIdx, `Current position — move ${moveNum(currentIdx)}${moveName(currentIdx) ? ` (${moveName(currentIdx)})` : ""}`)],
-        resolvedIndices: [currentIdx - 1, currentIdx],
+        resolvedIndices: [Math.max(0, currentIdx - 1), currentIdx],
       };
     }
 
@@ -459,7 +459,7 @@ function resolveRelevantPositions(
   return { positions: [], resolvedIndices: [] };
 }
 
-async function enrichPosition(fen: string): Promise<string> {
+async function enrichPosition(fen: string, cachedTheoriaText?: string): Promise<string> {
   const blocks: string[] = [`FEN: ${fen}`];
 
   try {
@@ -469,10 +469,14 @@ async function enrichPosition(fen: string): Promise<string> {
     blocks.push("[SF12 classical eval unavailable for this position]");
   }
 
-  try {
-    const evalResult = await theoriaService.getEvalText(fen);
-    blocks.push(evalResult.formatted);
-  } catch {
+  if (cachedTheoriaText) {
+    blocks.push(cachedTheoriaText);
+  } else {
+    try {
+      const evalResult = await theoriaService.getEvalText(fen);
+      blocks.push(evalResult.formatted);
+    } catch {
+    }
   }
 
   return blocks.join("\n\n");
@@ -525,10 +529,12 @@ async function buildContextMessage(data: {
     for (const pos of data.resolvedPositions) {
       const subParts: string[] = [];
       if (pos.beforeFen) {
-        const beforeAnalysis = await enrichPosition(pos.beforeFen);
+        const cachedBefore = pos.beforeFen === data.fen ? data.theoriaText : undefined;
+        const beforeAnalysis = await enrichPosition(pos.beforeFen, cachedBefore);
         subParts.push(`[Position: before ${pos.label}]\n${beforeAnalysis}`);
       }
-      const afterAnalysis = await enrichPosition(pos.afterFen);
+      const cachedAfter = pos.afterFen === data.fen ? data.theoriaText : undefined;
+      const afterAnalysis = await enrichPosition(pos.afterFen, cachedAfter);
       subParts.push(`[Position: after ${pos.label}]\n${afterAnalysis}`);
       parts.push(subParts.join("\n\n"));
     }
@@ -799,7 +805,7 @@ export async function registerRoutes(
         useFeatures,
         resolvedPositions: resolvedPositions.length > 0 ? resolvedPositions : undefined,
         contextNote: classifyResult.contextNote || undefined,
-        theoriaText: resolvedPositions.length === 0 ? warmupTheoriaText : undefined,
+        theoriaText: warmupTheoriaText,
       });
       const promptTotalMs = Date.now() - promptPhaseStart;
 
