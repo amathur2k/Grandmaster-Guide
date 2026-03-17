@@ -399,8 +399,8 @@ export default function ChessCoach() {
       playerColor,
       lastMove: lastMoveUci,
       positionHistory: [
-        { fen: tree.fen, move: tree.move, score: tree.score },
-        ...activeLine.map(n => ({ fen: n.fen, move: n.move, score: n.score })),
+        { fen: tree.fen, move: null, score: tree.score },
+        ...activeLine.map(n => ({ fen: n.fen, move: n.move || null, score: n.score })),
       ],
       currentMoveIndex,
     };

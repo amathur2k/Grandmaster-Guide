@@ -49,7 +49,7 @@ export const chatMessageSchema = z.object({
 
 export const positionHistoryEntrySchema = z.object({
   fen: z.string(),
-  move: z.string(),
+  move: z.string().nullable(),
   score: z.object({
     score: z.number(),
     mate: z.number().nullable(),

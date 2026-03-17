@@ -305,7 +305,8 @@ type ClassifyResult = {
 
 type ResolvedPosition = {
   label: string;
-  fen: string;
+  beforeFen: string;
+  afterFen: string;
 };
 
 async function preCoachClassify(
@@ -390,26 +391,26 @@ function resolveRelevantPositions(
     return entry.score.score;
   };
 
+  const moveName = (idx: number) => positionHistory[idx]?.move ?? null;
+
+  const makePair = (idx: number, label?: string): ResolvedPosition => ({
+    label: label ?? `Move ${moveNum(idx)}${moveName(idx) ? ` — ${moveName(idx)}` : ""}`,
+    beforeFen: positionHistory[idx - 1].fen,
+    afterFen: positionHistory[idx].fen,
+  });
+
   if (contextType === "current") {
     return {
-      positions: [{ label: posLabel(currentIdx, "Current position after"), fen: positionHistory[currentIdx].fen }],
-      resolvedIndices: [currentIdx],
+      positions: [makePair(currentIdx, `Current position — move ${moveNum(currentIdx)}${moveName(currentIdx) ? ` (${moveName(currentIdx)})` : ""}`)],
+      resolvedIndices: [currentIdx - 1, currentIdx],
     };
   }
 
   if (contextType === "last_move") {
-    const positions: ResolvedPosition[] = [];
-    const resolvedIndices: number[] = [];
-    if (currentIdx > 0) {
-      positions.push({
-        label: `Before move ${moveNum(currentIdx)}${positionHistory[currentIdx]?.move ? ` (before ${positionHistory[currentIdx].move})` : ""}`,
-        fen: positionHistory[currentIdx - 1].fen,
-      });
-      resolvedIndices.push(currentIdx - 1);
-    }
-    positions.push({ label: posLabel(currentIdx, "After"), fen: positionHistory[currentIdx].fen });
-    resolvedIndices.push(currentIdx);
-    return { positions, resolvedIndices };
+    return {
+      positions: [makePair(currentIdx, `Last move — move ${moveNum(currentIdx)}${moveName(currentIdx) ? ` (${moveName(currentIdx)})` : ""}`)],
+      resolvedIndices: [currentIdx - 1, currentIdx],
+    };
   }
 
   if (contextType === "last_few" || contextType === "full_game") {
@@ -442,21 +443,16 @@ function resolveRelevantPositions(
 
     if (selected.length === 0) {
       return {
-        positions: [{ label: posLabel(currentIdx, "Current position after"), fen: positionHistory[currentIdx].fen }],
-        resolvedIndices: [currentIdx],
+        positions: [makePair(currentIdx, `Current position — move ${moveNum(currentIdx)}${moveName(currentIdx) ? ` (${moveName(currentIdx)})` : ""}`)],
+        resolvedIndices: [currentIdx - 1, currentIdx],
       };
     }
 
     const positions: ResolvedPosition[] = [];
     const resolvedIndices: number[] = [];
-    for (const { idx } of selected) {
-      positions.push({
-        label: `Before move ${moveNum(idx)}${positionHistory[idx]?.move ? ` (before ${positionHistory[idx].move})` : ""}`,
-        fen: positionHistory[idx - 1].fen,
-      });
-      resolvedIndices.push(idx - 1);
-      positions.push({ label: posLabel(idx, "After"), fen: positionHistory[idx].fen });
-      resolvedIndices.push(idx);
+    for (const { idx, swing } of selected) {
+      positions.push(makePair(idx, `Move ${moveNum(idx)}${moveName(idx) ? ` (${moveName(idx)})` : ""} — swing ${swing.toFixed(1)}p`));
+      resolvedIndices.push(idx - 1, idx);
     }
     return { positions, resolvedIndices };
   }
@@ -528,8 +524,11 @@ async function buildContextMessage(data: {
   if (data.resolvedPositions && data.resolvedPositions.length > 0) {
     const parts: string[] = [];
     for (const pos of data.resolvedPositions) {
-      const enriched = await enrichPosition(pos.fen);
-      parts.push(`[Analysed Position: ${pos.label}]\n${enriched}`);
+      const [beforeAnalysis, afterAnalysis] = await Promise.all([
+        enrichPosition(pos.beforeFen),
+        enrichPosition(pos.afterFen),
+      ]);
+      parts.push(`[Analysed Pair: ${pos.label}]\nBefore:\n${beforeAnalysis}\n\nAfter:\n${afterAnalysis}`);
     }
     enrichmentBlock = "\n\n" + parts.join("\n\n");
   } else {
@@ -769,12 +768,7 @@ export async function registerRoutes(
       let warmupTheoriaText: string | undefined;
       const theoriaStart = Date.now();
       if (positionHistory.length > 0) {
-        let warmupResult: { formatted: string } | null = null;
-        [classifyResult, warmupResult] = await Promise.all([
-          preCoachClassify(lastUserMsg, recentTurns.slice(0, -1), currentMoveIndex, positionHistory),
-          theoriaService.getEvalText(positionData.fen).catch(() => null),
-        ]);
-        warmupTheoriaText = warmupResult?.formatted;
+        classifyResult = await preCoachClassify(lastUserMsg, recentTurns.slice(0, -1), currentMoveIndex, positionHistory);
       } else {
         warmupTheoriaText = await theoriaService.getEvalText(positionData.fen)
           .then(r => r.formatted)
