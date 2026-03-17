@@ -61,7 +61,8 @@ const SYSTEM_PROMPT = `You are a chess coach. Be brief and direct — no filler,
 10. Trust engine data completely — prefer it over your own calculation.
 11. When [Position Features] data is provided, reference it when explaining material imbalances, pawn weaknesses, piece activity, or king safety. Ground your explanations in the computed facts. When get_position_features is available, call it before discussing alternative lines that significantly change the position.
 12. When [Theoria Strategic Assessment] data is present, use it to enrich your positional explanations — it reflects an Lc0-trained evaluation that emphasises strategic themes over tactical complexity. When get_theoria_insights is available, call it to analyse any alternative line you want to explain.
-13. When get_classical_eval is available, call it whenever you want hard numerical engine data to back up your explanation of king safety, mobility, threats, passed pawns, or space. Reference the term scores directly in your response (e.g. "Stockfish scores King safety −11 MG for White").`;
+13. When get_classical_eval is available, call it whenever you want hard numerical engine data to back up your explanation of king safety, mobility, threats, passed pawns, or space. Reference the term scores directly in your response (e.g. "Stockfish scores King safety −11 MG for White").
+14. Limit all strategic advice to the top 3 most critical points.`;
 
 const validateMoveTool: OpenAI.ChatCompletionTool = {
   type: "function",
@@ -631,9 +632,10 @@ export async function registerRoutes(
           const stream = await openai.chat.completions.create({
             model: MODEL,
             messages: chatMessages,
-            max_completion_tokens: 8192,
+            max_completion_tokens: 2048,
             temperature: 0.1,
             frequency_penalty: 0.6,
+            verbosity: 'low',
             tools: activeTools,
             stream: true,
           });
@@ -728,9 +730,10 @@ export async function registerRoutes(
           const forcedStream = await openai.chat.completions.create({
             model: MODEL,
             messages: chatMessages,
-            max_completion_tokens: 8192,
+            max_completion_tokens: 300,
             temperature: 0.1,
             frequency_penalty: 0.6,
+            verbosity: 'low',
             stream: true,
           });
           for await (const chunk of forcedStream) {
