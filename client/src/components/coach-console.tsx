@@ -82,7 +82,7 @@ function renderTextWithSquares(
   onHoverSquare?: (square: string | null) => void
 ): (string | JSX.Element)[] {
   const parts: (string | JSX.Element)[] = [];
-  const re = /(\*\*[^*]+\*\*|\b[a-h][1-8]\b)/g;
+  const re = /(\*\*[^*]+\*\*|\^[a-h][1-8]|\b[a-h][1-8]\b)/g;
   let last = 0;
   let key = 0;
   let match;
@@ -91,6 +91,23 @@ function renderTextWithSquares(
     const token = match[0];
     if (token.startsWith("**") && token.endsWith("**")) {
       parts.push(<strong key={`b${key++}`}>{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith("^")) {
+      const sq = token.slice(1);
+      if (onHoverSquare) {
+        parts.push(
+          <span
+            key={`sq${key++}`}
+            data-testid={`square-ref-${sq}`}
+            className="font-semibold underline decoration-dotted decoration-amber-500 underline-offset-2 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-sm px-0.5 transition-colors cursor-default"
+            onMouseEnter={() => onHoverSquare(sq)}
+            onMouseLeave={() => onHoverSquare(null)}
+          >
+            {sq}
+          </span>
+        );
+      } else {
+        parts.push(sq);
+      }
     } else if (onHoverSquare && isSquareRef(content, match.index)) {
       const sq = token;
       parts.push(

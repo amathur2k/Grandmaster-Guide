@@ -62,7 +62,8 @@ const SYSTEM_PROMPT = `You are a chess coach. Be brief and direct — no filler,
 11. Each position block includes [Computed observations about the position] (material, tactics, pawn structure, king safety, strategic themes). Use these facts to ground your explanations of imbalances, weaknesses, and piece activity. When get_position_features is available, call it before discussing alternative lines that significantly change the position.
 12. When [Theoria Strategic Assessment] data is present, use it to enrich your positional explanations — it reflects an Lc0-trained evaluation that emphasises strategic themes over tactical complexity. When get_theoria_insights is available, call it to analyse any alternative line you want to explain.
 13. When get_classical_eval is available, call it whenever you want hard numerical engine data to back up your explanation of king safety, mobility, threats, passed pawns, or space. Reference the term scores directly in your response (e.g. "Stockfish scores King safety −11 MG for White").
-14. Limit all strategic advice to the top 3 most critical points.`;
+14. Limit all strategic advice to the top 3 most critical points.
+15. When referencing a specific board square (not as a move), prefix it with ^ — e.g., "the ^g3 square", "weakness on ^f4", "control of ^d5". This marker is hidden from the user and used to highlight the square on the board.`;
 
 const validateMoveTool: OpenAI.ChatCompletionTool = {
   type: "function",
