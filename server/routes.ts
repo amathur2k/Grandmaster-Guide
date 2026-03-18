@@ -7,6 +7,7 @@ import { analyzePositionSchema, coachChatSchema, type PositionHistoryEntry, type
 
 import { theoriaService } from "./theoria-service";
 import { sendGA4Event } from "./analytics";
+import { trackServerEvent } from "./amplitude";
 import { pythonAnalyzerService, formatFeaturesForPrompt } from "./python-analyzer-service";
 import { classicalStockfishService, formatClassicalEvalForPrompt } from "./classical-stockfish-service";
 import { logCoachInteraction, type CoachTimings, type GptRound } from "./coach-logger";
@@ -666,6 +667,7 @@ async function handleToolCall(
   tag: string,
   clientId = "server",
   lastMove?: string,
+  userId?: string,
 ): Promise<OpenAI.ChatCompletionToolMessageParam> {
   const name = tc.function.name;
   try {
@@ -681,6 +683,7 @@ async function handleToolCall(
       const legal = (result as any).legal as boolean;
       console.log(`[${tag}] validate_move: move="${move}" => legal=${legal}`);
       sendGA4Event(clientId, "llm_validate_move", { move, legal, tag }).catch(() => {});
+      trackServerEvent("llm_validate_move", { move, legal, tag }, userId);
       return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
     }
     if (name === "validate_move_sequence") {
@@ -702,12 +705,14 @@ async function handleToolCall(
             };
             console.log(`[${tag}] validate_move_sequence: invalid at index ${i} ("${moves[i]}")`);
             sendGA4Event(clientId, "llm_validate_move_sequence", { valid: false, errorAt: i, tag }).catch(() => {});
+            trackServerEvent("llm_validate_move_sequence", { valid: false, errorAt: i, tag }, userId);
             return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
           }
         }
         const result = { valid: true, finalFen: g.fen(), moves };
         console.log(`[${tag}] validate_move_sequence: all ${moves.length} moves valid`);
         sendGA4Event(clientId, "llm_validate_move_sequence", { valid: true, count: moves.length, tag }).catch(() => {});
+        trackServerEvent("llm_validate_move_sequence", { valid: true, count: moves.length, tag }, userId);
         return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
       } catch (e) {
         return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ valid: false, error: "Invalid FEN or SAN format" }) };
@@ -718,6 +723,7 @@ async function handleToolCall(
       const result = await handleEvaluatePosition(fen, fallbackFen);
       console.log(`[${tag}] evaluate_position => ${JSON.stringify(result).slice(0, 120)}`);
       sendGA4Event(clientId, "llm_evaluate_position", { tag }).catch(() => {});
+      trackServerEvent("llm_evaluate_position", { tag }, userId);
       return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
     }
     if (name === "get_position_features") {
@@ -733,6 +739,7 @@ async function handleToolCall(
         const result = await pythonAnalyzerService.analyze(cleanFen, lastMove);
         console.log(`[${tag}] get_position_features => summary="${result.summary.slice(0, 120)}"`);
         sendGA4Event(clientId, "llm_get_position_features", { tag }).catch(() => {});
+        trackServerEvent("llm_get_position_features", { tag }, userId);
         return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
       } catch (e: unknown) {
         console.error(`[${tag}] get_position_features error:`, e instanceof Error ? e.message : String(e));
@@ -763,6 +770,7 @@ async function handleToolCall(
         };
         console.log(`[${tag}] get_theoria_insights => ${evalText.formatted.slice(0, 120)}`);
         sendGA4Event(clientId, "llm_get_theoria_insights", { tag }).catch(() => {});
+        trackServerEvent("llm_get_theoria_insights", { tag }, userId);
         return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
       } catch (e) {
         console.error(`[${tag}] get_theoria_insights error:`, e);
@@ -775,6 +783,7 @@ async function handleToolCall(
         const text = await executeGetClassicalEval(fen, fallbackFen);
         console.log(`[${tag}] get_classical_eval => OK for FEN="${fen.slice(0, 40)}..."`);
         sendGA4Event(clientId, "llm_get_classical_eval", { tag }).catch(() => {});
+        trackServerEvent("llm_get_classical_eval", { tag }, userId);
         return { role: "tool", tool_call_id: tc.id, content: text };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -833,8 +842,9 @@ export async function registerRoutes(
         if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
           msgs.push(choice.message);
           const clientId = req.sessionID || "server";
+          const userId = (req.user as User | undefined)?.id;
           for (const tc of choice.message.tool_calls) {
-            msgs.push(await handleToolCall(tc, positionData.fen, "analyze", clientId, positionData.lastMove));
+            msgs.push(await handleToolCall(tc, positionData.fen, "analyze", clientId, positionData.lastMove, userId));
           }
           continue;
         }
@@ -1073,6 +1083,7 @@ export async function registerRoutes(
           chatMessages.push(assistantMsg);
 
           const clientId = req.sessionID || "server";
+          const userId = (req.user as User | undefined)?.id;
           const toolNames: string[] = [];
           const toolExecStart = Date.now();
           for (const tc of toolCallAccum.values()) {
@@ -1083,6 +1094,7 @@ export async function registerRoutes(
               "chat",
               clientId,
               positionData.lastMove,
+              userId,
             ));
           }
           const toolMs = Date.now() - toolExecStart;
@@ -1145,6 +1157,17 @@ export async function registerRoutes(
             forcedResponseMs,
           },
         });
+
+        const chatUserId = (req.user as User | undefined)?.id;
+        trackServerEvent("coach_session_complete", {
+          latency_ms: gptMs,
+          prompt_ms: promptTotalMs,
+          theoria_ms: theoriaMs,
+          token_count: tokenCount,
+          tool_rounds: gptRounds.length,
+          context_type: classifyResult.contextType,
+          theoria_tool_used: theoriaToolUsed,
+        }, chatUserId);
 
         clearInterval(heartbeat);
         if (!clientDisconnected) {

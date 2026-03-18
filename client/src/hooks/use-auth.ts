@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { analytics } from "@/lib/analytics";
+import { analytics, identifyUser, resetAmplitudeUser } from "@/lib/analytics";
 
 interface AuthUser {
   id: number;
@@ -30,6 +30,7 @@ export function useAuth() {
         localStorage.removeItem(GAME_COUNT_KEY);
       } catch {}
       analytics.signInCompleted("google");
+      identifyUser(String(user.id), { name: user.name, email: user.email });
     }
     prevAuth.current = !!user;
   }, [user]);
@@ -40,6 +41,7 @@ export function useAuth() {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/auth/me"], null);
+      resetAmplitudeUser();
     },
   });
 

@@ -114,4 +114,11 @@ AI coach responses contain interactive chess move tokens:
 - **Auth routes**: GET `/api/auth/google`, GET `/api/auth/google/callback`, GET `/api/auth/me`, POST `/api/auth/logout`
 - **Frontend auth**: `client/src/hooks/use-auth.ts` (useAuth hook querying /api/auth/me)
 - **Freemium gate**: Anonymous users can load 5 games (tracked in localStorage `chess_games_loaded`); after that a full-screen fixed overlay with blur backdrop appears requiring Google Sign-In. Signed-in users get unlimited access.
-- **Secrets**: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, OPENAI_API_KEY
+- **Secrets**: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, OPENAI_API_KEY, AMPLITUDE_API_KEY, VITE_AMPLITUDE_API_KEY, GA4_MEASUREMENT_ID, GA4_API_SECRET, VITE_GA4_MEASUREMENT_ID
+
+## Analytics
+- **GA4**: Server-side measurement protocol (`server/analytics.ts`) and client-side gtag for Google Analytics 4
+- **Amplitude**: Dual SDK setup — `@amplitude/analytics-browser` on frontend (`client/src/lib/analytics.ts`) and `@amplitude/analytics-node` on backend (`server/amplitude.ts`)
+- **Frontend events**: All tracked via unified `trackEvent()` in `client/src/lib/analytics.ts` which sends to both GA4 and Amplitude. Events: page_view, game_imported, paywall_shown, sign_in_started/completed, sign_out, chat_message_sent, chesscoach_invoked/success/failed, position_analyzed, engine_line_loaded, move_explained, theoria_toggled/context_loaded/tool_called/binary_downloaded, faq_clicked, move_token_clicked
+- **Backend events**: `trackServerEvent()` in `server/amplitude.ts` tracks: llm_validate_move, llm_validate_move_sequence, llm_evaluate_position, llm_get_position_features, llm_get_theoria_insights, llm_get_classical_eval, coach_session_complete (with latency/token/round metrics)
+- **User identification**: Amplitude `identifyUser()` called on Google sign-in; `resetAmplitudeUser()` on logout

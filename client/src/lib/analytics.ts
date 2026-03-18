@@ -1,8 +1,19 @@
+import * as amplitude from "@amplitude/analytics-browser";
+
 declare global {
   interface Window {
     gtag?: (...args: unknown[]) => void;
     dataLayer?: unknown[];
   }
+}
+
+const AMP_KEY = import.meta.env.VITE_AMPLITUDE_API_KEY as string | undefined;
+let ampInitialized = false;
+
+function ensureAmplitude() {
+  if (ampInitialized || !AMP_KEY) return;
+  amplitude.init(AMP_KEY, { autocapture: false });
+  ampInitialized = true;
 }
 
 function gtag(...args: unknown[]) {
@@ -17,6 +28,36 @@ export function trackEvent(
 ) {
   try {
     gtag("event", eventName, params ?? {});
+  } catch {}
+  try {
+    ensureAmplitude();
+    if (ampInitialized) {
+      amplitude.track(eventName, params ?? {});
+    }
+  } catch {}
+}
+
+export function identifyUser(userId: string, properties?: Record<string, string | number | boolean>) {
+  try {
+    ensureAmplitude();
+    if (ampInitialized) {
+      amplitude.setUserId(userId);
+      if (properties) {
+        const identifyObj = new amplitude.Identify();
+        for (const [key, val] of Object.entries(properties)) {
+          identifyObj.set(key, val);
+        }
+        amplitude.identify(identifyObj);
+      }
+    }
+  } catch {}
+}
+
+export function resetAmplitudeUser() {
+  try {
+    if (ampInitialized) {
+      amplitude.reset();
+    }
   } catch {}
 }
 
@@ -91,5 +132,13 @@ export const analytics = {
 
   theoriaBinaryDownloaded() {
     trackEvent("theoria_binary_downloaded");
+  },
+
+  faqClicked(question: string) {
+    trackEvent("faq_clicked", { question });
+  },
+
+  moveTokenClicked(san: string) {
+    trackEvent("move_token_clicked", { san });
   },
 };
