@@ -175,7 +175,7 @@ function InteractiveMessage({
     <div className="whitespace-pre-wrap">
       {segments.map((seg, i) => {
         if (seg.type === "text") {
-          return <span key={i}>{renderTextWithSquares(seg.content, onHoverSquare)}</span>;
+          return <span key={i}>{renderTextWithSquares(seg.content.replace(/◊/g, ""), onHoverSquare)}</span>;
         }
         const seq = sequences.find((s) => s.id === seg.seqId);
         const movesUpTo = seq ? seq.moves.slice(0, seg.orderInSeq + 1) : [];
@@ -439,7 +439,7 @@ export function CoachConsole({
                         />
                       ) : (
                         <p className="whitespace-pre-wrap">
-                          {renderTextWithSquares(msg.text, onHoverSquare)}
+                          {renderTextWithSquares(msg.text.replace(/◊/g, ""), onHoverSquare)}
                         </p>
                       )}
                     </div>
