@@ -30,7 +30,7 @@ export function useAuth() {
         localStorage.removeItem(GAME_COUNT_KEY);
       } catch {}
       analytics.signInCompleted("google");
-      identifyUser(String(user.id), { name: user.name, email: user.email });
+      identifyUser(user.email, { name: user.name });
     }
     prevAuth.current = !!user;
   }, [user]);

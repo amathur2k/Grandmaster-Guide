@@ -842,7 +842,7 @@ export async function registerRoutes(
         if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
           msgs.push(choice.message);
           const clientId = req.sessionID || "server";
-          const userId = (req.user as User | undefined)?.id;
+          const userId = (req.user as User | undefined)?.email;
           for (const tc of choice.message.tool_calls) {
             msgs.push(await handleToolCall(tc, positionData.fen, "analyze", clientId, positionData.lastMove, userId));
           }
@@ -1083,7 +1083,7 @@ export async function registerRoutes(
           chatMessages.push(assistantMsg);
 
           const clientId = req.sessionID || "server";
-          const userId = (req.user as User | undefined)?.id;
+          const userId = (req.user as User | undefined)?.email;
           const toolNames: string[] = [];
           const toolExecStart = Date.now();
           for (const tc of toolCallAccum.values()) {

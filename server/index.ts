@@ -92,8 +92,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             name: profile.displayName || "User",
             avatarUrl: profile.photos?.[0]?.value || null,
           });
-          identifyServerUser(String(user.id), {
-            email: user.email,
+          identifyServerUser(user.email, {
             name: user.name,
           });
           done(null, user);
