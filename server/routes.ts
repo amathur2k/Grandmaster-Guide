@@ -1158,7 +1158,7 @@ export async function registerRoutes(
           },
         });
 
-        const chatUserId = (req.user as User | undefined)?.id;
+        const chatUserId = (req.user as User | undefined)?.email;
         trackServerEvent("coach_session_complete", {
           latency_ms: gptMs,
           prompt_ms: promptTotalMs,
