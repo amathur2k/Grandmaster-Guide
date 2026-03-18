@@ -59,10 +59,12 @@ function StatusMessage({ text }: { text: string }) {
 }
 
 const FAQ_QUESTIONS = [
-  "Why was the last move good / bad?",
-  "Analyse this game for key learnings",
-  "What happened in the last few moves?",
-  "What should I do now?",
+  "Analyze the last move",
+  "Analyze the game for key learnings",
+  "Analyze last few moves",
+  "What should be my key plans in this position?",
+  "What are my main weaknesses in this position?",
+  "What can be my opponent's key plans in this position?",
 ];
 
 function isSquareRef(content: string, matchIndex: number): boolean {
@@ -382,7 +384,7 @@ export function CoachConsole({
                   Ask about the current position, strategy, tactics, or any chess question.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-2 mt-2 w-full max-w-md" data-testid="faq-panel">
+              <div className="grid grid-cols-2 gap-2 mt-2 w-full max-w-lg" data-testid="faq-panel">
                 {FAQ_QUESTIONS.map((q, i) => (
                   <button
                     key={i}
