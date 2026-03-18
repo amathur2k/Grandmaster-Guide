@@ -7,7 +7,8 @@ declare global {
   }
 }
 
-const AMP_KEY = import.meta.env.VITE_AMPLITUDE_API_KEY as string | undefined;
+const rawAmpKey = import.meta.env.VITE_AMPLITUDE_API_KEY as string | undefined;
+const AMP_KEY = rawAmpKey?.replace(/^VITE_/i, "");
 let ampInitialized = false;
 
 function ensureAmplitude() {
@@ -90,8 +91,13 @@ export const analytics = {
     trackEvent("sign_out");
   },
 
-  chatMessageSent(isAuthenticated: boolean) {
-    trackEvent("chat_message_sent", { authenticated: isAuthenticated });
+  chatMessageSent(isAuthenticated: boolean, toggles: { positionDetails: boolean; deepInsights: boolean; accuracyCheck: boolean }) {
+    trackEvent("chat_message_sent", {
+      authenticated: isAuthenticated,
+      position_details: toggles.positionDetails,
+      deep_insights: toggles.deepInsights,
+      accuracy_check: toggles.accuracyCheck,
+    });
   },
 
   chesscoachInvoked() {
@@ -116,6 +122,34 @@ export const analytics = {
 
   moveExplained() {
     trackEvent("move_explained");
+  },
+
+  alternateLineExplored(moveCount: number) {
+    trackEvent("alternate_line_explored", { move_count: moveCount });
+  },
+
+  boardControlUsed(action: "first" | "back" | "forward" | "last" | "flip" | "reset") {
+    trackEvent("board_control_used", { action });
+  },
+
+  evalGraphClicked(moveIndex: number) {
+    trackEvent("eval_graph_clicked", { move_index: moveIndex });
+  },
+
+  moveHistoryClicked(moveIndex: number) {
+    trackEvent("move_history_clicked", { move_index: moveIndex });
+  },
+
+  positionDetailsToggled(enabled: boolean) {
+    trackEvent("position_details_toggled", { value: enabled ? "On" : "Off" });
+  },
+
+  deepInsightsToggled(enabled: boolean) {
+    trackEvent("deep_insights_toggled", { value: enabled ? "On" : "Off" });
+  },
+
+  accuracyCheckToggled(enabled: boolean) {
+    trackEvent("accuracy_check_toggled", { value: enabled ? "On" : "Off" });
   },
 
   theoriaToggled(enabled: boolean) {

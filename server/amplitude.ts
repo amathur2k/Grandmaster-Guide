@@ -1,6 +1,6 @@
 import * as amplitude from "@amplitude/analytics-node";
 
-const AMPLITUDE_API_KEY = process.env.AMPLITUDE_API_KEY;
+const AMPLITUDE_API_KEY = process.env.AMPLITUDE_API_KEY?.replace(/^VITE_/i, "");
 
 let initialized = false;
 

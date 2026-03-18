@@ -537,6 +537,11 @@ export default function ChessCoach() {
             children: [],
           };
 
+          const parentNode = findNodeById(tree, currentNodeId);
+          if (parentNode && parentNode.children.length > 0) {
+            analytics.alternateLineExplored(1);
+          }
+
           setTree(prev => {
             const clone = cloneTree(prev);
             const parent = findNodeById(clone, currentNodeId);
@@ -781,7 +786,7 @@ export default function ChessCoach() {
   }, []);
 
   const sendChatMessage = useCallback(async (text: string) => {
-    analytics.chatMessageSent(isAuthenticated);
+    analytics.chatMessageSent(isAuthenticated, { positionDetails: useFeatures, deepInsights: useTheoria, accuracyCheck: useToolCalling });
     analytics.chesscoachInvoked();
     const invokeTime = Date.now();
     const msgFen = game.fen();
@@ -982,6 +987,7 @@ export default function ChessCoach() {
     const fullPath = [...followedPath, ...newNodes.map(n => n.id)];
     setCurrentPath(fullPath);
     setGame(new Chess(playGame.fen()));
+    analytics.alternateLineExplored(newNodes.length);
 
     toast({ title: "Coach Line Added", description: `Added ${newNodes.length} new moves.` });
 
@@ -1062,6 +1068,7 @@ export default function ChessCoach() {
     const newPath = [...branchPath, ...newNodes.map(n => n.id)];
     setCurrentPath(newPath);
     setGame(new Chess(pvGame.fen()));
+    analytics.alternateLineExplored(newNodes.length);
 
     toast({
       title: "Moves loaded",
@@ -1379,7 +1386,7 @@ export default function ChessCoach() {
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={goToStart}
+                onClick={() => { analytics.boardControlUsed("first"); goToStart(); }}
                 disabled={currentMoveIndex < 0}
                 data-testid="button-first-move"
               >
@@ -1388,7 +1395,7 @@ export default function ChessCoach() {
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={goBack}
+                onClick={() => { analytics.boardControlUsed("back"); goBack(); }}
                 disabled={currentMoveIndex < 0}
                 data-testid="button-prev-move"
               >
@@ -1397,7 +1404,7 @@ export default function ChessCoach() {
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={goForward}
+                onClick={() => { analytics.boardControlUsed("forward"); goForward(); }}
                 disabled={currentMoveIndex >= activeLine.length - 1}
                 data-testid="button-next-move"
               >
@@ -1406,7 +1413,7 @@ export default function ChessCoach() {
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={goToEnd}
+                onClick={() => { analytics.boardControlUsed("last"); goToEnd(); }}
                 disabled={currentMoveIndex >= activeLine.length - 1}
                 data-testid="button-last-move"
               >
@@ -1416,7 +1423,7 @@ export default function ChessCoach() {
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={() => setBoardOrientation(o => o === "white" ? "black" : "white")}
+                onClick={() => { analytics.boardControlUsed("flip"); setBoardOrientation(o => o === "white" ? "black" : "white"); }}
                 data-testid="button-flip-board"
               >
                 <FlipVertical2 className="w-4 h-4" />
@@ -1424,7 +1431,7 @@ export default function ChessCoach() {
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={resetBoard}
+                onClick={() => { analytics.boardControlUsed("reset"); resetBoard(); }}
                 data-testid="button-reset"
               >
                 <RotateCcw className="w-4 h-4" />
@@ -1437,7 +1444,7 @@ export default function ChessCoach() {
               <MoveHistory
                 moves={allMoves}
                 currentMoveIndex={currentMoveIndex}
-                onMoveClick={goToMove}
+                onMoveClick={(i: number) => { analytics.moveHistoryClicked(i); goToMove(i); }}
               />
             </div>
 
@@ -1448,7 +1455,7 @@ export default function ChessCoach() {
               <EvalGraph
                 scores={hasScores ? scoreHistory : []}
                 currentMoveIndex={currentMoveIndex}
-                onMoveClick={goToMove}
+                onMoveClick={(i: number) => { analytics.evalGraphClicked(i); goToMove(i); }}
               />
               {isComputingScores && (
                 <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-md flex items-center justify-center gap-2">
@@ -1502,16 +1509,21 @@ export default function ChessCoach() {
               onClearChat={clearChat}
               onCancelChat={cancelChat}
               useToolCalling={useToolCalling}
-              onToggleToolCalling={setUseToolCalling}
+              onToggleToolCalling={(val: boolean) => {
+                setUseToolCalling(val);
+                analytics.accuracyCheckToggled(val);
+              }}
               useFeatures={useFeatures}
               onToggleFeatures={(val: boolean) => {
                 setUseFeatures(val);
                 localStorage.setItem("chess-coach-useFeatures", String(val));
+                analytics.positionDetailsToggled(val);
               }}
               useTheoria={useTheoria}
               onToggleTheoria={(val: boolean) => {
                 setUseTheoria(val);
                 localStorage.setItem("chess-coach-useTheoria", String(val));
+                analytics.deepInsightsToggled(val);
                 analytics.theoriaToggled(val);
               }}
               gameFen={game.fen()}
