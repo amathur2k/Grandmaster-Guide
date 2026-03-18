@@ -70,11 +70,19 @@ function extractTargetSquare(san: string, isBlack?: boolean): string | null {
   return m ? m[1] : null;
 }
 
+function sanitizeLlmText(raw: string): string {
+  return raw
+    .replace(/◊ppawn/g, "pawn")
+    .replace(/◊pp(?=[A-Za-h])/g, "◊")
+    .replace(/♠/g, "◊");
+}
+
 export function parseMovesInText(
   text: string,
   fen: string,
   fallbackFens?: FallbackFen[]
 ): { segments: MessageSegment[]; sequences: MoveSequence[] } {
+  text = sanitizeLlmText(text);
   const candidates: { san: string; start: number; end: number; raw: string; prefix: string; moveNumInfo: { num: number; isBlack: boolean } | null }[] = [];
   SAN_RE.lastIndex = 0;
   let m;
