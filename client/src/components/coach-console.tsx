@@ -195,7 +195,7 @@ function InteractiveMessage({
                   try {
                     const boardCheck = new Chess(currentBoardFen);
                     const legal = boardCheck.move({ from: unplayed[0].from, to: unplayed[0].to });
-                    if (!legal) { onHover(null); return; }
+                    if (!legal) { onHover(null); onHoverSquare(unplayed[0].to); return; }
                   } catch {
                     onHover(null);
                     return;
@@ -205,7 +205,7 @@ function InteractiveMessage({
                       const firstMove = seq.moves[0];
                       const seqCheck = new Chess(currentBoardFen);
                       const firstLegal = seqCheck.move({ from: firstMove.from, to: firstMove.to });
-                      if (!firstLegal) { onHover(null); return; }
+                      if (!firstLegal) { onHover(null); onHoverSquare(unplayed[0].to); return; }
                     } catch {
                       onHover(null);
                       return;
@@ -223,7 +223,7 @@ function InteractiveMessage({
                 }
               }
             }}
-            onMouseLeave={() => onHover(null)}
+            onMouseLeave={() => { onHover(null); onHoverSquare(null); }}
             onClick={() => {
               if (movesUpTo.length > 0) {
                 const alreadyPlayed = countPlayedMoves(effectiveFen, movesUpTo, currentBoardFen);
