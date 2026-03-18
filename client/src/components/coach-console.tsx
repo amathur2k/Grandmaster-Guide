@@ -419,10 +419,10 @@ export function CoachConsole({
                     data-testid={`chat-message-${i}`}
                   >
                     <div
-                      className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                      className={`rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
                         msg.role === "user"
-                          ? "bg-primary text-primary-foreground rounded-br-sm"
-                          : "bg-muted border border-border/50 rounded-bl-sm"
+                          ? "max-w-[85%] bg-primary text-primary-foreground rounded-br-sm"
+                          : "w-full bg-muted border border-border/50 rounded-bl-sm"
                       }`}
                     >
                       {isStatus ? (
@@ -443,47 +443,47 @@ export function CoachConsole({
                           {renderTextWithSquares(msg.text.replace(/◊/g, "").replace(/\*\*/g, ""), onHoverSquare)}
                         </p>
                       )}
+                      {showInteractive && (
+                        <div className="flex items-center gap-1 mt-2 pt-1.5 border-t border-border/30">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRatedMessages(prev => ({ ...prev, [i]: "Positive" }));
+                              analytics.coachFeedback("Positive");
+                            }}
+                            className={`p-1 rounded transition-colors ${
+                              ratedMessages[i] === "Positive"
+                                ? "text-green-600 dark:text-green-400"
+                                : ratedMessages[i]
+                                ? "text-muted-foreground/30 cursor-default"
+                                : "text-muted-foreground/50 hover:text-green-600 dark:hover:text-green-400"
+                            }`}
+                            disabled={!!ratedMessages[i]}
+                            data-testid={`feedback-up-${i}`}
+                          >
+                            <ThumbsUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRatedMessages(prev => ({ ...prev, [i]: "Negative" }));
+                              analytics.coachFeedback("Negative");
+                            }}
+                            className={`p-1 rounded transition-colors ${
+                              ratedMessages[i] === "Negative"
+                                ? "text-red-500 dark:text-red-400"
+                                : ratedMessages[i]
+                                ? "text-muted-foreground/30 cursor-default"
+                                : "text-muted-foreground/50 hover:text-red-500 dark:hover:text-red-400"
+                            }`}
+                            disabled={!!ratedMessages[i]}
+                            data-testid={`feedback-down-${i}`}
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    {showInteractive && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRatedMessages(prev => ({ ...prev, [i]: "Positive" }));
-                            analytics.coachFeedback("Positive");
-                          }}
-                          className={`p-1 rounded transition-colors ${
-                            ratedMessages[i] === "Positive"
-                              ? "text-green-600 dark:text-green-400"
-                              : ratedMessages[i]
-                              ? "text-muted-foreground/30 cursor-default"
-                              : "text-muted-foreground/50 hover:text-green-600 dark:hover:text-green-400"
-                          }`}
-                          disabled={!!ratedMessages[i]}
-                          data-testid={`feedback-up-${i}`}
-                        >
-                          <ThumbsUp className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRatedMessages(prev => ({ ...prev, [i]: "Negative" }));
-                            analytics.coachFeedback("Negative");
-                          }}
-                          className={`p-1 rounded transition-colors ${
-                            ratedMessages[i] === "Negative"
-                              ? "text-red-500 dark:text-red-400"
-                              : ratedMessages[i]
-                              ? "text-muted-foreground/30 cursor-default"
-                              : "text-muted-foreground/50 hover:text-red-500 dark:hover:text-red-400"
-                          }`}
-                          disabled={!!ratedMessages[i]}
-                          data-testid={`feedback-down-${i}`}
-                        >
-                          <ThumbsDown className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
                   </div>
                 );
               })}
