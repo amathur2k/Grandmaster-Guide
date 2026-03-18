@@ -197,13 +197,13 @@ function InteractiveMessage({
                 const unplayed = movesUpTo.slice(alreadyPlayed);
                 if (unplayed.length > 0) {
                   if (unplayed[0].from === "") {
-                    onHoverSquare(unplayed[0].to);
+                    onHoverSquare(seg.to);
                     return;
                   }
                   try {
                     const boardCheck = new Chess(currentBoardFen);
                     const legal = boardCheck.move({ from: unplayed[0].from, to: unplayed[0].to });
-                    if (!legal) { onHover(null); onHoverSquare(unplayed[0].to); return; }
+                    if (!legal) { onHover(null); onHoverSquare(seg.to); return; }
                   } catch {
                     onHover(null);
                     return;
@@ -213,7 +213,7 @@ function InteractiveMessage({
                       const firstMove = seq.moves[0];
                       const seqCheck = new Chess(currentBoardFen);
                       const firstLegal = seqCheck.move({ from: firstMove.from, to: firstMove.to });
-                      if (!firstLegal) { onHover(null); onHoverSquare(unplayed[0].to); return; }
+                      if (!firstLegal) { onHover(null); onHoverSquare(seg.to); return; }
                     } catch {
                       onHover(null);
                       return;
