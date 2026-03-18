@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { Chess } from "chess.js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Brain, Send, Trash2, Wrench, Sparkles, Square, Microscope, Lightbulb, HelpCircle } from "lucide-react";
+import { Loader2, Brain, Send, Trash2, Wrench, Sparkles, Square, Microscope, Lightbulb } from "lucide-react";
+import { analytics } from "@/lib/analytics";
 import type { StockfishEvaluation } from "@shared/schema";
 import {
   parseMovesInText,
@@ -58,16 +59,10 @@ function StatusMessage({ text }: { text: string }) {
 }
 
 const FAQ_QUESTIONS = [
-  "Why was the last move bad?",
-  "Why was the last move good?",
-  "Analyse the game up to now",
-  "What's the best plan for me here?",
-  "What are my main weaknesses in this position?",
-  "Is this position winning, losing, or drawn?",
-  "What opening is this?",
-  "What should I be thinking about right now?",
-  "Where should I put my pieces?",
-  "Explain the key pieces in this position",
+  "Why was the last move good / bad?",
+  "Analyse this game for key learnings",
+  "What happened in the last few moves?",
+  "What should I do now?",
 ];
 
 function isSquareRef(content: string, matchIndex: number): boolean {
@@ -367,31 +362,8 @@ export function CoachConsole({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex">
-        <div className="w-[28%] shrink-0 border-r border-border overflow-y-auto" data-testid="faq-panel">
-          <div className="px-2.5 py-2 border-b border-border bg-muted/30 sticky top-0">
-            <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-              <HelpCircle className="w-3 h-3" />
-              FAQ's
-            </h4>
-          </div>
-          <div className="p-1.5 flex flex-col gap-0.5">
-            {FAQ_QUESTIONS.map((q, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => !isChatLoading && onSendMessage(q)}
-                disabled={isChatLoading}
-                className="text-left text-xs leading-snug px-2 py-1.5 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                data-testid={`faq-question-${i}`}
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex-1 min-w-0 overflow-y-auto px-4 py-3">
+      <div className="flex-1 min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
           {!hasMessages ? (
             <div className="flex flex-col items-center justify-center h-full text-center gap-3 px-2">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -404,6 +376,20 @@ export function CoachConsole({
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Ask about the current position, strategy, tactics, or any chess question.
                 </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-2 w-full max-w-md" data-testid="faq-panel">
+                {FAQ_QUESTIONS.map((q, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => { analytics.faqClicked(q); !isChatLoading && onSendMessage(q); }}
+                    disabled={isChatLoading}
+                    className="text-left text-xs leading-snug px-3 py-2.5 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-testid={`faq-question-${i}`}
+                  >
+                    {q}
+                  </button>
+                ))}
               </div>
             </div>
           ) : (
