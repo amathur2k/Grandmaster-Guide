@@ -206,6 +206,7 @@ function InteractiveMessage({
                     if (!legal) { onHover(null); onHoverSquare(seg.to); return; }
                   } catch {
                     onHover(null);
+                    onHoverSquare(seg.to);
                     return;
                   }
                   if (seq && seq.moves.length > 0 && seg.orderInSeq > 0) {
@@ -216,6 +217,7 @@ function InteractiveMessage({
                       if (!firstLegal) { onHover(null); onHoverSquare(seg.to); return; }
                     } catch {
                       onHover(null);
+                      onHoverSquare(seg.to);
                       return;
                     }
                   }

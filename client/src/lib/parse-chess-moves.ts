@@ -62,9 +62,9 @@ function tryMove(fen: string, san: string): { from: string; to: string } | null 
   }
 }
 
-function extractTargetSquare(san: string): string | null {
-  if (san === "O-O") return "g1";
-  if (san === "O-O-O") return "c1";
+function extractTargetSquare(san: string, isBlack?: boolean): string | null {
+  if (san === "O-O") return isBlack ? "g8" : "g1";
+  if (san === "O-O-O") return isBlack ? "c8" : "c1";
   const m = san.match(/([a-h][1-8])(?:=[QRBN])?[+#]?[!?]*$/);
   return m ? m[1] : null;
 }
@@ -74,7 +74,7 @@ export function parseMovesInText(
   fen: string,
   fallbackFens?: FallbackFen[]
 ): { segments: MessageSegment[]; sequences: MoveSequence[] } {
-  const candidates: { san: string; start: number; end: number; raw: string; hasMoveNum: boolean }[] = [];
+  const candidates: { san: string; start: number; end: number; raw: string; moveNumInfo: { num: number; isBlack: boolean } | null }[] = [];
   SAN_RE.lastIndex = 0;
   let m;
   while ((m = SAN_RE.exec(text)) !== null) {
@@ -204,7 +204,8 @@ export function parseMovesInText(
           g.move(c.san);
           curGame = g;
         } else {
-          const targetSq = extractTargetSquare(c.san);
+          const isBlackMove = c.moveNumInfo ? c.moveNumInfo.isBlack : new Chess(fen).turn() === "b";
+          const targetSq = extractTargetSquare(c.san, isBlackMove);
           if (targetSq) {
             valid.push({
               san: c.san,
