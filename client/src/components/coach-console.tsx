@@ -82,7 +82,7 @@ function renderTextWithSquares(
   onHoverSquare?: (square: string | null) => void
 ): (string | JSX.Element)[] {
   const parts: (string | JSX.Element)[] = [];
-  const re = /(\*\*[^*]+\*\*|\^[a-h][1-8]|\b[a-h][1-8]\b)/g;
+  const re = /(\*\*[^*]+\*\*|\^[a-h]-file|\^[1-8]-rank|\^[a-h][1-8]|\b[a-h][1-8]\b)/g;
   let last = 0;
   let key = 0;
   let match;

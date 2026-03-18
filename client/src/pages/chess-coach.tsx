@@ -194,6 +194,16 @@ function getActiveLine(root: VariationNode, currentPath: string[]): VariationNod
   return line;
 }
 
+function expandHoveredSquare(sq: string | null): Record<string, { backgroundColor: string }> {
+  if (!sq) return {};
+  const amber = { backgroundColor: "rgba(255, 215, 0, 0.5)" };
+  const fileMatch = sq.match(/^([a-h])-file$/);
+  if (fileMatch) return Object.fromEntries(["1","2","3","4","5","6","7","8"].map(r => [`${fileMatch[1]}${r}`, amber]));
+  const rankMatch = sq.match(/^([1-8])-rank$/);
+  if (rankMatch) return Object.fromEntries(["a","b","c","d","e","f","g","h"].map(f => [`${f}${rankMatch[1]}`, amber]));
+  return { [sq]: amber };
+}
+
 function findNodeByFen(node: VariationNode, fen: string): string | null {
   if (node.fen === fen) return node.id;
   for (const child of node.children) {
@@ -1274,7 +1284,7 @@ export default function ChessCoach() {
                   customLightSquareStyle={{ backgroundColor: "#edeed1" }}
                   customNotationStyle={{ fontSize: "14px", fontWeight: "bold", opacity: 0.8 }}
                   customSquareStyles={{
-                    ...(hoveredSquare ? { [hoveredSquare]: { backgroundColor: "rgba(255, 215, 0, 0.5)" } } : {}),
+                    ...expandHoveredSquare(hoveredSquare),
                     ...Object.fromEntries((hoveredFindingSquares ?? []).map(sq => [sq, { backgroundColor: "rgba(100, 160, 255, 0.45)" }])),
                   }}
                   customArrows={[
