@@ -188,6 +188,10 @@ function InteractiveMessage({
             key={i}
             className="text-blue-600 dark:text-blue-400 font-semibold underline decoration-dotted underline-offset-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-sm px-0.5 transition-colors"
             onMouseEnter={() => {
+              if (seg.from === "") {
+                onHoverSquare(seg.to);
+                return;
+              }
               if (movesUpTo.length > 0) {
                 const alreadyPlayed = countPlayedMoves(effectiveFen, movesUpTo, currentBoardFen);
                 const unplayed = movesUpTo.slice(alreadyPlayed);
