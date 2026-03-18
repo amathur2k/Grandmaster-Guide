@@ -1605,20 +1605,36 @@ export default function ChessCoach() {
               Watch a short video explaining how to use our site.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex gap-2 sm:justify-end">
-            <Button variant="outline" onClick={() => setShowVideoPopup(false)} data-testid="video-popup-no">
-              No thanks
-            </Button>
-            <Button
-              onClick={() => {
-                window.open("https://youtu.be/OeLquidyeN4", "_blank");
-                setShowVideoPopup(false);
-              }}
-              data-testid="video-popup-yes"
-            >
-              Watch video
-            </Button>
-          </DialogFooter>
+          <button
+            type="button"
+            onClick={() => {
+              window.open("https://youtu.be/OeLquidyeN4", "_blank");
+              setShowVideoPopup(false);
+            }}
+            className="relative group cursor-pointer rounded-lg overflow-hidden border border-border"
+            data-testid="video-popup-thumbnail"
+          >
+            <img
+              src="https://img.youtube.com/vi/OeLquidyeN4/hqdefault.jpg"
+              alt="How to use Chess Analysis"
+              className="w-full aspect-video object-cover"
+            />
+            <div className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                <svg viewBox="0 0 24 24" fill="white" className="w-7 h-7 ml-1">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowVideoPopup(false)}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors py-1 text-center"
+            data-testid="video-popup-no"
+          >
+            No thanks, continue to site
+          </button>
         </DialogContent>
       </Dialog>
 
