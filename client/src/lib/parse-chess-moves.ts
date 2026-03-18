@@ -15,6 +15,7 @@ export interface MoveSegment {
   type: "move";
   content: string;
   san: string;
+  prefix: string;
   from: string;
   to: string;
   seqId: number;
@@ -74,7 +75,7 @@ export function parseMovesInText(
   fen: string,
   fallbackFens?: FallbackFen[]
 ): { segments: MessageSegment[]; sequences: MoveSequence[] } {
-  const candidates: { san: string; start: number; end: number; raw: string; moveNumInfo: { num: number; isBlack: boolean } | null }[] = [];
+  const candidates: { san: string; start: number; end: number; raw: string; prefix: string; moveNumInfo: { num: number; isBlack: boolean } | null }[] = [];
   SAN_RE.lastIndex = 0;
   let m;
   while ((m = SAN_RE.exec(text)) !== null) {
@@ -85,12 +86,16 @@ export function parseMovesInText(
     if (after && /[a-zA-Z]/.test(after)) continue;
     const cleanSan = m[1].replace(/[!?]+$/, "");
     const moveNumInfo = extractMoveNum(m[0]);
+    const sanIdx = m[0].indexOf(m[1]);
+    const rawPrefix = sanIdx > 0 ? m[0].slice(0, sanIdx) : "";
+    const displayPrefix = rawPrefix.replace(/[◊*]/g, "");
     candidates.push({
       san: cleanSan,
       start: m.index,
       end: m.index + m[0].length,
       raw: m[0],
       moveNumInfo,
+      prefix: displayPrefix,
     });
   }
 
@@ -100,6 +105,7 @@ export function parseMovesInText(
       start: number;
       end: number;
       raw: string;
+      prefix: string;
       seqId: number;
       orderInSeq: number;
       sourceFen?: string;
@@ -148,6 +154,7 @@ export function parseMovesInText(
             start: c.start,
             end: c.end,
             raw: c.raw,
+            prefix: c.prefix,
             seqId: sid,
             orderInSeq: curMoves.length - 1,
             sourceFen: curSourceFen,
@@ -187,6 +194,7 @@ export function parseMovesInText(
             start: c.start,
             end: c.end,
             raw: c.raw,
+            prefix: c.prefix,
             seqId: sid,
             orderInSeq: 0,
             sourceFen: fb.fen,
@@ -212,6 +220,7 @@ export function parseMovesInText(
             start: c.start,
             end: c.end,
             raw: c.raw,
+            prefix: c.prefix,
             seqId: sid,
             orderInSeq: 0,
           });
@@ -234,6 +243,7 @@ export function parseMovesInText(
             start: c.start,
             end: c.end,
             raw: c.raw,
+            prefix: c.prefix,
             seqId: sid,
             orderInSeq: 0,
             sourceFen: fb.fen,
@@ -257,6 +267,7 @@ export function parseMovesInText(
             start: c.start,
             end: c.end,
             raw: c.raw,
+            prefix: c.prefix,
             seqId: sid,
             orderInSeq: 0,
           });
@@ -282,6 +293,7 @@ export function parseMovesInText(
       type: "move",
       content: v.raw,
       san: v.san,
+      prefix: v.prefix,
       from: v.from,
       to: v.to,
       seqId: v.seqId,

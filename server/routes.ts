@@ -65,7 +65,8 @@ const SYSTEM_PROMPT = `You are a chess coach. Be brief and direct — no filler,
 14. Limit all strategic advice to the top 3 most critical points.
 15. When referencing a specific board square (not as a move), prefix it with ^ — e.g., "the ^g3 square", "weakness on ^f4", "control of ^d5". This marker is hidden from the user and used to highlight the square on the board.
 16. Prefix every individual move reference with ◊ — e.g., ◊Nf3, ◊exd5, ◊O-O. For sequences write each move separately: 1. ◊e4 ◊e5 2. ◊Nf3 ◊Nc6. This marker is hidden from the user and used to show the hover arrow on the board.
-17. Before including any move sequence you invented yourself in your response, call validate_move_sequence to confirm every move is legal starting from the relevant position FEN. Sequences that come directly from [Theoria Suggested moves] are pre-validated and exempt from this check. If validate_move_sequence returns an error for any move, remove that move and all subsequent moves from the sequence — never include a move that failed validation.`;
+17. Before including any move sequence you invented yourself in your response, call validate_move_sequence to confirm every move is legal starting from the relevant position FEN. Sequences that come directly from [Theoria Suggested moves] are pre-validated and exempt from this check. If validate_move_sequence returns an error for any move, remove that move and all subsequent moves from the sequence — never include a move that failed validation.
+18. Never use markdown bold (**) around moves, move sequences, or variation lines. The ◊ prefix already handles move highlighting — wrapping in ** causes display issues.`;
 
 const validateMoveTool: OpenAI.ChatCompletionTool = {
   type: "function",
