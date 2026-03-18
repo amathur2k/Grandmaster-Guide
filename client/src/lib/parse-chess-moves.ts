@@ -62,6 +62,13 @@ function tryMove(fen: string, san: string): { from: string; to: string } | null 
   }
 }
 
+function extractTargetSquare(san: string): string | null {
+  if (san === "O-O") return "g1";
+  if (san === "O-O-O") return "c1";
+  const m = san.match(/([a-h][1-8])(?:=[QRBN])?[+#]?[!?]*$/);
+  return m ? m[1] : null;
+}
+
 export function parseMovesInText(
   text: string,
   fen: string,
@@ -197,6 +204,20 @@ export function parseMovesInText(
           g.move(c.san);
           curGame = g;
         } else {
+          const targetSq = extractTargetSquare(c.san);
+          if (targetSq) {
+            valid.push({
+              san: c.san,
+              from: "",
+              to: targetSq,
+              start: c.start,
+              end: c.end,
+              raw: c.raw,
+              seqId: sid,
+              orderInSeq: 0,
+            });
+            sid++;
+          }
           curMoves = [];
           curSourceFen = undefined;
           curSourceNodeId = undefined;

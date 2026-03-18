@@ -192,6 +192,10 @@ function InteractiveMessage({
                 const alreadyPlayed = countPlayedMoves(effectiveFen, movesUpTo, currentBoardFen);
                 const unplayed = movesUpTo.slice(alreadyPlayed);
                 if (unplayed.length > 0) {
+                  if (unplayed[0].from === "") {
+                    onHoverSquare(unplayed[0].to);
+                    return;
+                  }
                   try {
                     const boardCheck = new Chess(currentBoardFen);
                     const legal = boardCheck.move({ from: unplayed[0].from, to: unplayed[0].to });
