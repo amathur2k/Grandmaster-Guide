@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { Chess } from "chess.js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Brain, Send, Trash2, Wrench, Sparkles, Square, Microscope, Lightbulb } from "lucide-react";
+import { Loader2, Brain, Send, Trash2, Wrench, Sparkles, Square, Microscope, Lightbulb, ThumbsUp, ThumbsDown } from "lucide-react";
 import { analytics } from "@/lib/analytics";
 import type { StockfishEvaluation } from "@shared/schema";
 import {
@@ -279,6 +279,7 @@ export function CoachConsole({
   onHoverSquare,
 }: CoachConsoleProps) {
   const [input, setInput] = useState("");
+  const [ratedMessages, setRatedMessages] = useState<Record<number, "Positive" | "Negative">>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [theoriaStatus, setTheoriaStatus] = useState<{ ready: boolean; downloading: boolean; hasBinary: boolean } | null>(null);
@@ -339,6 +340,10 @@ export function CoachConsole({
   };
 
   const hasMessages = messages.length > 0;
+
+  useEffect(() => {
+    if (!hasMessages) setRatedMessages({});
+  }, [hasMessages]);
 
   return (
     <div className="flex flex-col h-full" data-testid="coach-console">
@@ -439,6 +444,46 @@ export function CoachConsole({
                         </p>
                       )}
                     </div>
+                    {showInteractive && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRatedMessages(prev => ({ ...prev, [i]: "Positive" }));
+                            analytics.coachFeedback("Positive");
+                          }}
+                          className={`p-1 rounded transition-colors ${
+                            ratedMessages[i] === "Positive"
+                              ? "text-green-600 dark:text-green-400"
+                              : ratedMessages[i]
+                              ? "text-muted-foreground/30 cursor-default"
+                              : "text-muted-foreground/50 hover:text-green-600 dark:hover:text-green-400"
+                          }`}
+                          disabled={!!ratedMessages[i]}
+                          data-testid={`feedback-up-${i}`}
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRatedMessages(prev => ({ ...prev, [i]: "Negative" }));
+                            analytics.coachFeedback("Negative");
+                          }}
+                          className={`p-1 rounded transition-colors ${
+                            ratedMessages[i] === "Negative"
+                              ? "text-red-500 dark:text-red-400"
+                              : ratedMessages[i]
+                              ? "text-muted-foreground/30 cursor-default"
+                              : "text-muted-foreground/50 hover:text-red-500 dark:hover:text-red-400"
+                          }`}
+                          disabled={!!ratedMessages[i]}
+                          data-testid={`feedback-down-${i}`}
+                        >
+                          <ThumbsDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

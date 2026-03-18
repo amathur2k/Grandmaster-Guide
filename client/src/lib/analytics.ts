@@ -167,6 +167,10 @@ export const analytics = {
     trackEvent("theoria_binary_downloaded");
   },
 
+  coachFeedback(type: "Positive" | "Negative") {
+    trackEvent("coach_feedback", { type });
+  },
+
   faqClicked(question: string) {
     trackEvent("faq_clicked", { question });
   },
