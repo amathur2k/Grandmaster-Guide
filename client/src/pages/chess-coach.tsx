@@ -11,6 +11,14 @@ import { VariationTree } from "@/components/variation-tree";
 import { CoachConsole, type ChatMessageWithFen } from "@/components/coach-console";
 import { ImportGamesDialog } from "@/components/import-games-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { analytics } from "@/lib/analytics";
@@ -305,6 +313,17 @@ export default function ChessCoach() {
   const boardColRef = useRef<HTMLDivElement>(null);
   const isNavigatingRef = useRef(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showVideoPopup, setShowVideoPopup] = useState(() => {
+    if (window.location.hostname === "localhost") return false;
+    const visitCount = parseInt(localStorage.getItem("chess-site-visits") || "0", 10);
+    return visitCount < 2;
+  });
+
+  useEffect(() => {
+    if (window.location.hostname === "localhost") return;
+    const visitCount = parseInt(localStorage.getItem("chess-site-visits") || "0", 10);
+    localStorage.setItem("chess-site-visits", String(visitCount + 1));
+  }, []);
 
   const { user, isAuthenticated, logout } = useAuth();
   const { evaluation, isReady, hasError, evaluate, evaluateAsync, endBatch } = useStockfish();
@@ -1577,6 +1596,31 @@ export default function ChessCoach() {
           </div>
         </div>
       )}
+
+      <Dialog open={showVideoPopup} onOpenChange={setShowVideoPopup}>
+        <DialogContent className="sm:max-w-md" aria-describedby="video-popup-desc">
+          <DialogHeader>
+            <DialogTitle>Welcome to Chess Analysis</DialogTitle>
+            <DialogDescription id="video-popup-desc">
+              Watch a short video explaining how to use our site.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setShowVideoPopup(false)} data-testid="video-popup-no">
+              No thanks
+            </Button>
+            <Button
+              onClick={() => {
+                window.open("https://youtu.be/OeLquidyeN4", "_blank");
+                setShowVideoPopup(false);
+              }}
+              data-testid="video-popup-yes"
+            >
+              Watch video
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <footer className="border-t border-border px-4 py-0 text-center text-[8px] text-muted-foreground/40 mt-auto">
         <div className="flex flex-wrap items-center justify-center gap-4">
