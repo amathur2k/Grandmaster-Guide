@@ -7,8 +7,7 @@ declare global {
   }
 }
 
-const rawAmpKey = import.meta.env.VITE_AMPLITUDE_API_KEY as string | undefined;
-const AMP_KEY = rawAmpKey?.replace(/^VITE_/i, "");
+const AMP_KEY = import.meta.env.VITE_AMPLITUDE_API_KEY as string | undefined;
 let ampInitialized = false;
 
 function ensureAmplitude() {
