@@ -54,7 +54,7 @@ const SYSTEM_PROMPT = `You are a chess coach. Be brief and direct — no filler,
 3. SAN notation only (Nf3, O-O, exd5). Never UCI (e2e4).
 4. Show concrete continuations (2-4 moves deep). Use the principal variations from the Theoria assessment.
 5. **Move numbering**: Use the game's actual move numbers from the PGN. For Black moves, use the ellipsis format: "19...Qxb2". For White: "19. Na4". A sequence example: "19. Na4 Qb4 20. Bd2 Qa5 21. c4".
-6. Do NOT call validate_move on moves already listed in [Theoria Suggested moves] — they are pre-validated. Only call validate_move on moves you generate yourself that are not in that list. Chain validations for sequences (use resultingFen from each call). Never mention move legality in your response — do not write phrases like "this is a legal move" or "I've verified this move is legal".
+6. Do NOT call validate_move on moves already listed in [Theoria Suggested moves] — they are pre-validated. Use validate_move only for checking a single self-generated move; use validate_move_sequence for checking a multi-move continuation (see rule 17). Never mention move legality in your response — do not write phrases like "this is a legal move" or "I've verified this move is legal".
 7. When the evaluate_position tool is available, call it to verify your ideas — especially when suggesting plans that deviate from the Theoria top line. If the engine disagrees, defer to it.
 8. Identify the opening precisely.
 9. Never end your response with a question.
@@ -709,7 +709,7 @@ async function handleToolCall(
         sendGA4Event(clientId, "llm_validate_move_sequence", { valid: true, count: moves.length, tag }).catch(() => {});
         return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
       } catch (e) {
-        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Invalid FEN or SAN format" }) };
+        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ valid: false, error: "Invalid FEN or SAN format" }) };
       }
     }
     if (name === "evaluate_position") {
