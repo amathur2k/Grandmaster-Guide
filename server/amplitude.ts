@@ -10,6 +10,19 @@ function ensureInit() {
   initialized = true;
 }
 
+export function identifyServerUser(
+  userId: string,
+  properties: Record<string, string | number | boolean>,
+) {
+  if (!AMPLITUDE_API_KEY) return;
+  ensureInit();
+  const identifyObj = new amplitude.Identify();
+  for (const [key, val] of Object.entries(properties)) {
+    identifyObj.set(key, val);
+  }
+  amplitude.identify(identifyObj, { user_id: userId });
+}
+
 export function trackServerEvent(
   eventName: string,
   properties: Record<string, string | number | boolean> = {},

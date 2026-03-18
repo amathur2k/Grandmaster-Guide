@@ -11,6 +11,7 @@ import { createServer } from "http";
 import { pool } from "./db";
 import { storage } from "./storage";
 import type { User } from "@shared/schema";
+import { identifyServerUser } from "./amplitude";
 
 declare module "express-session" {
   interface SessionData {
@@ -90,6 +91,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             email: profile.emails?.[0]?.value || "",
             name: profile.displayName || "User",
             avatarUrl: profile.photos?.[0]?.value || null,
+          });
+          identifyServerUser(String(user.id), {
+            email: user.email,
+            name: user.name,
           });
           done(null, user);
         } catch (err) {
