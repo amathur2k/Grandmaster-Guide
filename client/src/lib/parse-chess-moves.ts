@@ -165,24 +165,16 @@ export function parseMovesInText(
         sid++;
       }
 
-      const primary = tryMove(fen, c.san);
-      if (primary) {
-        curMoves = [{ san: c.san, from: primary.from, to: primary.to }];
-        curSourceFen = undefined;
-        curSourceNodeId = undefined;
-        valid.push({
-          san: c.san,
-          from: primary.from,
-          to: primary.to,
-          start: c.start,
-          end: c.end,
-          raw: c.raw,
-          seqId: sid,
-          orderInSeq: 0,
-        });
-        curGame = new Chess(fen);
-        curGame.move(c.san);
-      } else {
+      const fenTurn = fen.split(" ")[1] === "b" ? "b" : "w";
+      const fenMoveNum = parseInt(fen.split(" ")[5] || "1", 10);
+      const moveNumMismatch = c.moveNumInfo && (
+        c.moveNumInfo.num !== fenMoveNum ||
+        (c.moveNumInfo.isBlack ? "b" : "w") !== fenTurn
+      );
+
+      let resolved = false;
+
+      if (moveNumMismatch) {
         const fb = tryFallbacks(c.san, c.moveNumInfo);
         if (fb) {
           curMoves = [{ san: c.san, from: fb.from, to: fb.to }];
@@ -203,26 +195,76 @@ export function parseMovesInText(
           const g = new Chess(fb.fen);
           g.move(c.san);
           curGame = g;
-        } else {
-          const isBlackMove = c.moveNumInfo ? c.moveNumInfo.isBlack : new Chess(fen).turn() === "b";
-          const targetSq = extractTargetSquare(c.san, isBlackMove);
-          if (targetSq) {
-            valid.push({
-              san: c.san,
-              from: "",
-              to: targetSq,
-              start: c.start,
-              end: c.end,
-              raw: c.raw,
-              seqId: sid,
-              orderInSeq: 0,
-            });
-            sid++;
-          }
-          curMoves = [];
+          resolved = true;
+        }
+      }
+
+      if (!resolved) {
+        const primary = tryMove(fen, c.san);
+        if (primary) {
+          curMoves = [{ san: c.san, from: primary.from, to: primary.to }];
           curSourceFen = undefined;
           curSourceNodeId = undefined;
+          valid.push({
+            san: c.san,
+            from: primary.from,
+            to: primary.to,
+            start: c.start,
+            end: c.end,
+            raw: c.raw,
+            seqId: sid,
+            orderInSeq: 0,
+          });
+          curGame = new Chess(fen);
+          curGame.move(c.san);
+          resolved = true;
         }
+      }
+
+      if (!resolved) {
+        const fb = tryFallbacks(c.san, c.moveNumInfo);
+        if (fb) {
+          curMoves = [{ san: c.san, from: fb.from, to: fb.to }];
+          curSourceFen = fb.fen;
+          curSourceNodeId = fb.nodeId;
+          valid.push({
+            san: c.san,
+            from: fb.from,
+            to: fb.to,
+            start: c.start,
+            end: c.end,
+            raw: c.raw,
+            seqId: sid,
+            orderInSeq: 0,
+            sourceFen: fb.fen,
+            sourceNodeId: fb.nodeId,
+          });
+          const g = new Chess(fb.fen);
+          g.move(c.san);
+          curGame = g;
+          resolved = true;
+        }
+      }
+
+      if (!resolved) {
+        const isBlackMove = c.moveNumInfo ? c.moveNumInfo.isBlack : new Chess(fen).turn() === "b";
+        const targetSq = extractTargetSquare(c.san, isBlackMove);
+        if (targetSq) {
+          valid.push({
+            san: c.san,
+            from: "",
+            to: targetSq,
+            start: c.start,
+            end: c.end,
+            raw: c.raw,
+            seqId: sid,
+            orderInSeq: 0,
+          });
+          sid++;
+        }
+        curMoves = [];
+        curSourceFen = undefined;
+        curSourceNodeId = undefined;
       }
     }
     lastEnd = c.end;
