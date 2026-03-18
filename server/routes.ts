@@ -64,7 +64,8 @@ const SYSTEM_PROMPT = `You are a chess coach. Be brief and direct — no filler,
 13. When get_classical_eval is available, call it whenever you want hard numerical engine data to back up your explanation of king safety, mobility, threats, passed pawns, or space. Reference the term scores directly in your response (e.g. "Stockfish scores King safety −11 MG for White").
 14. Limit all strategic advice to the top 3 most critical points.
 15. When referencing a specific board square (not as a move), prefix it with ^ — e.g., "the ^g3 square", "weakness on ^f4", "control of ^d5". This marker is hidden from the user and used to highlight the square on the board.
-16. Prefix every individual move reference with ◊ — e.g., ◊Nf3, ◊exd5, ◊O-O. For sequences write each move separately: 1. ◊e4 ◊e5 2. ◊Nf3 ◊Nc6. This marker is hidden from the user and used to show the hover arrow on the board.`;
+16. Prefix every individual move reference with ◊ — e.g., ◊Nf3, ◊exd5, ◊O-O. For sequences write each move separately: 1. ◊e4 ◊e5 2. ◊Nf3 ◊Nc6. This marker is hidden from the user and used to show the hover arrow on the board.
+17. Before including any move sequence you invented yourself in your response, call validate_move_sequence to confirm every move is legal starting from the relevant position FEN. Sequences that come directly from [Theoria Suggested moves] are pre-validated and exempt from this check.`;
 
 const validateMoveTool: OpenAI.ChatCompletionTool = {
   type: "function",
@@ -86,6 +87,36 @@ const validateMoveTool: OpenAI.ChatCompletionTool = {
         },
       },
       required: ["fen", "move"],
+    },
+  },
+};
+
+const validateMoveSequenceTool: OpenAI.ChatCompletionTool = {
+  type: "function",
+  function: {
+    name: "validate_move_sequence",
+    description:
+      "Validate that a list of moves is legal in sequence starting from a given FEN. " +
+      "Call this whenever you construct a move sequence yourself before including it in your response. " +
+      "Sequences from [Theoria Suggested moves] are pre-validated — do NOT call this for them. " +
+      "Returns { valid: true, finalFen } on success, or { valid: false, errorAt, move, error, legalMoves } " +
+      "pinpointing the first illegal move so you can correct or drop the sequence.",
+    parameters: {
+      type: "object",
+      properties: {
+        fen: {
+          type: "string",
+          description:
+            "Starting COMPLETE FEN (all 6 fields). Copy from the position context.",
+        },
+        moves: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            'Array of moves in SAN order, e.g. ["Rfc8", "Qd4", "Kg8", "g3", "Rc3"].',
+        },
+      },
+      required: ["fen", "moves"],
     },
   },
 };
@@ -173,7 +204,7 @@ const getClassicalEvalTool: OpenAI.ChatCompletionTool = {
 const MAX_TOOL_ROUNDS = 15;
 
 function getTools(useVerify: boolean, useFeatures: boolean, useTheoria: boolean = false): OpenAI.ChatCompletionTool[] {
-  const t: OpenAI.ChatCompletionTool[] = [validateMoveTool];
+  const t: OpenAI.ChatCompletionTool[] = [validateMoveTool, validateMoveSequenceTool];
   if (useVerify) t.push(evaluatePositionTool);
   if (useFeatures) {
     t.push(getPositionFeaturesTool);
@@ -650,6 +681,36 @@ async function handleToolCall(
       console.log(`[${tag}] validate_move: move="${move}" => legal=${legal}`);
       sendGA4Event(clientId, "llm_validate_move", { move, legal, tag }).catch(() => {});
       return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
+    }
+    if (name === "validate_move_sequence") {
+      let fen = (args.fen as string) || "";
+      const moves: string[] = Array.isArray(args.moves) ? args.moves : [];
+      if (!fen) fen = fallbackFen;
+      try {
+        const g = new Chess(fen);
+        for (let i = 0; i < moves.length; i++) {
+          const r = g.move(moves[i]);
+          if (!r) {
+            const legalMoves = g.moves().slice(0, 20);
+            const result = {
+              valid: false,
+              errorAt: i,
+              move: moves[i],
+              error: `"${moves[i]}" is not a legal move in this position.`,
+              legalMoves,
+            };
+            console.log(`[${tag}] validate_move_sequence: invalid at index ${i} ("${moves[i]}")`);
+            sendGA4Event(clientId, "llm_validate_move_sequence", { valid: false, errorAt: i, tag }).catch(() => {});
+            return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
+          }
+        }
+        const result = { valid: true, finalFen: g.fen(), moves };
+        console.log(`[${tag}] validate_move_sequence: all ${moves.length} moves valid`);
+        sendGA4Event(clientId, "llm_validate_move_sequence", { valid: true, count: moves.length, tag }).catch(() => {});
+        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) };
+      } catch (e) {
+        return { role: "tool", tool_call_id: tc.id, content: JSON.stringify({ error: "Invalid FEN or SAN format" }) };
+      }
     }
     if (name === "evaluate_position") {
       const fen = args.fen || "";
