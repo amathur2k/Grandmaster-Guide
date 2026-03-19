@@ -222,23 +222,34 @@ No manual action needed — the server downloads the correct binary for your pla
 
 ### Stockfish 12 (classical evaluation — Accuracy Check feature)
 
-The repository includes the **Linux x86-64** binary (`engines/stockfish12`), which is used on the Replit production deployment.
+The repository includes the **Linux x86-64** binary (`engines/stockfish12`) used on the production server.
+
+**Windows — compile from source (no admin required):**
+
+The server will attempt to build `engines/stockfish12.exe` automatically on first start by running `scripts/build-sf12-windows.sh`. You can also run it manually:
+
+```bash
+bash scripts/build-sf12-windows.sh
+```
+
+What the script does:
+1. Downloads a portable **MinGW-w64 GCC 15.2** toolchain (~167 MB) to your system temp folder — no installation, no admin rights needed
+2. Downloads the Stockfish 12 source code (~220 KB) from GitHub
+3. Compiles with `mingw32-make ARCH=x86-64 COMP=mingw` (1–3 minutes)
+4. Places the finished binary at `engines/stockfish12.exe`
+
+The MinGW toolchain is cached in `%TEMP%\mingw_portable` so re-runs after the first are fast.
 
 **macOS:**
-1. Download the macOS build from the [SF12 GitHub release](https://github.com/official-stockfish/Stockfish/releases/tag/sf_12)
+1. Download from the [SF12 GitHub release](https://github.com/official-stockfish/Stockfish/releases/tag/sf_12)
 2. Extract and rename to `engines/stockfish12`
 3. Make it executable:
    ```bash
    chmod +x engines/stockfish12
-   xattr -d com.apple.quarantine engines/stockfish12   # remove macOS quarantine
+   xattr -d com.apple.quarantine engines/stockfish12
    ```
 
-**Windows:**
-SF12 binaries are no longer hosted at their original URL. To enable classical eval on Windows, either:
-- Download an SF12 Windows exe from a trusted community mirror and place it at `engines\stockfish12.exe`, **or**
-- Leave it absent — the app detects the missing binary and disables only the Accuracy Check feature; all other features work normally.
-
-> The Accuracy Check panel will show "Unavailable" if the binary is missing. AI coaching, engine lines, position analysis, eval graph, and What-if explorer all continue to work.
+> The Accuracy Check panel shows "Unavailable" if the binary is absent. All other features continue to work normally.
 
 ---
 
@@ -344,7 +355,9 @@ The app includes several SEO-optimized static pages:
 ## Troubleshooting
 
 ### "Accuracy Check Module Down" error
-The Stockfish 12 binary is missing, not executable, or wrong platform. See [Engine Binaries](#engine-binaries) above.
+The Stockfish 12 binary is missing or wrong platform.
+- **Windows:** Run `bash scripts/build-sf12-windows.sh` (or let the server build it automatically on next start). Requires Git Bash and internet access; no admin rights needed.
+- **macOS/Linux:** See [Engine Binaries](#engine-binaries) above for the download link.
 
 ### "Cannot connect to database"
 - Check `DATABASE_URL` in `.env` is correct
