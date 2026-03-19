@@ -7,6 +7,7 @@ const config: CountryConfig = {
   flag: "🇬🇧",
   currencySymbol: "£",
   currencyCode: "GBP",
+  proPrice: "4",
   federation: "English Chess Federation (ECF)",
   federationUrl: "https://www.englishchess.org.uk",
   supportEmail: "uk@chessanalysis.co",

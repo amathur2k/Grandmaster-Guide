@@ -7,6 +7,7 @@ const config: CountryConfig = {
   flag: "🇨🇦",
   currencySymbol: "C$",
   currencyCode: "CAD",
+  proPrice: "7",
   federation: "Chess Federation of Canada (CFC)",
   federationUrl: "https://www.chess.ca",
   supportEmail: "ca@chessanalysis.co",

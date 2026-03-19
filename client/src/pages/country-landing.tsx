@@ -3,6 +3,8 @@ export interface CountryConfig {
   flag: string;
   currencySymbol: string;
   currencyCode: string;
+  /** Pro plan price as a string, e.g. "5", "4", "7" */
+  proPrice: string;
   federation: string;
   federationUrl: string;
   supportEmail: string;
@@ -35,7 +37,7 @@ const FEATURES = [
 ];
 
 export default function CountrySection({ config }: { config: CountryConfig }) {
-  const { country, flag, currencySymbol, currencyCode, federation, federationUrl,
+  const { country, flag, currencySymbol, currencyCode, proPrice, federation, federationUrl,
     supportEmail, dateExample, cities, names } = config;
 
   return (
@@ -64,38 +66,46 @@ export default function CountrySection({ config }: { config: CountryConfig }) {
           <h2 className="text-2xl font-bold mb-1">Pricing</h2>
           <p className="text-sm text-muted-foreground mb-6">Simple and transparent — in {currencyCode}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+            {/* Free */}
             <div className="rounded-xl border border-border bg-muted/10 p-6">
               <div className="text-2xl font-extrabold mb-1">
                 {currencySymbol}0
-                <span className="text-sm font-normal text-muted-foreground ml-1">/ forever</span>
+                <span className="text-sm font-normal text-muted-foreground ml-1">/ month</span>
               </div>
               <div className="text-sm font-semibold mb-3">Free</div>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>✓ 5 free game reviews — no card required</li>
-                <li>✓ Full AI coaching on all 5 games</li>
+                <li>✓ Unlimited game reviews</li>
+                <li>✓ Full AI coaching on every game</li>
                 <li>✓ Engine analysis &amp; advantage chart</li>
                 <li>✓ What-if exploration &amp; variation tree</li>
+                <li>✓ Import from Chess.com, Lichess &amp; PGN</li>
               </ul>
             </div>
+
+            {/* Pro */}
             <div className="rounded-xl border border-primary bg-muted/10 p-6 relative">
               <div className="absolute -top-3 left-4 text-xs font-semibold bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
-                Most popular
+                Coming Soon
               </div>
               <div className="text-2xl font-extrabold mb-1">
-                {currencySymbol}0
-                <span className="text-sm font-normal text-muted-foreground ml-1">/ forever</span>
+                {currencySymbol}{proPrice}
+                <span className="text-sm font-normal text-muted-foreground ml-1">/ month</span>
               </div>
-              <div className="text-sm font-semibold mb-3">Free with Google Sign-In</div>
+              <div className="text-sm font-semibold mb-3">Pro</div>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>✓ <strong className="text-foreground">Unlimited</strong> game reviews</li>
                 <li>✓ Everything in Free</li>
-                <li>✓ Full game history &amp; coaching sessions</li>
-                <li>✓ Priority analysis</li>
+                <li>✓ <strong className="text-foreground">Talk to your coach</strong> — voice-style conversational coaching</li>
+                <li>✓ <strong className="text-foreground">Cross-game learning</strong> — coach references patterns from your previous games</li>
+                <li>✓ <strong className="text-foreground">Faster analysis</strong> — priority engine queue, no waiting</li>
+                <li>✓ <strong className="text-foreground">No ads</strong></li>
+                <li>✓ <strong className="text-foreground">Personalised drills</strong> — tactical &amp; positional exercises built from your own game mistakes</li>
               </ul>
             </div>
+
           </div>
           <p className="text-xs text-muted-foreground mt-4 text-center">
-            All prices in {currencyCode} ({currencySymbol}). No hidden fees. No subscription required.
+            All prices in {currencyCode} ({currencySymbol}). No hidden fees. Cancel anytime.
           </p>
         </section>
 

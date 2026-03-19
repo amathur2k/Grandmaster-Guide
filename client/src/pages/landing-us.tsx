@@ -7,6 +7,7 @@ const config: CountryConfig = {
   flag: "🇺🇸",
   currencySymbol: "$",
   currencyCode: "USD",
+  proPrice: "5",
   federation: "United States Chess Federation (USCF)",
   federationUrl: "https://new.uschess.org",
   supportEmail: "us@chessanalysis.co",

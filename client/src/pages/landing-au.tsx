@@ -7,6 +7,7 @@ const config: CountryConfig = {
   flag: "🇦🇺",
   currencySymbol: "A$",
   currencyCode: "AUD",
+  proPrice: "8",
   federation: "Australian Chess Federation (ACF)",
   federationUrl: "https://www.auschess.org.au",
   supportEmail: "au@chessanalysis.co",
