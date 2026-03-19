@@ -10,7 +10,7 @@ const config: CountryConfig = {
   proPrice: "8",
   federation: "Australian Chess Federation (ACF)",
   federationUrl: "https://www.auschess.org.au",
-  supportEmail: "au@chessanalysis.co",
+  supportEmail: "admin@chessanalysis.co",
   address: "Level 22, 101 Collins Street, Melbourne VIC 3000",
   phone: "+61 3 9555 0124",
   cities: ["Sydney, NSW", "Melbourne, VIC", "Brisbane, QLD"],
