@@ -25,10 +25,10 @@ export default function ContactUs() {
         <div className="rounded-xl border border-border p-8 text-center mb-8">
           <p className="text-sm text-muted-foreground mb-3">Send us an email at</p>
           <a
-            href="mailto:admin@chessanalysis.co"
+            href="mailto:au@chessanalysis.co"
             className="text-xl font-semibold text-primary hover:underline"
           >
-            admin@chessanalysis.co
+            au@chessanalysis.co
           </a>
         </div>
       </main>
