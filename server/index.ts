@@ -12,6 +12,7 @@ import { pool } from "./db";
 import { storage } from "./storage";
 import type { User } from "@shared/schema";
 import { identifyServerUser } from "./amplitude";
+import { geoRestriction } from "./geo-middleware";
 
 declare module "express-session" {
   interface SessionData {
@@ -114,6 +115,8 @@ export function log(message: string, source = "express") {
 
   console.log(`${formattedTime} [${source}] ${message}`);
 }
+
+app.use(geoRestriction);
 
 app.use((req, res, next) => {
   const start = Date.now();
