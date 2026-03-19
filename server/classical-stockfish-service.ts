@@ -1,12 +1,15 @@
 import { spawn, exec, type ChildProcess } from "child_process";
-import { existsSync, mkdirSync, chmodSync, createWriteStream, statSync } from "fs";
+import { existsSync, mkdirSync, chmodSync, createWriteStream, statSync, renameSync } from "fs";
 import https from "https";
 import http from "http";
 import path from "path";
+import os from "os";
 import { sendGA4Event } from "./analytics";
 
+const IS_WIN = process.platform === "win32";
 const ENGINES_DIR = path.join(process.cwd(), "engines");
-const SF12_BIN = path.join(ENGINES_DIR, "stockfish12");
+const SF12_BIN = path.join(ENGINES_DIR, IS_WIN ? "stockfish12.exe" : "stockfish12");
+const SF12_WIN_URL = "https://stockfishchess.org/files/stockfish_12_win_x64.zip";
 const SF12_SOURCE_URL =
   "https://github.com/official-stockfish/Stockfish/archive/refs/tags/sf_12.tar.gz";
 const BUILD_EXTRACT_DIR = "/tmp/Stockfish-sf_12";
@@ -119,7 +122,47 @@ class ClassicalStockfishService {
     });
   }
 
-  private async build(): Promise<void> {
+  private async buildWindows(): Promise<void> {
+    if (!existsSync(ENGINES_DIR)) mkdirSync(ENGINES_DIR, { recursive: true });
+
+    // Try to download the Windows zip from the official source
+    const tmpZip = path.join(os.tmpdir(), "sf12_win.zip");
+    const tmpDir = path.join(os.tmpdir(), "sf12_win_extract");
+
+    console.log("[classical-sf] Downloading Stockfish 12 Windows binary (~8 MB)...");
+    await this.downloadFile(SF12_WIN_URL, tmpZip);
+
+    // Verify it's actually a zip file (not an HTML error page)
+    const { readFileSync } = await import("fs");
+    const magic = readFileSync(tmpZip).slice(0, 4).toString("hex");
+    if (magic !== "504b0304") {
+      throw new Error(
+        `SF12 Windows binary not available for automatic download (${SF12_WIN_URL} returned non-zip content). ` +
+        `To enable classical eval on Windows, manually place a Stockfish 12 Windows x64 exe at: ${SF12_BIN}`
+      );
+    }
+
+    console.log("[classical-sf] Extracting Stockfish 12...");
+    await this.runAsync(
+      `powershell -Command "Expand-Archive -LiteralPath '${tmpZip}' -DestinationPath '${tmpDir}' -Force"`,
+      { timeout: 60_000 }
+    );
+
+    const findExe = `powershell -Command "(Get-ChildItem -Path '${tmpDir}' -Filter '*.exe' -Recurse | Select-Object -First 1).FullName"`;
+    const exePath = await new Promise<string>((resolve, reject) => {
+      exec(findExe, (err, stdout) => {
+        if (err) return reject(err);
+        resolve(stdout.trim());
+      });
+    });
+
+    if (!exePath) throw new Error("Could not find stockfish exe in extracted zip");
+
+    renameSync(exePath, SF12_BIN);
+    console.log("[classical-sf] SF12 ready at:", SF12_BIN);
+  }
+
+  private async buildLinux(): Promise<void> {
     if (!existsSync(ENGINES_DIR)) mkdirSync(ENGINES_DIR, { recursive: true });
 
     console.log("[classical-sf] Downloading Stockfish 12 source (~11 MB)...");
@@ -136,6 +179,14 @@ class ClassicalStockfishService {
 
     chmodSync(SF12_BIN, 0o755);
     console.log("[classical-sf] SF12 compiled and ready at:", SF12_BIN);
+  }
+
+  private async build(): Promise<void> {
+    if (IS_WIN) {
+      await this.buildWindows();
+    } else {
+      await this.buildLinux();
+    }
   }
 
   private async ensureBuilt(): Promise<void> {

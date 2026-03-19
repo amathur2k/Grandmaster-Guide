@@ -79,22 +79,29 @@ chmod +x start.sh
 
 ### Windows
 
-```powershell
+Use **Git Bash** (comes with Git for Windows) for all commands below.
+
+```bash
 # 1. Clone the repo
 git clone https://github.com/YOUR_USERNAME/chess-analysis.git
 cd chess-analysis
 
-# 2. Run the installer (in PowerShell as Administrator)
-powershell -ExecutionPolicy Bypass -File install.ps1
+# 2. Install dependencies
+npm install
 
-# 3. Edit .env (see Environment Variables section below)
+# 3. Install Python packages
+pip install python-chess requests
+
+# 4. Copy the env template and fill in your values
+cp .env.example .env
+# Edit .env with your favourite editor, e.g.:
 notepad .env
 
-# 4. Apply the database schema (first time only)
+# 5. Apply the database schema (first time only)
 npm run db:push
 
-# 5. Start the app
-powershell -ExecutionPolicy Bypass -File start.ps1
+# 6. Start the app
+npm run dev
 ```
 
 Open your browser at **http://localhost:5000**
@@ -203,28 +210,35 @@ Just paste the connection string they provide as your `DATABASE_URL`.
 
 The app uses two chess engines stored in the `engines/` folder:
 
+### Theoria 0.2 (NNUE position assessment)
+
+| Platform | File | How obtained |
+|---|---|---|
+| Linux | `engines/theoria` | Included in repo |
+| Windows | `engines/theoria.exe` | **Downloaded automatically on first start** (~61 MB) |
+| macOS | `engines/theoria` | Downloaded automatically on first start |
+
+No manual action needed — the server downloads the correct binary for your platform at startup.
+
 ### Stockfish 12 (classical evaluation — Accuracy Check feature)
 
-The repository includes a **Linux x86-64** binary (`engines/stockfish12`).
+The repository includes the **Linux x86-64** binary (`engines/stockfish12`), which is used on the Replit production deployment.
 
 **macOS:**
-1. Download the macOS build from [https://github.com/official-stockfish/Stockfish/releases/tag/sf_12](https://github.com/official-stockfish/Stockfish/releases/tag/sf_12)
-2. Extract and rename the binary to `engines/stockfish12`
-3. Make it executable and remove quarantine:
+1. Download the macOS build from the [SF12 GitHub release](https://github.com/official-stockfish/Stockfish/releases/tag/sf_12)
+2. Extract and rename to `engines/stockfish12`
+3. Make it executable:
    ```bash
    chmod +x engines/stockfish12
-   xattr -d com.apple.quarantine engines/stockfish12
+   xattr -d com.apple.quarantine engines/stockfish12   # remove macOS quarantine
    ```
 
 **Windows:**
-1. Download the Windows build from [https://github.com/official-stockfish/Stockfish/releases/tag/sf_12](https://github.com/official-stockfish/Stockfish/releases/tag/sf_12)
-2. Extract the `.exe` file and place it at `engines\stockfish12.exe`
+SF12 binaries are no longer hosted at their original URL. To enable classical eval on Windows, either:
+- Download an SF12 Windows exe from a trusted community mirror and place it at `engines\stockfish12.exe`, **or**
+- Leave it absent — the app detects the missing binary and disables only the Accuracy Check feature; all other features work normally.
 
-> **Note:** The Accuracy Check feature will show "Unavailable" if the binary is missing. All other features (AI coaching, engine lines, position analysis, eval graph) work without it.
-
-### Theoria 0.2 (Deep Insights — optional)
-
-The Theoria engine binary is **downloaded automatically** the first time you enable "Deep Insights ON" in the app (~61 MB). No manual setup needed.
+> The Accuracy Check panel will show "Unavailable" if the binary is missing. AI coaching, engine lines, position analysis, eval graph, and What-if explorer all continue to work.
 
 ---
 
@@ -256,9 +270,8 @@ chess-analysis/
 │   ├── routes.ts    # API endpoints + OpenAI + tool calling
 │   ├── amplitude.ts # Amplitude server-side SDK
 │   ├── analytics.ts # GA4 server-side measurement protocol
-│   ├── stockfish-service.ts         # Server-side Stockfish (npm)
-│   ├── classical-stockfish-service.ts # SF12 classical HCE
-│   ├── theoria-service.ts           # Theoria 0.2 deep insights
+│   ├── classical-stockfish-service.ts # SF12 classical HCE (Accuracy Check)
+│   ├── theoria-service.ts           # Theoria 0.2 NNUE (strategic assessment)
 │   ├── python-analyzer-service.ts   # Python subprocess manager
 │   ├── position_analyzer.py         # Python position analysis (30+ detectors)
 │   ├── coach-logger.ts              # Coach.log debug logger
@@ -267,8 +280,10 @@ chess-analysis/
 ├── shared/
 │   └── schema.ts    # Drizzle ORM schema + shared types
 ├── engines/
-│   ├── stockfish12  # Classical HCE engine (Linux binary)
-│   └── theoria      # Deep insights engine (auto-downloaded)
+│   ├── stockfish12     # SF12 classical HCE (Linux binary, production)
+│   ├── stockfish12.exe # SF12 classical HCE (Windows — not in repo, place manually)
+│   ├── theoria         # Theoria 0.2 NNUE (Linux binary, included)
+│   └── theoria.exe     # Theoria 0.2 NNUE (Windows, auto-downloaded on first start)
 └── migrations/      # Auto-generated DB migrations
 ```
 
@@ -279,8 +294,8 @@ chess-analysis/
 | Vite dev server | React frontend (proxied through Express) |
 | Python analyzer | `position_analyzer.py` spawned as subprocess |
 | Stockfish 18 | WASM-based, runs in browser via Web Worker |
-| Stockfish 12 | Native binary subprocess for classical eval |
-| Theoria | Native binary subprocess (auto-downloaded on demand) |
+| Stockfish 12 | Native binary subprocess for classical eval (Linux/macOS; manual install on Windows) |
+| Theoria 0.2 | Native binary subprocess — auto-downloaded for your platform on first start |
 
 ---
 
@@ -337,8 +352,10 @@ The Stockfish 12 binary is missing, not executable, or wrong platform. See [Engi
 - Run `npm run db:push` if the schema hasn't been applied yet
 
 ### Python analyzer not starting
-- Make sure Python 3.10+ is installed and in your PATH
-- Run `pip3 install python-chess`
+- Make sure Python 3.10+ is installed
+- **macOS / Linux:** Python must be on your `PATH` as `python3` — run `python3 --version` to confirm
+- **Windows:** The server looks for Python at `C:\Python313\python.exe`. If you installed Python elsewhere, update the path in `server/python-analyzer-service.ts`
+- Install required packages: `pip install python-chess requests`
 - Check the terminal output for Python errors on startup
 
 ### Google Sign-In not working
@@ -347,11 +364,13 @@ The Stockfish 12 binary is missing, not executable, or wrong platform. See [Engi
 - For production, add your production domain's callback URL too
 
 ### Port 5000 already in use
-Set a different port:
-```bash
-PORT=3000 npm run dev   # macOS / Linux
-```
-Or on Windows: set `PORT=3000` in `.env`
+Set `PORT=3000` (or any free port) in your `.env` file.
+
+### `npm run dev` fails with "NODE_ENV is not recognized"
+Make sure you are using **Git Bash** (not PowerShell or CMD). The `cross-env` package in the dev script handles this, but requires bash-style execution.
+
+### Theoria engine not starting on Windows
+The server auto-downloads `engines/theoria.exe` (~61 MB) on first start. If the download fails, delete the partial file at `engines/theoria.exe` and restart — it will retry.
 
 ---
 

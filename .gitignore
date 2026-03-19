@@ -4,4 +4,9 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
-engines/Coach.log
+Coach.log
+.env
+
+# Windows engine binaries (auto-downloaded, not committed)
+engines/theoria.exe
+engines/stockfish12.exe

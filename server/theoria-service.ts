@@ -5,11 +5,15 @@ import https from "https";
 import path from "path";
 import { Chess } from "chess.js";
 
+const IS_WIN = process.platform === "win32";
 const THEORIA_DIR = path.join(process.cwd(), "engines");
-const THEORIA_BIN = path.join(THEORIA_DIR, "theoria");
-const DOWNLOAD_URL =
-  "https://www.theoriachess.org/download/assets/v0.2/theoria-0.2-linux-avx2";
-const EXPECTED_SHA256 = "eb296012a6b24869645fdf64d9cc43fcae545b3893245e2195795c50ab34eb07";
+const THEORIA_BIN = path.join(THEORIA_DIR, IS_WIN ? "theoria.exe" : "theoria");
+const DOWNLOAD_URL = IS_WIN
+  ? "https://www.theoriachess.org/download/assets/v0.2/theoria-0.2-windows-avx2.exe"
+  : "https://www.theoriachess.org/download/assets/v0.2/theoria-0.2-linux-avx2";
+const EXPECTED_SHA256 = IS_WIN
+  ? "7ecebcc09abe79211c485b02705ef205678e5ef37c49a6e7d8f7131687120fb1"
+  : "eb296012a6b24869645fdf64d9cc43fcae545b3893245e2195795c50ab34eb07";
 
 interface TheoriaEvalResult {
   score: number;
@@ -125,7 +129,7 @@ class TheoriaService {
                     return;
                   }
                   renameSync(tmpPath, THEORIA_BIN);
-                  chmodSync(THEORIA_BIN, 0o755);
+                  if (!IS_WIN) chmodSync(THEORIA_BIN, 0o755);
                   console.log("[theoria] Download complete, binary ready");
                   this.downloading = false;
                   this.justDownloaded = true;
