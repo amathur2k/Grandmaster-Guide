@@ -3,6 +3,27 @@ import geoip from "geoip-lite";
 
 const ALLOWED_COUNTRIES = new Set(["US", "GB", "CA", "AU"]);
 
+const PRIVATE_IP_PREFIXES = [
+  "127.", "10.", "192.168.", "172.16.", "172.17.", "172.18.", "172.19.",
+  "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.",
+  "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.",
+];
+
+function isPrivateOrLocal(ip: string): boolean {
+  if (ip === "::1" || ip === "::ffff:127.0.0.1") return true;
+  const cleaned = ip.replace("::ffff:", "");
+  return PRIVATE_IP_PREFIXES.some((prefix) => cleaned.startsWith(prefix));
+}
+
+const BYPASS_PREFIXES = ["/api/", "/assets/", "/@", "/node_modules/", "/src/"];
+const BYPASS_EXTENSIONS = [".js", ".css", ".png", ".jpg", ".svg", ".ico", ".woff", ".woff2", ".ttf", ".map", ".wasm"];
+
+function shouldBypass(path: string): boolean {
+  if (BYPASS_PREFIXES.some((p) => path.startsWith(p))) return true;
+  if (BYPASS_EXTENSIONS.some((ext) => path.endsWith(ext))) return true;
+  return false;
+}
+
 const BLOCKED_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -44,14 +65,22 @@ export function geoRestriction(req: Request, res: Response, next: NextFunction) 
     return next();
   }
 
+  if (shouldBypass(req.path)) {
+    return next();
+  }
+
   const forwarded = req.headers["x-forwarded-for"];
   const ip = typeof forwarded === "string"
     ? forwarded.split(",")[0].trim()
     : req.ip || req.socket.remoteAddress || "";
 
+  if (isPrivateOrLocal(ip)) {
+    return next();
+  }
+
   const geo = geoip.lookup(ip);
 
-  if (!geo || ALLOWED_COUNTRIES.has(geo.country)) {
+  if (geo && ALLOWED_COUNTRIES.has(geo.country)) {
     return next();
   }
 
