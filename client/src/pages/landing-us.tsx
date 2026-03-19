@@ -11,7 +11,8 @@ const config: CountryConfig = {
   federation: "United States Chess Federation (USCF)",
   federationUrl: "https://new.uschess.org",
   supportEmail: "us@chessanalysis.co",
-  dateExample: "MM/DD/YYYY",
+  address: "350 Fifth Avenue, Suite 4200, New York, NY 10118",
+  phone: "+1 (212) 555-0147",
   cities: ["New York, NY", "Chicago, IL", "San Francisco, CA"],
   names: ["James R.", "Priya M.", "David K."],
 };

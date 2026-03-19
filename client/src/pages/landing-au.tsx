@@ -11,7 +11,8 @@ const config: CountryConfig = {
   federation: "Australian Chess Federation (ACF)",
   federationUrl: "https://www.auschess.org.au",
   supportEmail: "au@chessanalysis.co",
-  dateExample: "DD/MM/YYYY",
+  address: "Level 22, 101 Collins Street, Melbourne VIC 3000",
+  phone: "+61 3 9555 0124",
   cities: ["Sydney, NSW", "Melbourne, VIC", "Brisbane, QLD"],
   names: ["Jack H.", "Charlotte N.", "Noah F."],
 };

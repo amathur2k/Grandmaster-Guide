@@ -8,7 +8,8 @@ export interface CountryConfig {
   federation: string;
   federationUrl: string;
   supportEmail: string;
-  dateExample: string;
+  address: string;
+  phone: string;
   cities: [string, string, string];
   names: [string, string, string];
 }
@@ -38,7 +39,7 @@ const FEATURES = [
 
 export default function CountrySection({ config }: { config: CountryConfig }) {
   const { country, flag, currencySymbol, currencyCode, proPrice, federation, federationUrl,
-    supportEmail, dateExample, cities, names } = config;
+    supportEmail, address, phone, cities, names } = config;
 
   return (
     <div className="bg-background text-foreground border-t border-border">
@@ -178,22 +179,24 @@ export default function CountrySection({ config }: { config: CountryConfig }) {
           <h2 className="text-xl font-bold mb-2">Contact &amp; Support — {country}</h2>
           <p className="text-sm text-muted-foreground mb-4">
             Our support team is available for {country}-based users. We typically respond within
-            one business day ({dateExample} format).
+            one business day.
           </p>
-          <div className="flex flex-col gap-2 text-sm">
+          <div className="flex flex-col gap-3 text-sm">
+            <div className="flex items-start gap-2">
+              <span className="text-muted-foreground shrink-0">Address:</span>
+              <span>{address}</span>
+            </div>
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Email:</span>
-              <a href={`mailto:${supportEmail}`} className="text-primary hover:underline font-medium">
-                {supportEmail}
+              <span className="text-muted-foreground shrink-0">Phone:</span>
+              <a href={`tel:${phone.replace(/\s/g, "")}`} className="hover:text-primary transition-colors">
+                {phone}
               </a>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Region:</span>
-              <span>{flag} {country}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Currency:</span>
-              <span>{currencyCode} ({currencySymbol})</span>
+              <span className="text-muted-foreground shrink-0">Email:</span>
+              <a href={`mailto:${supportEmail}`} className="text-primary hover:underline font-medium">
+                {supportEmail}
+              </a>
             </div>
           </div>
         </section>

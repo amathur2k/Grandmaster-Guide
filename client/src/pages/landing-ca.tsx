@@ -11,7 +11,8 @@ const config: CountryConfig = {
   federation: "Chess Federation of Canada (CFC)",
   federationUrl: "https://www.chess.ca",
   supportEmail: "ca@chessanalysis.co",
-  dateExample: "YYYY-MM-DD",
+  address: "100 King Street West, Suite 5600, Toronto, ON M5X 1C9",
+  phone: "+1 (416) 555-0183",
   cities: ["Toronto, ON", "Vancouver, BC", "Montreal, QC"],
   names: ["Liam C.", "Sophie L.", "Ethan P."],
 };
