@@ -40,6 +40,9 @@ export function useTheoraEngine() {
   const turnRef = useRef<"w" | "b">("w");
   const requestIdRef = useRef(0);
   const currentRequestIdRef = useRef(0);
+  // Accumulate the latest score across all depth iterations; resolve on bestmove
+  const latestBatchScoreRef = useRef<number>(0);
+  const latestBatchMateRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Check Theoria is available
@@ -65,28 +68,30 @@ export function useTheoraEngine() {
         }
 
         if (line.startsWith("bestmove")) {
-          const m = line.match(/bestmove (\S+)/);
           if (evalResolveRef.current) {
-            evalResolveRef.current({ score: 0, mate: null });
+            evalResolveRef.current({ score: latestBatchScoreRef.current, mate: latestBatchMateRef.current });
             evalResolveRef.current = null;
           }
         }
 
         if (line.startsWith("info") && line.includes("score")) {
+          const depthMatch = line.match(/depth (\d+)/);
           const scoreMatch = line.match(/score cp (-?\d+)/);
           const mateMatch = line.match(/score mate (-?\d+)/);
           const multiPvMatch = line.match(/multipv (\d+)/);
           if (multiPvMatch && parseInt(multiPvMatch[1]) !== 1) return;
+
+          const depth = depthMatch ? parseInt(depthMatch[1]) : 0;
+          if (depth < 4) return;
 
           const rawScore = scoreMatch ? parseInt(scoreMatch[1]) / 100 : 0;
           const rawMate = mateMatch ? parseInt(mateMatch[1]) : null;
           const score = turnRef.current === "b" ? -rawScore : rawScore;
           const mate = rawMate !== null ? (turnRef.current === "b" ? -rawMate : rawMate) : null;
 
-          if (evalResolveRef.current) {
-            evalResolveRef.current({ score, mate });
-            evalResolveRef.current = null;
-          }
+          // Accumulate — resolve happens on bestmove with the deepest score
+          latestBatchScoreRef.current = score;
+          latestBatchMateRef.current = mate;
         }
       };
 
@@ -149,6 +154,8 @@ export function useTheoraEngine() {
 
         readyResolveRef.current = () => {
           clearTimeout(timeout);
+          latestBatchScoreRef.current = 0;
+          latestBatchMateRef.current = null;
           evalResolveRef.current = resolve;
           workerRef.current!.postMessage("position fen " + fen);
           workerRef.current!.postMessage("go depth " + depth);
