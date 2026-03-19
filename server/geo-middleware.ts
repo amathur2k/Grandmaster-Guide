@@ -69,10 +69,7 @@ export function geoRestriction(req: Request, res: Response, next: NextFunction) 
     return next();
   }
 
-  const forwarded = req.headers["x-forwarded-for"];
-  const ip = typeof forwarded === "string"
-    ? forwarded.split(",")[0].trim()
-    : req.ip || req.socket.remoteAddress || "";
+  const ip = req.ip || req.socket.remoteAddress || "";
 
   if (isPrivateOrLocal(ip)) {
     return next();
