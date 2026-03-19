@@ -1351,6 +1351,43 @@ export async function registerRoutes(
     });
   });
 
+  // Theoria engine lines — same EngineLine[] format as Stockfish WASM output,
+  // used by the /hooha page which replaces the client-side WASM engine with
+  // server-side Theoria NNUE evaluation.
+  app.get("/api/theoria-eval", async (req, res) => {
+    const fen = req.query.fen as string;
+    if (!fen) return res.status(400).json({ error: "fen is required" });
+
+    const depth = Math.min(parseInt(req.query.depth as string) || 16, 20);
+    const multiPV = Math.min(parseInt(req.query.multiPV as string) || 3, 5);
+
+    try {
+      if (!theoriaService.isReady()) {
+        await theoriaService.warmup();
+      }
+      const results = await theoriaService.evaluate(fen, depth, multiPV);
+      const lines = results
+        .filter(r => r.bestMove)
+        .map(r => ({
+          move: r.bestMove,
+          score: r.score,
+          mate: r.mate,
+          pv: r.pv,
+        }));
+      const top = results[0];
+      res.json({
+        lines,
+        score: top?.score ?? 0,
+        mate: top?.mate ?? null,
+        bestMove: top?.bestMove ?? "",
+        depth: top?.depth ?? 0,
+      });
+    } catch (err: any) {
+      console.error("[theoria-eval] error:", err?.message ?? err);
+      res.status(503).json({ error: "Theoria engine unavailable", lines: [] });
+    }
+  });
+
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     app.get(
       "/api/auth/google",
