@@ -1,8 +1,8 @@
-import CountryLandingPage, { type CountryConfig } from "./country-landing";
+import { useEffect } from "react";
+import ChessCoach from "./chess-coach";
+import CountrySection, { type CountryConfig } from "./country-landing";
 
 const config: CountryConfig = {
-  hreflang: "en-AU",
-  slug: "au",
   country: "Australia",
   flag: "🇦🇺",
   currencySymbol: "A$",
@@ -13,11 +13,21 @@ const config: CountryConfig = {
   dateExample: "DD/MM/YYYY",
   cities: ["Sydney, NSW", "Melbourne, VIC", "Brisbane, QLD"],
   names: ["Jack H.", "Charlotte N.", "Noah F."],
-  pageTitle: "Chess Analysis | Personal Chess Coach for Australian Players",
-  metaDescription:
-    "Chess Analysis is your personal chess coach for players in Australia. Import games from Chess.com or Lichess, get AI-powered coaching and Stockfish computer analysis. Free for your first 5 games. Trusted by ACF players across Australia.",
 };
 
 export default function LandingAU() {
-  return <CountryLandingPage config={config} />;
+  useEffect(() => {
+    document.title = "Chess Analysis | Personal Chess Coach for Australian Players";
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute("content", "Chess Analysis is your personal chess coach for players in Australia. Import games from Chess.com or Lichess, get AI-powered coaching and Stockfish computer analysis. Free for your first 5 games. Trusted by ACF players across Australia.");
+  }, []);
+
+  return (
+    <div>
+      <div className="h-screen overflow-hidden">
+        <ChessCoach />
+      </div>
+      <CountrySection config={config} />
+    </div>
+  );
 }

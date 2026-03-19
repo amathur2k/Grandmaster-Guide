@@ -1,46 +1,15 @@
-import { useEffect } from "react";
-import { Link } from "wouter";
-import logoPath from "@assets/logo_1773342065527.png";
-
 export interface CountryConfig {
-  /** ISO country code used in hreflang */
-  hreflang: string;
-  /** Short slug: "us" | "uk" | "ca" | "au" */
-  slug: string;
-  /** Full country name */
   country: string;
-  /** Emoji flag */
   flag: string;
-  /** Currency symbol */
   currencySymbol: string;
-  /** Currency code, e.g. "USD" */
   currencyCode: string;
-  /** Local chess federation name + acronym */
   federation: string;
-  /** federation website URL */
   federationUrl: string;
-  /** Support email */
   supportEmail: string;
-  /** Localised date example */
   dateExample: string;
-  /** City examples for testimonials */
   cities: [string, string, string];
-  /** Localised first-name examples */
   names: [string, string, string];
-  /** SEO page title */
-  pageTitle: string;
-  /** SEO meta description */
-  metaDescription: string;
 }
-
-const FOOTER_LINKS = [
-  { href: "/", label: "Home" },
-  { href: "/privacy", label: "Privacy Policy" },
-  { href: "/terms", label: "Terms of Use" },
-  { href: "/about", label: "About Us" },
-  { href: "/contact", label: "Contact Us" },
-  { href: "/free-chess-game-review", label: "Free Chess Review" },
-];
 
 const FEATURES = [
   {
@@ -65,58 +34,37 @@ const FEATURES = [
   },
 ];
 
-export default function CountryLandingPage({ config }: { config: CountryConfig }) {
+export default function CountrySection({ config }: { config: CountryConfig }) {
   const { country, flag, currencySymbol, currencyCode, federation, federationUrl,
-    supportEmail, dateExample, cities, names, pageTitle, metaDescription, hreflang } = config;
-
-  useEffect(() => {
-    document.title = pageTitle;
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", metaDescription);
-  }, [pageTitle, metaDescription]);
+    supportEmail, dateExample, cities, names } = config;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* ── Header ── */}
-      <header className="flex items-center gap-3 px-6 py-4 border-b border-border">
-        <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <img src={logoPath} alt="Chess Analysis" className="w-8 h-8 object-contain" />
-          <span className="font-bold text-base">Chess Analysis</span>
-        </Link>
-        <span className="ml-auto text-sm text-muted-foreground">{flag} {country}</span>
-      </header>
+    <div className="bg-background text-foreground border-t border-border">
+      <div className="max-w-3xl mx-auto px-6 py-16 space-y-14">
 
-      <main className="max-w-3xl mx-auto px-6 py-12">
-
-        {/* ── Hero ── */}
-        <div className="mb-3">
-          <span className="text-xs font-semibold uppercase tracking-wider text-primary">
-            {flag} Available in {country}
-          </span>
+        {/* ── Intro ── */}
+        <div>
+          <div className="mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+              {flag} Available in {country}
+            </span>
+          </div>
+          <h2 className="text-3xl font-extrabold leading-tight mb-4">
+            Built for {country} Players
+          </h2>
+          <p className="text-lg text-muted-foreground leading-relaxed">
+            Chess Analysis combines a world-class chess computer with an AI coach that explains
+            every position in plain English. Trusted by club players and enthusiasts across{" "}
+            {country} — from beginners to tournament competitors.
+          </p>
         </div>
-        <h1 className="text-4xl font-extrabold leading-tight mb-4">
-          Your Personal Chess Coach,<br />
-          Built for {country} Players
-        </h1>
-        <p className="text-lg text-muted-foreground leading-relaxed mb-8">
-          Chess Analysis combines a world-class chess computer with an AI coach that explains
-          every position in plain English. Trusted by club players and enthusiasts across{" "}
-          {country} — from beginners to tournament competitors.
-        </p>
-        <Link
-          href="/"
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-foreground text-background px-6 py-3 text-sm font-semibold hover:opacity-90 transition-opacity mb-12"
-        >
-          Analyse a Game for Free →
-        </Link>
 
         {/* ── Pricing ── */}
-        <section className="mb-12 rounded-2xl border border-border bg-muted/20 p-8">
+        <section>
           <h2 className="text-2xl font-bold mb-1">Pricing</h2>
           <p className="text-sm text-muted-foreground mb-6">Simple and transparent — in {currencyCode}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* Free tier */}
-            <div className="rounded-xl border border-border bg-background p-6">
+            <div className="rounded-xl border border-border bg-muted/10 p-6">
               <div className="text-2xl font-extrabold mb-1">
                 {currencySymbol}0
                 <span className="text-sm font-normal text-muted-foreground ml-1">/ forever</span>
@@ -129,8 +77,7 @@ export default function CountryLandingPage({ config }: { config: CountryConfig }
                 <li>✓ What-if exploration &amp; variation tree</li>
               </ul>
             </div>
-            {/* Signed-in tier */}
-            <div className="rounded-xl border border-primary bg-background p-6 relative">
+            <div className="rounded-xl border border-primary bg-muted/10 p-6 relative">
               <div className="absolute -top-3 left-4 text-xs font-semibold bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
                 Most popular
               </div>
@@ -148,12 +95,12 @@ export default function CountryLandingPage({ config }: { config: CountryConfig }
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-4 text-center">
-            All prices are in {currencyCode} ({currencySymbol}). No hidden fees. No subscription required.
+            All prices in {currencyCode} ({currencySymbol}). No hidden fees. No subscription required.
           </p>
         </section>
 
         {/* ── Features ── */}
-        <section className="mb-12">
+        <section>
           <h2 className="text-2xl font-bold mb-6">Everything You Need to Improve</h2>
           <div className="space-y-6">
             {FEATURES.map((f) => (
@@ -169,7 +116,7 @@ export default function CountryLandingPage({ config }: { config: CountryConfig }
         </section>
 
         {/* ── Local chess context ── */}
-        <section className="mb-12 rounded-xl border border-border p-6">
+        <section className="rounded-xl border border-border p-6">
           <h2 className="text-xl font-bold mb-3">{flag} Chess in {country}</h2>
           <p className="text-muted-foreground leading-relaxed text-sm">
             Chess Analysis is designed for the {country} chess community. Whether you play
@@ -190,7 +137,7 @@ export default function CountryLandingPage({ config }: { config: CountryConfig }
         </section>
 
         {/* ── Testimonials ── */}
-        <section className="mb-12">
+        <section>
           <h2 className="text-2xl font-bold mb-6">What {country} Players Say</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
@@ -217,7 +164,7 @@ export default function CountryLandingPage({ config }: { config: CountryConfig }
         </section>
 
         {/* ── Contact ── */}
-        <section className="mb-12 rounded-xl border border-border p-6">
+        <section className="rounded-xl border border-border p-6">
           <h2 className="text-xl font-bold mb-2">Contact &amp; Support — {country}</h2>
           <p className="text-sm text-muted-foreground mb-4">
             Our support team is available for {country}-based users. We typically respond within
@@ -241,32 +188,7 @@ export default function CountryLandingPage({ config }: { config: CountryConfig }
           </div>
         </section>
 
-        {/* ── CTA ── */}
-        <div className="rounded-2xl border border-border bg-muted/20 p-8 text-center">
-          <h2 className="text-2xl font-bold mb-3">Ready to improve your chess?</h2>
-          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-            Free for your first 5 games — no card required. Join players across {country}
-            who are already using Chess Analysis to understand their games.
-          </p>
-          <Link
-            href="/"
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-foreground text-background px-6 py-3 text-sm font-semibold hover:opacity-90 transition-opacity"
-          >
-            Analyse a Game for Free →
-          </Link>
-        </div>
-
-      </main>
-
-      <footer className="border-t border-border px-4 py-1 text-center text-[10px] text-muted-foreground/40 mt-8">
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          {FOOTER_LINKS.map(({ href, label }) => (
-            <Link key={href} href={href} className="hover:text-foreground transition-colors">
-              {label}
-            </Link>
-          ))}
-        </div>
-      </footer>
+      </div>
     </div>
   );
 }
