@@ -1,6 +1,6 @@
 # ♟ Chess Analysis
 
-**Your personal chess coach** — an AI-powered chess analysis web app with interactive board, Stockfish engine evaluation, GPT coaching, position analysis, eval graph, variation explorer, and game import.
+**Your personal chess coach** — an AI-powered chess analysis web app with interactive board, multi-engine evaluation, GPT coaching, position analysis, eval graph, variation explorer, game import, and analytics.
 
 > Live at [chessanalysis.co](https://chessanalysis.co)
 
@@ -8,16 +8,35 @@
 
 ## Features
 
-- **Interactive chessboard** — drag-and-drop moves with arrow annotations
-- **Stockfish 18 engine lines** — top 3 best-move lines with scores
-- **Accuracy Check** — classical Stockfish 12 HCE evaluation for human-like accuracy scores
-- **GPT AI Coaching** — contextual chess coaching powered by OpenAI GPT
-- **Position Findings** — 30+ tactical/strategic detectors (hanging pieces, forks, outposts, king safety, etc.)
-- **Eval graph** — centipawn evaluation over the entire game
-- **Variation tree** — "What if?" explorer for alternative lines
-- **Game import** — paste PGN to load any game
-- **Google Sign-In** — free access to 5 games without sign-in; unlimited after sign-in
-- **Deep Insights** — Theoria 0.2 engine for additional positional understanding
+### Core Analysis
+- **Interactive chessboard** — drag-and-drop moves with arrow annotations (react-chessboard v4.7.2)
+- **Stockfish 18 engine lines** — top 3 best-move lines with scores, powered by WASM Web Worker (MultiPV 3)
+- **Accuracy Check** — classical Stockfish 12 HCE evaluation with 13-term eval breakdown (Material, Imbalance, Pawns, Knights, Bishops, Rooks, Queens, Mobility, King safety, Threats, Passed, Space, Winnable)
+- **Position Findings** — 30+ tactical and strategic detectors via Python/python-chess (hanging pieces, forks, pins, outposts, king safety, pawn structure, endgame patterns, Lichess tablebase lookups for ≤5 pieces)
+- **Eval graph** — centipawn evaluation across the entire game with color-coded score swings
+- **Variation tree** — "What if?" explorer for alternative move lines with full branching
+
+### AI Coach
+- **GPT AI Coaching** — contextual chess coaching powered by OpenAI GPT-5.4 with real token streaming
+- **Interactive move tokens** — hover to see arrow sequences on the board, click to play as a new branch
+- **Function calling** — LLM verifies moves via chess.js, evaluates positions via Stockfish, queries position features and engine insights mid-generation
+- **Quick questions** — 6 pre-built coaching prompts: analyze last move, game learnings, last few moves, key plans, weaknesses, opponent's plans
+- **Coach feedback** — thumbs up/down rating on each coach response (tracked via Amplitude analytics)
+- **Deep Insights** — optional Theoria 0.2 engine (Stockfish fork with Lc0-trained NNUE) for strategic positional understanding
+
+### Game Import
+- **Chess.com** — fetch recent games by username
+- **Lichess** — fetch recent games by username
+- **PGN paste** — load any game from PGN text
+
+### Authentication & Access
+- **Google Sign-In** — OAuth 2.0 via Passport.js
+- **Freemium gate** — 5 free game imports without sign-in; unlimited after signing in
+- **Welcome video** — first/second-time visitors on production see a popup offering a tutorial video
+
+### Analytics
+- **Google Analytics 4** — server-side measurement protocol + client-side gtag
+- **Amplitude** — dual SDK setup (browser + Node.js) with user identification by email, event tracking for all user interactions, coach feedback, and LLM tool usage
 
 ---
 
@@ -109,6 +128,10 @@ GOOGLE_CLIENT_SECRET=GOCSPX-...
 GA4_MEASUREMENT_ID=G-XXXXXXXXXX
 GA4_API_SECRET=your_ga4_api_secret
 VITE_GA4_MEASUREMENT_ID=G-XXXXXXXXXX
+
+# ── Amplitude Analytics (optional) ───────────────────────────────────────
+AMPLITUDE_API_KEY=your_amplitude_api_key
+VITE_AMPLITUDE_API_KEY=your_amplitude_api_key
 ```
 
 ### Getting your OpenAI API key
@@ -126,6 +149,12 @@ VITE_GA4_MEASUREMENT_ID=G-XXXXXXXXXX
 5. Set application type to **Web application**
 6. Add to **Authorised redirect URIs**: `http://localhost:5000/api/auth/google/callback`
 7. Copy the **Client ID** and **Client Secret** into `.env`
+
+### Setting up Amplitude Analytics (optional)
+
+1. Go to [https://amplitude.com](https://amplitude.com) and create a project
+2. Copy the API key from **Settings → Projects → your project**
+3. Set both `AMPLITUDE_API_KEY` and `VITE_AMPLITUDE_API_KEY` in `.env`
 
 ---
 
@@ -205,16 +234,38 @@ The Theoria engine binary is **downloaded automatically** the first time you ena
 chess-analysis/
 ├── client/          # React frontend (Vite)
 │   └── src/
-│       ├── pages/   # chess-coach.tsx (main app), etc.
-│       └── components/
+│       ├── pages/   # chess-coach.tsx (main app), static pages
+│       ├── components/
+│       │   ├── coach-console.tsx    # AI coach chat with feedback
+│       │   ├── eval-bar.tsx         # Vertical eval bar
+│       │   ├── eval-graph.tsx       # SVG eval graph
+│       │   ├── engine-lines.tsx     # Top 3 engine lines
+│       │   ├── move-history.tsx     # Move history panel
+│       │   ├── variation-tree.tsx   # Branching variation tree
+│       │   ├── position-findings.tsx # Tactical/strategic findings
+│       │   └── import-games-dialog.tsx # Game import modal
+│       ├── hooks/
+│       │   ├── use-stockfish.ts     # Stockfish WASM integration
+│       │   └── use-auth.ts          # Google OAuth hook
+│       └── lib/
+│           ├── analytics.ts         # GA4 + Amplitude dual tracking
+│           ├── parse-chess-moves.ts  # SAN move parser for AI text
+│           └── queryClient.ts       # TanStack Query client
 ├── server/          # Express backend
-│   ├── index.ts     # Server entry point
-│   ├── routes.ts    # API endpoints + OpenAI + Stockfish calls
-│   ├── classical-stockfish-service.ts  # SF12 for accuracy
-│   ├── theoria-service.ts              # Deep insights engine
-│   └── position_analyzer.py           # Python position analysis
+│   ├── index.ts     # Server entry, Passport config
+│   ├── routes.ts    # API endpoints + OpenAI + tool calling
+│   ├── amplitude.ts # Amplitude server-side SDK
+│   ├── analytics.ts # GA4 server-side measurement protocol
+│   ├── stockfish-service.ts         # Server-side Stockfish (npm)
+│   ├── classical-stockfish-service.ts # SF12 classical HCE
+│   ├── theoria-service.ts           # Theoria 0.2 deep insights
+│   ├── python-analyzer-service.ts   # Python subprocess manager
+│   ├── position_analyzer.py         # Python position analysis (30+ detectors)
+│   ├── coach-logger.ts              # Coach.log debug logger
+│   ├── storage.ts   # Database operations
+│   └── db.ts        # PostgreSQL connection
 ├── shared/
-│   └── schema.ts    # Drizzle ORM schema (shared types)
+│   └── schema.ts    # Drizzle ORM schema + shared types
 ├── engines/
 │   ├── stockfish12  # Classical HCE engine (Linux binary)
 │   └── theoria      # Deep insights engine (auto-downloaded)
@@ -227,7 +278,7 @@ chess-analysis/
 | Express server | API backend on port 5000 |
 | Vite dev server | React frontend (proxied through Express) |
 | Python analyzer | `position_analyzer.py` spawned as subprocess |
-| Stockfish 18 | WASM-based, runs in Node.js via npm package |
+| Stockfish 18 | WASM-based, runs in browser via Web Worker |
 | Stockfish 12 | Native binary subprocess for classical eval |
 | Theoria | Native binary subprocess (auto-downloaded on demand) |
 
@@ -257,6 +308,21 @@ npm start
 ```
 
 The production build outputs to `dist/`. The server runs on port 5000 (or the value of the `PORT` environment variable).
+
+---
+
+## Static Pages
+
+The app includes several SEO-optimized static pages:
+
+| Page | Path | Description |
+|---|---|---|
+| Free Chess Game Review | `/free-chess-game-review` | Landing page with tutorial video |
+| About Us | `/about` | Company and product information |
+| Privacy Policy | `/privacy` | Privacy policy |
+| Terms of Use | `/terms` | Terms of service |
+| Contact Us | `/contact` | Contact information |
+| Credits | `/credits` | Open-source attributions |
 
 ---
 

@@ -121,4 +121,17 @@ AI coach responses contain interactive chess move tokens:
 - **Amplitude**: Dual SDK setup — `@amplitude/analytics-browser` on frontend (`client/src/lib/analytics.ts`) and `@amplitude/analytics-node` on backend (`server/amplitude.ts`)
 - **Frontend events**: All tracked via unified `trackEvent()` in `client/src/lib/analytics.ts` which sends to both GA4 and Amplitude. Events: page_view, game_imported, paywall_shown, sign_in_started/completed, sign_out, chat_message_sent, chesscoach_invoked/success/failed, position_analyzed, engine_line_loaded, move_explained, theoria_toggled/context_loaded/tool_called/binary_downloaded, faq_clicked, move_token_clicked
 - **Backend events**: `trackServerEvent()` in `server/amplitude.ts` tracks: llm_validate_move, llm_validate_move_sequence, llm_evaluate_position, llm_get_position_features, llm_get_theoria_insights, llm_get_classical_eval, coach_session_complete (with latency/token/round metrics)
-- **User identification**: Amplitude `identifyUser()` called on Google sign-in; `resetAmplitudeUser()` on logout
+- **User identification**: Amplitude uses email as `user_id` — `identifyUser(email)` on frontend sign-in, `identifyServerUser(email)` on backend OAuth callback; `resetAmplitudeUser()` on logout
+- **Coach feedback**: `coachFeedback("Positive"|"Negative")` tracked via thumbs up/down on each coach response
+- **Additional events**: alternate_line_explored, board_control_used, eval_graph_clicked, move_history_clicked, position_details_toggled, deep_insights_toggled, accuracy_check_toggled
+
+## Welcome Video Popup
+- Shows on production (non-localhost) for first 2 visits only
+- Visit count tracked in localStorage (`chess-site-visits`)
+- Displays YouTube thumbnail with play button overlay linking to tutorial video
+- Dismissible via "No thanks, continue to site"
+
+## FAQ Quick Questions
+- 6 pre-built coaching prompts displayed as 2x2+2 grid in empty chat state
+- Questions: Analyze last move, Analyze game for key learnings, Analyze last few moves, Key plans, Weaknesses, Opponent's plans
+- Bubbles hide when coach responds, reappear when chat is cleared
