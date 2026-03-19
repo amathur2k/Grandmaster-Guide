@@ -10,7 +10,7 @@ const config: CountryConfig = {
   proPrice: "4",
   federation: "English Chess Federation (ECF)",
   federationUrl: "https://www.englishchess.org.uk",
-  supportEmail: "admin@chessanalysis.co",
+  supportEmail: "uk@chessanalysis.co",
   address: "12 Moorgate, London, EC2R 6DA",
   phone: "+44 20 7946 0312",
   cities: ["London", "Manchester", "Edinburgh"],

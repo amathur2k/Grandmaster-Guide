@@ -10,7 +10,7 @@ const config: CountryConfig = {
   proPrice: "5",
   federation: "United States Chess Federation (USCF)",
   federationUrl: "https://new.uschess.org",
-  supportEmail: "admin@chessanalysis.co",
+  supportEmail: "us@chessanalysis.co",
   address: "350 Fifth Avenue, Suite 4200, New York, NY 10118",
   phone: "+1 (212) 555-0147",
   cities: ["New York, NY", "Chicago, IL", "San Francisco, CA"],
