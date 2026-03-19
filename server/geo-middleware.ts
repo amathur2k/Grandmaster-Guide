@@ -81,5 +81,7 @@ export function geoRestriction(req: Request, res: Response, next: NextFunction) 
     return next();
   }
 
+  const country = geo?.country || "unknown";
+  console.log(`[geo] Blocked request from ${country} (${ip}) to ${req.path}`);
   res.status(403).send(BLOCKED_HTML);
 }
