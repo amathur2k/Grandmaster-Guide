@@ -7,7 +7,6 @@
 #    2. Kills any process already on PORT (default 5001)
 #    3. Builds the frontend + bundles the backend (npm run build)
 #    4. Starts the server with NODE_ENV=production so that:
-#       - Geo-restriction is active (US / GB / CA / AU only)
 #       - Vite dev server is NOT used (serves pre-built static files)
 #       - Secure cookies are enabled
 #
@@ -57,12 +56,7 @@ echo ""
 echo "  ♟  Starting Chess Analysis in PRODUCTION mode"
 echo "  ──────────────────────────────────────────────"
 echo "  URL:          http://localhost:$PORT"
-echo "  Geo-blocking: active (US / GB / CA / AU only)"
 echo "  Hot-reload:   OFF (pre-built static files)"
-echo ""
-echo "  To test geo-blocking:"
-echo "    Allowed:  curl -H 'X-Forwarded-For: 8.8.8.8'       http://localhost:$PORT/"
-echo "    Blocked:  curl -H 'X-Forwarded-For: 103.21.126.1'  http://localhost:$PORT/"
 echo ""
 
 NODE_ENV=production PORT="$PORT" node --env-file=.env dist/index.cjs

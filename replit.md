@@ -125,13 +125,6 @@ AI coach responses contain interactive chess move tokens:
 - **Coach feedback**: `coachFeedback("Positive"|"Negative")` tracked via thumbs up/down on each coach response
 - **Additional events**: alternate_line_explored, board_control_used, eval_graph_clicked, move_history_clicked, position_details_toggled, deep_insights_toggled, accuracy_check_toggled
 
-## Geo-Restriction
-- Server-side middleware (`server/geo-middleware.ts`) restricts access to US, GB, CA, AU only
-- Uses `geoip-lite` (local MaxMind database, no external API calls)
-- IP extracted from `x-forwarded-for` header (Replit proxy) or `req.ip`
-- Unknown IPs (localhost, dev) are allowed through
-- Only active in production (`NODE_ENV === "production"`)
-- Blocked visitors see a styled "Not Available in Your Region" page
 
 ## Welcome Video Popup
 - Shows on production (non-localhost) for first 2 visits only

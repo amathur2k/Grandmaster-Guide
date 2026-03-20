@@ -335,7 +335,7 @@ npm start
 
 The production build outputs to `dist/`. The server runs on port 5000 (or the value of the `PORT` environment variable).
 
-> **Important:** always start the production server via `npm start` (not `node dist/index.cjs` directly). The npm script sets `NODE_ENV=production` and loads `.env` via `--env-file`. Without `NODE_ENV=production`, geo-restriction is silently disabled.
+> **Important:** always start the production server via `npm start` (not `node dist/index.cjs` directly). The npm script sets `NODE_ENV=production` and loads `.env` via `--env-file`.
 
 ---
 
@@ -356,25 +356,7 @@ The script does the following in order:
 1. **Validates `.env`** — exits if required variables are missing
 2. **Frees the port** — kills any process already listening on `PORT`
 3. **Builds** — runs `npm run build` (frontend + backend bundle)
-4. **Starts with `NODE_ENV=production`** — enables geo-restriction, secure cookies, and pre-built static file serving (no Vite dev server)
-
-### Geo-restriction
-
-When `NODE_ENV=production`, the server only allows requests from **US, UK, Canada, and Australia**. All other countries receive a 403 page.
-
-- Private/local IPs (127.x, 192.168.x, 10.x, etc.) are always allowed — so `localhost` access is never blocked.
-- Static assets (`/assets/`, `.js`, `.css`, `.wasm`, etc.) bypass the check.
-- API routes (`/api/`) bypass the check (so the 403 page can still load its resources).
-
-**Testing geo-blocking from the command line:**
-
-```bash
-# Should return 200 (US IP)
-curl -o /dev/null -w "%{http_code}" -H "X-Forwarded-For: 8.8.8.8" http://localhost:5001/
-
-# Should return 403 (Indian IP)
-curl -o /dev/null -w "%{http_code}" -H "X-Forwarded-For: 103.21.126.1" http://localhost:5001/
-```
+4. **Starts with `NODE_ENV=production`** — enables secure cookies and pre-built static file serving (no Vite dev server)
 
 ---
 
