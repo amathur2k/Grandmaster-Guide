@@ -66,6 +66,10 @@ export const analytics = {
     trackEvent("page_view");
   },
 
+  importGamesClicked() {
+    trackEvent("import_games_button_clicked");
+  },
+
   gameImported(source: "chesscom" | "lichess" | "pgn", moveCount: number) {
     trackEvent("game_imported", { source, move_count: moveCount });
   },

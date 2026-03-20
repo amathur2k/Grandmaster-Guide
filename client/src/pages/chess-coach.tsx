@@ -1167,7 +1167,7 @@ export default function ChessCoach() {
               variant="outline"
               size="sm"
               className="gap-1.5"
-              onClick={() => { setShowImportModal(true); setShowImportTooltip(false); }}
+              onClick={() => { setShowImportModal(true); setShowImportTooltip(false); analytics.importGamesClicked(); }}
               data-testid="button-open-pgn"
             >
               <Upload className="w-3.5 h-3.5" />
