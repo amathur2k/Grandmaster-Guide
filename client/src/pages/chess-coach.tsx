@@ -318,12 +318,19 @@ export default function ChessCoach() {
     const visitCount = parseInt(localStorage.getItem("chess-site-visits") || "0", 10);
     return visitCount < 2;
   });
+  const [showImportTooltip, setShowImportTooltip] = useState(false);
 
   useEffect(() => {
     if (window.location.hostname === "localhost") return;
     const visitCount = parseInt(localStorage.getItem("chess-site-visits") || "0", 10);
     localStorage.setItem("chess-site-visits", String(visitCount + 1));
   }, []);
+
+  useEffect(() => {
+    if (!showImportTooltip) return;
+    const timer = setTimeout(() => setShowImportTooltip(false), 8000);
+    return () => clearTimeout(timer);
+  }, [showImportTooltip]);
 
   const { user, isAuthenticated, logout } = useAuth();
   const { evaluation, isReady, hasError, evaluate, evaluateAsync, endBatch } = useStockfish();
@@ -1155,16 +1162,37 @@ export default function ChessCoach() {
               Your personal chess coach
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 ml-2"
-            onClick={() => setShowImportModal(true)}
-            data-testid="button-open-pgn"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            Import Games
-          </Button>
+          <div className="relative ml-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => { setShowImportModal(true); setShowImportTooltip(false); }}
+              data-testid="button-open-pgn"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Import Games
+            </Button>
+            {showImportTooltip && (
+              <div
+                className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 animate-in fade-in slide-in-from-top-1 duration-300"
+                data-testid="import-tooltip"
+              >
+                <div className="relative bg-primary text-primary-foreground text-xs font-medium px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
+                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-primary rotate-45 rounded-sm" />
+                  Import your games from Chess.com, Lichess, or PGN
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setShowImportTooltip(false); }}
+                    className="ml-2 opacity-70 hover:opacity-100 transition-opacity"
+                    data-testid="import-tooltip-dismiss"
+                  >
+                    x
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <ImportGamesDialog
             open={showImportModal}
             onOpenChange={setShowImportModal}
@@ -1610,6 +1638,7 @@ export default function ChessCoach() {
             onClick={() => {
               window.open("https://youtu.be/OeLquidyeN4", "_blank");
               setShowVideoPopup(false);
+              setShowImportTooltip(true);
             }}
             className="relative group cursor-pointer rounded-lg overflow-hidden border border-border"
             data-testid="video-popup-thumbnail"
@@ -1629,8 +1658,8 @@ export default function ChessCoach() {
           </button>
           <button
             type="button"
-            onClick={() => setShowVideoPopup(false)}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors py-1 text-center"
+            onClick={() => { setShowVideoPopup(false); setShowImportTooltip(true); }}
+            className="w-full py-2.5 rounded-lg border border-border bg-muted hover:bg-muted/80 text-sm font-medium text-foreground transition-colors"
             data-testid="video-popup-no"
           >
             No thanks, continue to site
