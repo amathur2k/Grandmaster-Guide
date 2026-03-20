@@ -320,6 +320,7 @@ export default function ChessCoach() {
   });
 
   useEffect(() => {
+    analytics.pageView();
     if (window.location.hostname === "localhost") return;
     const visitCount = parseInt(localStorage.getItem("chess-site-visits") || "0", 10);
     localStorage.setItem("chess-site-visits", String(visitCount + 1));
