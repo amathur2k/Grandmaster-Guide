@@ -27,8 +27,8 @@ function Router() {
   usePageView();
   return (
     <Switch>
-      <Route path="/" component={ChessCoach} />
-      <Route path="/hooha" component={ChessCoachHooha} />
+      <Route path="/" component={ChessCoachHooha} />
+      <Route path="/old" component={ChessCoach} />
       <Route path="/privacy" component={PrivacyPolicy} />
       <Route path="/terms" component={TermsOfUse} />
       <Route path="/about" component={AboutUs} />
