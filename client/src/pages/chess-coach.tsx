@@ -1636,7 +1636,7 @@ export default function ChessCoach() {
           <button
             type="button"
             onClick={() => {
-              window.open("https://youtu.be/OeLquidyeN4", "_blank");
+              window.open("https://youtu.be/Xf-k9Y6QNCw", "_blank");
               setShowVideoPopup(false);
               setShowImportTooltip(true);
             }}
@@ -1644,7 +1644,7 @@ export default function ChessCoach() {
             data-testid="video-popup-thumbnail"
           >
             <img
-              src="https://img.youtube.com/vi/OeLquidyeN4/hqdefault.jpg"
+              src="https://img.youtube.com/vi/Xf-k9Y6QNCw/hqdefault.jpg"
               alt="How to use Chess Analysis"
               className="w-full aspect-video object-cover"
             />

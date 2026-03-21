@@ -60,7 +60,7 @@ export default function FreeChessGameReview() {
         {/* YouTube demo video */}
         <div className="mb-8 rounded-xl overflow-hidden shadow-lg border border-border" style={{ position: "relative", paddingBottom: "56.25%" }}>
           <iframe
-            src="https://www.youtube.com/embed/OeLquidyeN4"
+            src="https://www.youtube.com/embed/Xf-k9Y6QNCw"
             title="Chess Analysis — Free Chess Game Review Demo"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
