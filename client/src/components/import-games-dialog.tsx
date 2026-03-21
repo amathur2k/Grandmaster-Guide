@@ -149,7 +149,7 @@ export function ImportGamesDialog({ open, onOpenChange, onLoadPgn }: ImportGames
       toast({ title: "No PGN", description: "This game has no PGN data.", variant: "destructive" });
       return;
     }
-    analytics.gameImported(source === "chess-com" ? "chesscom" : "lichess", game.pgn.split("\n").filter(l => /^\d+\./.test(l)).length || 1);
+    analytics.gameImported(source === "chess-com" ? "chesscom" : "lichess", game.pgn.split("\n").filter(l => /^\d+\./.test(l)).length || 1, fetchedUser || username, game.id);
     onLoadPgn(game.pgn, fetchedUser || undefined);
     onOpenChange(false);
   }

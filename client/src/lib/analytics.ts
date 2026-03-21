@@ -70,8 +70,8 @@ export const analytics = {
     trackEvent("import_games_button_clicked");
   },
 
-  gameImported(source: "chesscom" | "lichess" | "pgn", moveCount: number) {
-    trackEvent("game_imported", { source, move_count: moveCount });
+  gameImported(source: "chesscom" | "lichess" | "pgn", moveCount: number, username?: string, gameId?: string) {
+    trackEvent("game_imported", { source, move_count: moveCount, ...(username ? { username } : {}), ...(gameId ? { game_id: gameId } : {}) });
   },
 
   paywallShown(gameCount: number) {
